@@ -1,0 +1,32 @@
+package com.example.roadbookorganizador.data.local.dao
+
+import androidx.room.*
+import com.example.roadbookorganizador.data.local.entity.VinetaEntity
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface VinetaDao {
+    @Query("SELECT * FROM vinetas WHERE tramoId = :tramoId ORDER BY distanciaTotal ASC, numero ASC")
+    fun getVinetasByTramo(tramoId: Long): Flow<List<VinetaEntity>>
+
+    @Query("SELECT * FROM vinetas WHERE tramoId = :tramoId ORDER BY distanciaTotal DESC, numero DESC LIMIT 1")
+    suspend fun getUltimaVineta(tramoId: Long): VinetaEntity?
+
+    @Query("SELECT COUNT(*) FROM vinetas WHERE tramoId = :tramoId")
+    suspend fun getCantidadVinetas(tramoId: Long): Int
+
+    @Query("SELECT * FROM vinetas WHERE id = :id")
+    suspend fun getVinetaById(id: Long): VinetaEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertVineta(vineta: VinetaEntity): Long
+
+    @Update
+    suspend fun updateVineta(vineta: VinetaEntity)
+
+    @Delete
+    suspend fun deleteVineta(vineta: VinetaEntity)
+
+    @Query("DELETE FROM vinetas WHERE tramoId = :tramoId")
+    suspend fun clearVinetasByTramo(tramoId: Long)
+}
