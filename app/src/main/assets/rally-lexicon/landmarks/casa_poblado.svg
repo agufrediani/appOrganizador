@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Casa izquierda -->
+  <polygon points="25,45 10,58 40,58" fill="#0F172A" />
+  <rect x="14" y="58" width="22" height="24" fill="#E2E8F0" stroke="#0F172A" stroke-width="3" />
+  <!-- Casa principal derecha -->
+  <polygon points="65,30 45,48 85,48" fill="#0F172A" />
+  <rect x="50" y="48" width="30" height="34" fill="#FFFFFF" stroke="#0F172A" stroke-width="3.5" />
+  <rect x="60" y="64" width="10" height="18" fill="#0F172A" />
+</svg>

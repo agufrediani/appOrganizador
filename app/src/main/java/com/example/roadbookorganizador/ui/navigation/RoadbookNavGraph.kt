@@ -90,6 +90,9 @@ fun RoadbookNavGraph() {
                 onVolver = { navController.popBackStack() },
                 onNavigateToExportar = { id ->
                     navController.navigate("exportar/$id")
+                },
+                onNavigateToCalibrar = {
+                    navController.navigate("calibracion")
                 }
             )
         }

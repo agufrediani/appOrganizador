@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="85" r="5" fill="#0F172A" />
+  <!-- Tramo principal -->
+  <line x1="50" y1="85" x2="50" y2="52" stroke="#0F172A" stroke-width="6" stroke-linecap="round" />
+  <!-- Ramo derecho tomado -->
+  <path d="M 50 52 Q 55 40 74 26" fill="none" stroke="#0F172A" stroke-width="6" stroke-linecap="round" />
+  <polygon points="82,20 68,26 74,38" fill="#0F172A" />
+  <!-- Ramo izquierdo no tomado -->
+  <path d="M 50 52 Q 45 40 26 26" fill="none" stroke="#94A3B8" stroke-width="3" stroke-dasharray="4,4" />
+</svg>

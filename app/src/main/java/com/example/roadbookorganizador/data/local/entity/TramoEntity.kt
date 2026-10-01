@@ -7,14 +7,6 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "tramos",
-    foreignKeys = [
-        ForeignKey(
-            entity = RallyEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["rallyId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
     indices = [Index("rallyId")]
 )
 data class TramoEntity(
@@ -30,6 +22,8 @@ data class TramoEntity(
     val chFin: String = "CH 2",
     val distanciaTotalEstimada: Double = 0.0,
     val distanciaMedidaReal: Double = 0.0,
+    val velocidadPromedioObjetivoKmh: Double = 0.0, // Promedio global exigido para el tramo (Regularidad)
+    val velocidadMaximaPermitidaKmh: Double = 110.0, // Velocidad máxima general permitida (Radar tope)
     val tiempoOtorgado: String = "25'",
     val atrasoMaximo: String = "10'",
     val horaPrimerAuto: String = "",

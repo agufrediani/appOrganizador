@@ -36,6 +36,12 @@ fun CalibracionScreen(
     var vehiculoNombre by remember { mutableStateOf("Camioneta Trazador 000") }
     var distanciaOficialTexto by remember { mutableStateOf("1000") }
 
+    val isDark = ThemeManager.isDarkTheme
+    val cardBg = if (isDark) RallyCardBg else Color.White
+    val cardBorder = if (isDark) RallySurface else Color(0xFFE2E8F0)
+    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
+    val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -44,18 +50,23 @@ fun CalibracionScreen(
                         text = "CALIBRACIÓN DE ODÓMETRO",
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
-                        color = RallyCyanLight
+                        color = if (isDark) RallyCyanLight else FredianiNavy
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onVolver) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = textPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = RallyDarkBg)
+                actions = {
+                    IconButton(onClick = { ThemeManager.toggleTheme() }) {
+                        Text(text = if (isDark) "☀️" else "🌙", fontSize = 18.sp)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
-        containerColor = RallyDarkBg
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -69,7 +80,9 @@ fun CalibracionScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = RallyCardBg)
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -79,23 +92,23 @@ fun CalibracionScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Factor de Corrección Activo", fontSize = 12.sp, color = OdometerLabel)
+                        Text("Factor de Corrección Activo", fontSize = 12.sp, color = textSecondary)
                         Text(
                             text = String.format("k = %.4f", calibracionActiva?.factorCorreccion ?: 1.0),
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Black,
-                            color = RallyAccentYellow
+                            color = if (isDark) RallyAccentYellow else FredianiAmberText
                         )
                         Text(
                             text = calibracionActiva?.vehiculoNombre ?: "Sin calibración previa (1.0000)",
                             fontSize = 11.sp,
-                            color = Color.White.copy(alpha = 0.6f)
+                            color = textSecondary
                         )
                     }
                     Icon(
                         Icons.Default.Speed,
                         contentDescription = null,
-                        tint = RallyCyan,
+                        tint = if (isDark) RallyCyan else FredianiCyanText,
                         modifier = Modifier.size(36.dp)
                     )
                 }
@@ -105,14 +118,15 @@ fun CalibracionScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = RallySurface)
+                colors = CardDefaults.cardColors(containerColor = if (isDark) RallySurface else Color(0xFFF1F5F9)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("PROCEDIMIENTO OFICIAL (TRAMO TESTIGO):", fontWeight = FontWeight.Bold, color = RallyCyan, fontSize = 12.sp)
+                    Text("PROCEDIMIENTO OFICIAL (TRAMO TESTIGO):", fontWeight = FontWeight.Bold, color = if (isDark) RallyCyan else FredianiCyanText, fontSize = 12.sp)
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text("1. Ubique el vehículo sobre el mojón/jalón oficial de 0 metros.", color = Color.White, fontSize = 13.sp)
-                    Text("2. Pulse 'INICIAR RECORRIDO' y avance hasta el mojón final (1.000 m).", color = Color.White, fontSize = 13.sp)
-                    Text("3. Al detenerse con el eje delantero en la marca, pulse 'FINALIZAR'.", color = Color.White, fontSize = 13.sp)
+                    Text("1. Ubique el vehículo sobre el mojón/jalón oficial de 0 metros.", color = textPrimary, fontSize = 13.sp)
+                    Text("2. Pulse 'INICIAR RECORRIDO' y avance hasta el mojón final (1.000 m).", color = textPrimary, fontSize = 13.sp)
+                    Text("3. Al detenerse con el eje delantero en la marca, pulse 'FINALIZAR'.", color = textPrimary, fontSize = 13.sp)
                 }
             }
 
@@ -124,9 +138,10 @@ fun CalibracionScreen(
                         onValueChange = { vehiculoNombre = it },
                         label = { Text("Nombre del Vehículo / Equipo") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = RallyCyan
+                            focusedTextColor = textPrimary,
+                            unfocusedTextColor = textPrimary,
+                            focusedBorderColor = RallyCyan,
+                            unfocusedBorderColor = cardBorder
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -136,9 +151,10 @@ fun CalibracionScreen(
                         onValueChange = { distanciaOficialTexto = it },
                         label = { Text("Distancia Oficial del Tramo Testigo (Metros)") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = RallyCyan
+                            focusedTextColor = textPrimary,
+                            unfocusedTextColor = textPrimary,
+                            focusedBorderColor = RallyCyan,
+                            unfocusedBorderColor = cardBorder
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -165,7 +181,9 @@ fun CalibracionScreen(
                             .fillMaxWidth()
                             .weight(1f),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = RallyCardBg)
+                        colors = CardDefaults.cardColors(containerColor = cardBg),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
                     ) {
                         Column(
                             modifier = Modifier
@@ -174,18 +192,18 @@ fun CalibracionScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Text("DISTANCIA SATELITAL MEDIDA", color = OdometerLabel, fontWeight = FontWeight.Bold)
+                            Text("DISTANCIA SATELITAL MEDIDA", color = textSecondary, fontWeight = FontWeight.Bold)
                             Text(
                                 text = String.format("%.1f m", odoState.odometroTotalKm * 1000.0),
                                 fontSize = 48.sp,
                                 fontWeight = FontWeight.Black,
                                 fontFamily = FontFamily.Monospace,
-                                color = RallyAccentYellow
+                                color = if (isDark) RallyAccentYellow else FredianiAmberText
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
                                 text = String.format("Velocidad: %.0f km/h | Rumbo: %.0f°", odoState.velocidadKmh, odoState.rumbo),
-                                color = Color.White,
+                                color = textPrimary,
                                 fontSize = 14.sp
                             )
                         }
@@ -214,7 +232,9 @@ fun CalibracionScreen(
                             .fillMaxWidth()
                             .weight(1f),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = RallyCardBg)
+                        colors = CardDefaults.cardColors(containerColor = cardBg),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
                     ) {
                         Column(
                             modifier = Modifier
@@ -225,19 +245,19 @@ fun CalibracionScreen(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = RallyGreen, modifier = Modifier.size(54.dp))
                             Spacer(modifier = Modifier.height(12.dp))
-                            Text("¡CALIBRACIÓN GUARDADA!", fontWeight = FontWeight.Black, color = Color.White, fontSize = 20.sp)
+                            Text("¡CALIBRACIÓN GUARDADA!", fontWeight = FontWeight.Black, color = textPrimary, fontSize = 20.sp)
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            Text("Distancia Oficial: ${distanciaOficialTexto} m", color = Color.White, fontSize = 14.sp)
-                            Text("Distancia GPS Medida: ${String.format("%.1f m", distanciaMedida)}", color = Color.White, fontSize = 14.sp)
+                            Text("Distancia Oficial: ${distanciaOficialTexto} m", color = textPrimary, fontSize = 14.sp)
+                            Text("Distancia GPS Medida: ${String.format("%.1f m", distanciaMedida)}", color = textPrimary, fontSize = 14.sp)
 
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text("Nuevo Factor de Calibración:", color = OdometerLabel, fontSize = 12.sp)
+                            Text("Nuevo Factor de Calibración:", color = textSecondary, fontSize = 12.sp)
                             Text(
                                 text = String.format("k = %.4f", factorCalculado),
                                 fontWeight = FontWeight.Black,
                                 fontSize = 32.sp,
-                                color = RallyAccentYellow
+                                color = if (isDark) RallyAccentYellow else FredianiAmberText
                             )
                         }
                     }
@@ -246,9 +266,9 @@ fun CalibracionScreen(
                         Button(
                             onClick = { viewModel.reiniciarCalibrador() },
                             modifier = Modifier.weight(1f).height(50.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = RallySurface)
+                            colors = ButtonDefaults.buttonColors(containerColor = if (isDark) RallySurface else Color(0xFFE2E8F0))
                         ) {
-                            Text("Repetir", color = Color.White)
+                            Text("Repetir", color = textPrimary)
                         }
                         Button(
                             onClick = onVolver,

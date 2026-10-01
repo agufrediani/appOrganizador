@@ -1,0 +1,598 @@
+{
+  "version": "1.0.0",
+  "name": "Frediani Rally Lexicon - OpenRally Compatible",
+  "standard": "FIA / FIM Cross-Country & OpenRally XSD",
+  "categories": [
+    {
+      "id": "controles",
+      "nombre": "Controles y Reglamentación FIA"
+    },
+    {
+      "id": "peligros",
+      "nombre": "Peligros y Alertas"
+    },
+    {
+      "id": "landmarks",
+      "nombre": "Referencias y Puntos Notables"
+    },
+    {
+      "id": "terreno",
+      "nombre": "Naturaleza del Terreno"
+    },
+    {
+      "id": "tulipas",
+      "nombre": "Tulipas y Maniobras de Navegación"
+    }
+  ],
+  "symbols": [
+    {
+      "id": "tc_clock",
+      "nombre": "Control Horario (TC)",
+      "categoria": "controles",
+      "openrally_code": "TC",
+      "tags": [
+        "reloj",
+        "tiempo",
+        "tc",
+        "control",
+        "horario"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "controles/tc_clock.svg"
+    },
+    {
+      "id": "start_flag",
+      "nombre": "Largada / Start",
+      "categoria": "controles",
+      "openrally_code": "START",
+      "tags": [
+        "largada",
+        "start",
+        "bandera",
+        "cuadros",
+        "partida"
+      ],
+      "color_default": "#22C55E",
+      "archivo": "controles/start_flag.svg"
+    },
+    {
+      "id": "finish_flag",
+      "nombre": "Llegada / Finish",
+      "categoria": "controles",
+      "openrally_code": "FINISH",
+      "tags": [
+        "llegada",
+        "finish",
+        "fin",
+        "bandera",
+        "meta"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "controles/finish_flag.svg"
+    },
+    {
+      "id": "stop_sign",
+      "nombre": "STOP Oficial",
+      "categoria": "controles",
+      "openrally_code": "STOP",
+      "tags": [
+        "stop",
+        "alto",
+        "pare",
+        "detencion"
+      ],
+      "color_default": "#EF4444",
+      "archivo": "controles/stop_sign.svg"
+    },
+    {
+      "id": "reset_0000",
+      "nombre": "Reset Odómetro (0000)",
+      "categoria": "controles",
+      "openrally_code": "RESET",
+      "tags": [
+        "reset",
+        "cero",
+        "0000",
+        "odometro",
+        "calibrar"
+      ],
+      "color_default": "#0284C7",
+      "archivo": "controles/reset_0000.svg"
+    },
+    {
+      "id": "speed_dz",
+      "nombre": "Zona Control de Velocidad (DZ)",
+      "categoria": "controles",
+      "openrally_code": "DZ",
+      "tags": [
+        "dz",
+        "radar",
+        "velocidad",
+        "inicio zona",
+        "maxima"
+      ],
+      "color_default": "#2563EB",
+      "archivo": "controles/speed_dz.svg"
+    },
+    {
+      "id": "speed_fz",
+      "nombre": "Fin Zona de Velocidad (FZ)",
+      "categoria": "controles",
+      "openrally_code": "FZ",
+      "tags": [
+        "fz",
+        "fin velocidad",
+        "radar",
+        "liberacion"
+      ],
+      "color_default": "#64748B",
+      "archivo": "controles/speed_fz.svg"
+    },
+    {
+      "id": "fuel_surtidor",
+      "nombre": "Reabastecimiento de Combustible",
+      "categoria": "controles",
+      "openrally_code": "FUEL",
+      "tags": [
+        "combustible",
+        "nafta",
+        "gasolina",
+        "surtidor",
+        "fuel"
+      ],
+      "color_default": "#F59E0B",
+      "archivo": "controles/fuel_surtidor.svg"
+    },
+    {
+      "id": "assistance_wrench",
+      "nombre": "Asistencia / Taller Mecánico",
+      "categoria": "controles",
+      "openrally_code": "SERVICE",
+      "tags": [
+        "taller",
+        "mecanica",
+        "asistencia",
+        "llave",
+        "service"
+      ],
+      "color_default": "#475569",
+      "archivo": "controles/assistance_wrench.svg"
+    },
+    {
+      "id": "medical_cross",
+      "nombre": "Punto de Asistencia Médica",
+      "categoria": "controles",
+      "openrally_code": "MEDIC",
+      "tags": [
+        "medico",
+        "cruz roja",
+        "ambulancia",
+        "primeros auxilios"
+      ],
+      "color_default": "#DC2626",
+      "archivo": "controles/medical_cross.svg"
+    },
+    {
+      "id": "wp_visible",
+      "nombre": "Waypoint Visible (WPV)",
+      "categoria": "controles",
+      "openrally_code": "WPV",
+      "tags": [
+        "wpv",
+        "waypoint",
+        "visible",
+        "gps",
+        "punto"
+      ],
+      "color_default": "#059669",
+      "archivo": "controles/wp_visible.svg"
+    },
+    {
+      "id": "danger_1",
+      "nombre": "Peligro 1 (!)",
+      "categoria": "peligros",
+      "openrally_code": "DANGER_1",
+      "tags": [
+        "peligro 1",
+        "signo",
+        "atencion",
+        "cuidado"
+      ],
+      "color_default": "#D97706",
+      "archivo": "peligros/danger_1.svg"
+    },
+    {
+      "id": "danger_2",
+      "nombre": "Peligro 2 (!!)",
+      "categoria": "peligros",
+      "openrally_code": "DANGER_2",
+      "tags": [
+        "peligro 2",
+        "doble peligro",
+        "frenar",
+        "grave"
+      ],
+      "color_default": "#DC2626",
+      "archivo": "peligros/danger_2.svg"
+    },
+    {
+      "id": "danger_3",
+      "nombre": "Peligro 3 (!!!)",
+      "categoria": "peligros",
+      "openrally_code": "DANGER_3",
+      "tags": [
+        "peligro 3",
+        "maximo peligro",
+        "alto riesgo",
+        "parar"
+      ],
+      "color_default": "#991B1B",
+      "archivo": "peligros/danger_3.svg"
+    },
+    {
+      "id": "warning_triangle",
+      "nombre": "Triángulo de Precaución",
+      "categoria": "peligros",
+      "openrally_code": "CAUTION",
+      "tags": [
+        "precaucion",
+        "alerta",
+        "triangulo"
+      ],
+      "color_default": "#F59E0B",
+      "archivo": "peligros/warning_triangle.svg"
+    },
+    {
+      "id": "tranquera",
+      "nombre": "Tranquera / Portón Rural",
+      "categoria": "landmarks",
+      "openrally_code": "GATE",
+      "tags": [
+        "tranquera",
+        "porton",
+        "alambrado",
+        "campo",
+        "gate"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "landmarks/tranquera.svg"
+    },
+    {
+      "id": "guardaganado",
+      "nombre": "Guardaganado / Rejilla",
+      "categoria": "landmarks",
+      "openrally_code": "CATTLE_GRID",
+      "tags": [
+        "guardaganado",
+        "rejilla",
+        "alambrado",
+        "grid"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "landmarks/guardaganado.svg"
+    },
+    {
+      "id": "puente",
+      "nombre": "Puente sobre Río / Arroyo",
+      "categoria": "landmarks",
+      "openrally_code": "BRIDGE",
+      "tags": [
+        "puente",
+        "cruce",
+        "arroyo",
+        "alcantarilla",
+        "bridge"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "landmarks/puente.svg"
+    },
+    {
+      "id": "alcantarilla",
+      "nombre": "Alcantarilla / Tubo de Desagüe",
+      "categoria": "landmarks",
+      "openrally_code": "CULVERT",
+      "tags": [
+        "alcantarilla",
+        "tubo",
+        "desague",
+        "boca"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "landmarks/alcantarilla.svg"
+    },
+    {
+      "id": "vias_tren",
+      "nombre": "Cruce Vías Férreas",
+      "categoria": "landmarks",
+      "openrally_code": "RAILWAY",
+      "tags": [
+        "vias",
+        "tren",
+        "ferrocarril",
+        "rieles"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "landmarks/vias_tren.svg"
+    },
+    {
+      "id": "antena",
+      "nombre": "Antena / Torre de Transmisión",
+      "categoria": "landmarks",
+      "openrally_code": "ANTENNA",
+      "tags": [
+        "antena",
+        "torre",
+        "comunicaciones",
+        "radio"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "landmarks/antena.svg"
+    },
+    {
+      "id": "molino",
+      "nombre": "Molino de Viento Rural",
+      "categoria": "landmarks",
+      "openrally_code": "WINDMILL",
+      "tags": [
+        "molino",
+        "tanque",
+        "campo",
+        "viento"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "landmarks/molino.svg"
+    },
+    {
+      "id": "casa_poblado",
+      "nombre": "Poblado / Caserío",
+      "categoria": "landmarks",
+      "openrally_code": "HOUSE",
+      "tags": [
+        "casa",
+        "poblado",
+        "aldea",
+        "edificacion"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "landmarks/casa_poblado.svg"
+    },
+    {
+      "id": "iglesia",
+      "nombre": "Capilla / Iglesia",
+      "categoria": "landmarks",
+      "openrally_code": "CHURCH",
+      "tags": [
+        "iglesia",
+        "capilla",
+        "cruz",
+        "templo"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "landmarks/iglesia.svg"
+    },
+    {
+      "id": "vado_rio",
+      "nombre": "Vado con Agua / Río",
+      "categoria": "terreno",
+      "openrally_code": "RIVER",
+      "tags": [
+        "vado",
+        "rio",
+        "agua",
+        "arroyo",
+        "cruce de agua"
+      ],
+      "color_default": "#0284C7",
+      "archivo": "terreno/vado_rio.svg"
+    },
+    {
+      "id": "salto_lomo",
+      "nombre": "Salto / Lomo / Cresta",
+      "categoria": "terreno",
+      "openrally_code": "JUMP",
+      "tags": [
+        "salto",
+        "lomo",
+        "cresta",
+        "ondulacion",
+        "jump"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "terreno/salto_lomo.svg"
+    },
+    {
+      "id": "zanja",
+      "nombre": "Zanja / Corte Transversal",
+      "categoria": "terreno",
+      "openrally_code": "DITCH",
+      "tags": [
+        "zanja",
+        "corte",
+        "grieta",
+        "canal",
+        "foso"
+      ],
+      "color_default": "#B91C1C",
+      "archivo": "terreno/zanja.svg"
+    },
+    {
+      "id": "dunas",
+      "nombre": "Dunas / Zona de Arena",
+      "categoria": "terreno",
+      "openrally_code": "DUNES",
+      "tags": [
+        "dunas",
+        "arena",
+        "erg",
+        "dakar",
+        "desierto"
+      ],
+      "color_default": "#D97706",
+      "archivo": "terreno/dunas.svg"
+    },
+    {
+      "id": "piedras",
+      "nombre": "Piedras / Terreno Rocoso",
+      "categoria": "terreno",
+      "openrally_code": "STONES",
+      "tags": [
+        "piedras",
+        "rocas",
+        "pedregal",
+        "ripio grueso"
+      ],
+      "color_default": "#475569",
+      "archivo": "terreno/piedras.svg"
+    },
+    {
+      "id": "barro_huellas",
+      "nombre": "Barro / Huellas Profundas",
+      "categoria": "terreno",
+      "openrally_code": "RUTS",
+      "tags": [
+        "barro",
+        "huellas",
+        "roderas",
+        "pantano"
+      ],
+      "color_default": "#78350F",
+      "archivo": "terreno/barro_huellas.svg"
+    },
+    {
+      "id": "recta",
+      "nombre": "Recto / Continuar por Principal",
+      "categoria": "tulipas",
+      "openrally_code": "STRAIGHT",
+      "tags": [
+        "recta",
+        "seguir",
+        "derecho",
+        "straight"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "tulipas/recta.svg"
+    },
+    {
+      "id": "curva_der",
+      "nombre": "Curva a la Derecha",
+      "categoria": "tulipas",
+      "openrally_code": "CURVE_RIGHT",
+      "tags": [
+        "curva",
+        "derecha",
+        "suave"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "tulipas/curva_der.svg"
+    },
+    {
+      "id": "curva_izq",
+      "nombre": "Curva a la Izquierda",
+      "categoria": "tulipas",
+      "openrally_code": "CURVE_LEFT",
+      "tags": [
+        "curva",
+        "izquierda",
+        "suave"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "tulipas/curva_izq.svg"
+    },
+    {
+      "id": "der_90",
+      "nombre": "Giro Derecha 90°",
+      "categoria": "tulipas",
+      "openrally_code": "TURN_RIGHT_90",
+      "tags": [
+        "derecha",
+        "90 grados",
+        "escuadra",
+        "cruce"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "tulipas/der_90.svg"
+    },
+    {
+      "id": "izq_90",
+      "nombre": "Giro Izquierda 90°",
+      "categoria": "tulipas",
+      "openrally_code": "TURN_LEFT_90",
+      "tags": [
+        "izquierda",
+        "90 grados",
+        "escuadra",
+        "cruce"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "tulipas/izq_90.svg"
+    },
+    {
+      "id": "horquilla_der",
+      "nombre": "Horquilla / Retome a Derecha",
+      "categoria": "tulipas",
+      "openrally_code": "HAIRPIN_RIGHT",
+      "tags": [
+        "horquilla",
+        "retome",
+        "u-turn",
+        "cerrada"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "tulipas/horquilla_der.svg"
+    },
+    {
+      "id": "horquilla_izq",
+      "nombre": "Horquilla / Retome a Izquierda",
+      "categoria": "tulipas",
+      "openrally_code": "HAIRPIN_LEFT",
+      "tags": [
+        "horquilla",
+        "retome",
+        "u-turn",
+        "cerrada"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "tulipas/horquilla_izq.svg"
+    },
+    {
+      "id": "cruce_x",
+      "nombre": "Cruce en Cruz (+) - Recto",
+      "categoria": "tulipas",
+      "openrally_code": "CROSS_X",
+      "tags": [
+        "cruce",
+        "cuatro esquinas",
+        "interseccion"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "tulipas/cruce_x.svg"
+    },
+    {
+      "id": "bifurcacion_y",
+      "nombre": "Bifurcación en Y (Tomar Derecha)",
+      "categoria": "tulipas",
+      "openrally_code": "FORK_Y_RIGHT",
+      "tags": [
+        "bifurcacion",
+        "y",
+        "horqueta",
+        "desvio"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "tulipas/bifurcacion_y.svg"
+    },
+    {
+      "id": "rotonda",
+      "nombre": "Rotonda / Glorieta",
+      "categoria": "tulipas",
+      "openrally_code": "ROUNDABOUT",
+      "tags": [
+        "rotonda",
+        "glorieta",
+        "circulo"
+      ],
+      "color_default": "#0F172A",
+      "archivo": "tulipas/rotonda.svg"
+    }
+  ]
+}

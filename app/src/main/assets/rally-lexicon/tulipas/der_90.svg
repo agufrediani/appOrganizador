@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="30" cy="85" r="5" fill="#0F172A" />
+  <!-- Línea recta con desvío a 90 -->
+  <path d="M 30 85 L 30 45 Q 30 35 45 35 L 75 35" fill="none" stroke="#0F172A" stroke-width="6" stroke-linecap="round" />
+  <polygon points="86,35 72,25 72,45" fill="#0F172A" />
+  <!-- Camino no tomado punteado -->
+  <line x1="30" y1="45" x2="30" y2="15" stroke="#94A3B8" stroke-width="3" stroke-dasharray="4,4" />
+</svg>

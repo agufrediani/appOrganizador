@@ -32,21 +32,90 @@ class TramosViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
 
-        // Vincular el ID del rally activo
+        // Vincular el ID del rally activo y sembrar tramo inicial si no existe ninguno
         viewModelScope.launch {
-            repository.getActiveRally().collect { rally ->
-                if (rally != null) {
-                    _selectedRallyId.value = rally.id
+            try {
+                repository.getActiveRally().collect { rally ->
+                    if (rally != null) {
+                        _selectedRallyId.value = rally.id
+                        val tramosActuales = repository.getTramosByRally(rally.id).firstOrNull() ?: emptyList()
+                        if (tramosActuales.isEmpty()) {
+                            val tramoId = repository.insertTramo(
+                                TramoEntity(
+                                    rallyId = rally.id,
+                                    tipo = "PE",
+                                    identificador = "P.E. 1",
+                                    nombre = "PARQUE GIORGI",
+                                    numeroSector = 1,
+                                    chInicio = "CH 01",
+                                    chFin = "CH 02",
+                                    distanciaTotalEstimada = 14.85,
+                                    distanciaMedidaReal = 14.85,
+                                    tiempoOtorgado = "25'",
+                                    atrasoMaximo = "10'",
+                                    horaPrimerAuto = "09:30",
+                                    ordenSecuencia = 1,
+                                    estadoTrazado = "LISTO"
+                                )
+                            )
+                            // Viñetas iniciales según estándar oficial de hoja de ruta
+                            repository.insertVineta(
+                                com.example.roadbookorganizador.data.local.entity.VinetaEntity(
+                                    tramoId = tramoId,
+                                    numero = 1,
+                                    distanciaTotal = 0.00,
+                                    distanciaParcial = 0.00,
+                                    latitud = -33.0450,
+                                    longitud = -61.1650,
+                                    tulipTipo = "LARGADA",
+                                    informacion = "Largada oficial sobre asfalto. Precaución curva a 200m.",
+                                    peligro = ""
+                                )
+                            )
+                            repository.insertVineta(
+                                com.example.roadbookorganizador.data.local.entity.VinetaEntity(
+                                    tramoId = tramoId,
+                                    numero = 2,
+                                    distanciaTotal = 2.45,
+                                    distanciaParcial = 2.45,
+                                    latitud = -33.0520,
+                                    longitud = -61.1710,
+                                    tulipTipo = "CRUCE DER",
+                                    informacion = "Cruce en T a la derecha entre arboleda. Calzada angosta.",
+                                    peligro = "!"
+                                )
+                            )
+                            repository.insertVineta(
+                                com.example.roadbookorganizador.data.local.entity.VinetaEntity(
+                                    tramoId = tramoId,
+                                    numero = 3,
+                                    distanciaTotal = 5.80,
+                                    distanciaParcial = 3.35,
+                                    latitud = -33.0610,
+                                    longitud = -61.1850,
+                                    tulipTipo = "VADO",
+                                    informacion = "Vado con agua y barro profundo. Bajar ritmo.",
+                                    peligro = "!!"
+                                )
+                            )
+                            repository.insertVineta(
+                                com.example.roadbookorganizador.data.local.entity.VinetaEntity(
+                                    tramoId = tramoId,
+                                    numero = 4,
+                                    distanciaTotal = 14.85,
+                                    distanciaParcial = 9.05,
+                                    latitud = -33.0780,
+                                    longitud = -61.1990,
+                                    tulipTipo = "STOP",
+                                    informacion = "Fin de Prueba Especial. Mesa de control stop.",
+                                    peligro = ""
+                                )
+                            )
+                        }
+                    }
                 }
-            }
-        }
-
-        // Limpiar cualquier rally residual dummy
-        viewModelScope.launch {
-            repository.getAllRallies().firstOrNull()?.forEach { rally ->
-                if (rally.nombre.contains("Rally Master Frediani", ignoreCase = true)) {
-                    repository.deleteRally(rally)
-                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Roca grande -->
+  <polygon points="30,75 20,55 35,38 52,42 60,65 50,75" fill="#CBD5E1" stroke="#475569" stroke-width="4" stroke-linejoin="round" />
+  <!-- Rocas chicas -->
+  <polygon points="65,75 58,62 70,52 82,60 78,75" fill="#94A3B8" stroke="#475569" stroke-width="3.5" stroke-linejoin="round" />
+  <circle cx="38" cy="80" r="4" fill="#475569" />
+  <circle cx="78" cy="80" r="3" fill="#475569" />
+</svg>

@@ -47,6 +47,29 @@ class SessionManager(context: Context) {
         }
     }
 
+    companion object {
+        const val DEFAULT_MAPBOX_TOKEN = ""
+    }
+
+    private val _mapboxToken = MutableStateFlow(
+        prefs.getString("mapbox_token", "")?.takeIf { it.isNotBlank() } ?: DEFAULT_MAPBOX_TOKEN
+    )
+    val mapboxToken: StateFlow<String> = _mapboxToken.asStateFlow()
+
+    fun guardarMapboxToken(token: String) {
+        val sanitized = token.trim()
+        prefs.edit().putString("mapbox_token", sanitized).apply()
+        _mapboxToken.value = sanitized
+    }
+
+    private val _snapToRoad = MutableStateFlow(prefs.getBoolean("snap_to_road", true))
+    val snapToRoad: StateFlow<Boolean> = _snapToRoad.asStateFlow()
+
+    fun guardarSnapToRoad(enabled: Boolean) {
+        prefs.edit().putBoolean("snap_to_road", enabled).apply()
+        _snapToRoad.value = enabled
+    }
+
     fun guardarSesion(email: String, nombre: String, club: String, rol: String, token: String) {
         prefs.edit()
             .putBoolean("is_logged_in", true)
@@ -72,3 +95,4 @@ class SessionManager(context: Context) {
         _sesion.value = UsuarioSesion(isLoggedIn = false)
     }
 }
+

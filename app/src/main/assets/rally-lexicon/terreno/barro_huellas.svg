@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Dos huellas paralelas onduladas -->
+  <path d="M 35 15 Q 42 35 32 55 Q 26 75 35 90" fill="none" stroke="#78350F" stroke-width="7" stroke-linecap="round" stroke-dasharray="10,6" />
+  <path d="M 65 15 Q 72 35 62 55 Q 56 75 65 90" fill="none" stroke="#78350F" stroke-width="7" stroke-linecap="round" stroke-dasharray="10,6" />
+</svg>

@@ -53,13 +53,13 @@ fun TramosScreen(
                             text = "CRONOGRAMA & ITINERARIO OFICIAL",
                             fontWeight = FontWeight.Black,
                             fontSize = 16.sp,
-                            color = FredianiCyan,
+                            color = if (ThemeManager.isDarkTheme) FredianiCyan else FredianiCyanText,
                             letterSpacing = 1.sp
                         )
                         Text(
                             text = "Secuencia cronológica oficial: pruebas especiales y enlaces",
                             fontSize = 11.sp,
-                            color = Color.White.copy(alpha = 0.7f)
+                            color = if (ThemeManager.isDarkTheme) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
                         )
                     }
                 },
@@ -68,11 +68,16 @@ fun TramosScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Volver al Menú",
-                            tint = Color.White
+                            tint = if (ThemeManager.isDarkTheme) Color.White else Color(0xFF0F172A)
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = RallyDarkBg)
+                actions = {
+                    IconButton(onClick = { ThemeManager.toggleTheme() }) {
+                        Text(text = if (ThemeManager.isDarkTheme) "☀️" else "🌙", fontSize = 18.sp)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
         floatingActionButton = {
@@ -84,7 +89,7 @@ fun TramosScreen(
                 text = { Text("+ NUEVO TRAMO", fontWeight = FontWeight.Black) }
             )
         },
-        containerColor = RallyDarkBg
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -92,13 +97,16 @@ fun TramosScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp)
         ) {
-            // Header con información del Rally y Resumen Kilométrico FIA
+            val isDark = ThemeManager.isDarkTheme
+            // Header con información del Rally y Resumen Kilométrico FIA (TODO BLANCO EN TEMA CLARO)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 10.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = RallyCardBg)
+                colors = CardDefaults.cardColors(containerColor = if (isDark) RallyCardBg else Color.White),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) RallySurface else Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -111,12 +119,12 @@ fun TramosScreen(
                                 text = rallyActivo?.nombre ?: "Rally Seleccionado",
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 18.sp,
-                                color = Color.White
+                                color = if (isDark) Color.White else Color(0xFF0F172A)
                             )
                             Text(
                                 text = if (rallyActivo != null) "${rallyActivo?.organizadorClub.orEmpty()} • ${rallyActivo?.sede.orEmpty()} • ${rallyActivo?.fecha.orEmpty()}" else "Tramos disponibles para relevamiento",
                                 fontSize = 12.sp,
-                                color = Color.White.copy(alpha = 0.6f)
+                                color = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF64748B)
                             )
                         }
 
@@ -237,7 +245,9 @@ fun TramoCardWebStyle(
     onEliminar: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onIniciarTrazado() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = FredianiLightCard),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -519,11 +529,13 @@ fun DialogoNuevoTramo(
     var atrasoMaximo by remember { mutableStateOf("10'") }
     var horaPrimerAuto by remember { mutableStateOf("09:00") }
 
+    val isDark = ThemeManager.isDarkTheme
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = RallyCardBg,
+        containerColor = if (isDark) RallyCardBg else Color.White,
         title = {
-            Text("Nuevo Tramo Oficial (Itinerario)", color = Color.White, fontWeight = FontWeight.Bold)
+            Text("Nuevo Tramo Oficial (Itinerario)", color = if (isDark) Color.White else Color(0xFF0F172A), fontWeight = FontWeight.Bold)
         },
         text = {
             Column(
@@ -537,20 +549,20 @@ fun DialogoNuevoTramo(
                     Button(
                         onClick = { tipo = "PE"; if (identificador.startsWith("E")) identificador = "P.E. 1" },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (tipo == "PE") FredianiCyan else RallySurface
+                            containerColor = if (tipo == "PE") FredianiCyan else (if (isDark) RallySurface else Color(0xFFF1F5F9))
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("PRUEBA ESPECIAL (PE)", color = if (tipo == "PE") Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                        Text("PRUEBA ESPECIAL (PE)", color = if (tipo == "PE") Color.Black else (if (isDark) Color.White else Color(0xFF0F172A)), fontWeight = FontWeight.Bold)
                     }
                     Button(
                         onClick = { tipo = "ENLACE"; if (identificador.startsWith("P.E.")) identificador = "E 1" },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (tipo == "ENLACE") FredianiAmber else RallySurface
+                            containerColor = if (tipo == "ENLACE") FredianiAmber else (if (isDark) RallySurface else Color(0xFFF1F5F9))
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("ENLACE", color = if (tipo == "ENLACE") Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                        Text("ENLACE", color = if (tipo == "ENLACE") Color.Black else (if (isDark) Color.White else Color(0xFF0F172A)), fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -559,9 +571,10 @@ fun DialogoNuevoTramo(
                     onValueChange = { identificador = it },
                     label = { Text("Identificador (ej: P.E. 1, E 1)") },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = FredianiCyan
+                        focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        focusedBorderColor = FredianiCyanText,
+                        unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -571,9 +584,10 @@ fun DialogoNuevoTramo(
                     onValueChange = { nombre = it },
                     label = { Text("Nombre del Tramo (ej: PARQUE GIORGI)") },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = FredianiCyan
+                        focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        focusedBorderColor = FredianiCyanText,
+                        unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -584,9 +598,10 @@ fun DialogoNuevoTramo(
                         onValueChange = { numeroSector = it },
                         label = { Text("Sector N°") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -596,9 +611,10 @@ fun DialogoNuevoTramo(
                         onValueChange = { distanciaEstimada = it },
                         label = { Text("Distancia Estimada (km)") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -610,9 +626,10 @@ fun DialogoNuevoTramo(
                         onValueChange = { chInicio = it },
                         label = { Text("CH Inicio") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -622,9 +639,10 @@ fun DialogoNuevoTramo(
                         onValueChange = { chFin = it },
                         label = { Text("CH Fin") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -636,9 +654,10 @@ fun DialogoNuevoTramo(
                         onValueChange = { tiempoOtorgado = it },
                         label = { Text("Tiempo Otorgado (ej: 25')") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -648,9 +667,10 @@ fun DialogoNuevoTramo(
                         onValueChange = { atrasoMaximo = it },
                         label = { Text("Atraso Máximo (ej: 10')") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -661,9 +681,10 @@ fun DialogoNuevoTramo(
                     onValueChange = { horaPrimerAuto = it },
                     label = { Text("Hora Paso 1° Auto (ej: 09:00)") },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = FredianiCyan
+                        focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        focusedBorderColor = FredianiCyanText,
+                        unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -709,11 +730,13 @@ fun DialogoEditarTramo(
     var atrasoMaximo by remember { mutableStateOf(tramo.atrasoMaximo) }
     var horaPrimerAuto by remember { mutableStateOf(tramo.horaPrimerAuto) }
 
+    val isDark = ThemeManager.isDarkTheme
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = RallyCardBg,
+        containerColor = if (isDark) RallyCardBg else Color.White,
         title = {
-            Text("Editar Información del Tramo", color = Color.White, fontWeight = FontWeight.Bold)
+            Text("Editar Información del Tramo", color = if (isDark) Color.White else Color(0xFF0F172A), fontWeight = FontWeight.Bold)
         },
         text = {
             Column(
@@ -727,20 +750,20 @@ fun DialogoEditarTramo(
                     Button(
                         onClick = { tipo = "PE" },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (tipo == "PE") FredianiCyan else RallySurface
+                            containerColor = if (tipo == "PE") FredianiCyan else (if (isDark) RallySurface else Color(0xFFF1F5F9))
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("PRUEBA ESPECIAL (PE)", color = if (tipo == "PE") Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                        Text("PRUEBA ESPECIAL (PE)", color = if (tipo == "PE") Color.Black else (if (isDark) Color.White else Color(0xFF0F172A)), fontWeight = FontWeight.Bold)
                     }
                     Button(
                         onClick = { tipo = "ENLACE" },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (tipo == "ENLACE") FredianiAmber else RallySurface
+                            containerColor = if (tipo == "ENLACE") FredianiAmber else (if (isDark) RallySurface else Color(0xFFF1F5F9))
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("ENLACE", color = if (tipo == "ENLACE") Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                        Text("ENLACE", color = if (tipo == "ENLACE") Color.Black else (if (isDark) Color.White else Color(0xFF0F172A)), fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -749,9 +772,10 @@ fun DialogoEditarTramo(
                     onValueChange = { identificador = it },
                     label = { Text("Identificador") },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = FredianiCyan
+                        focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        focusedBorderColor = FredianiCyanText,
+                        unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -761,9 +785,10 @@ fun DialogoEditarTramo(
                     onValueChange = { nombre = it },
                     label = { Text("Nombre del Tramo") },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = FredianiCyan
+                        focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        focusedBorderColor = FredianiCyanText,
+                        unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -774,9 +799,10 @@ fun DialogoEditarTramo(
                         onValueChange = { numeroSector = it },
                         label = { Text("Sector N°") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -786,9 +812,10 @@ fun DialogoEditarTramo(
                         onValueChange = { distanciaEstimada = it },
                         label = { Text("Distancia Estimada (km)") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -800,9 +827,10 @@ fun DialogoEditarTramo(
                         onValueChange = { chInicio = it },
                         label = { Text("CH Inicio") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -812,9 +840,10 @@ fun DialogoEditarTramo(
                         onValueChange = { chFin = it },
                         label = { Text("CH Fin") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -826,9 +855,10 @@ fun DialogoEditarTramo(
                         onValueChange = { tiempoOtorgado = it },
                         label = { Text("Tiempo Otorgado") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -838,9 +868,10 @@ fun DialogoEditarTramo(
                         onValueChange = { atrasoMaximo = it },
                         label = { Text("Atraso Máximo") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = FredianiCyan
+                            focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                            focusedBorderColor = FredianiCyanText,
+                            unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -851,9 +882,10 @@ fun DialogoEditarTramo(
                     onValueChange = { horaPrimerAuto = it },
                     label = { Text("Hora Paso 1° Auto") },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = FredianiCyan
+                        focusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        unfocusedTextColor = if (isDark) Color.White else Color(0xFF0F172A),
+                        focusedBorderColor = FredianiCyanText,
+                        unfocusedBorderColor = if (isDark) RallyCardBg else Color(0xFFCBD5E1)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )

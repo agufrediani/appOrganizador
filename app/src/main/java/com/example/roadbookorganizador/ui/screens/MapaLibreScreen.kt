@@ -36,6 +36,12 @@ fun MapaLibreScreen(
     var mostrarModalAgregarPunto by remember { mutableStateOf(false) }
     var puntoCoordenadasSeleccionadas by remember { mutableStateOf<Pair<Double, Double>?>(null) }
 
+    val isDark = ThemeManager.isDarkTheme
+    val cardBg = if (isDark) RallyCardBg else Color.White
+    val cardBorder = if (isDark) RallySurface else Color(0xFFE2E8F0)
+    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
+    val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -45,25 +51,29 @@ fun MapaLibreScreen(
                             text = "EXPLORADOR & MAPA LIBRE",
                             fontWeight = FontWeight.Black,
                             fontSize = 17.sp,
-                            color = RallyCyanLight
+                            color = if (isDark) RallyCyanLight else FredianiNavy
                         )
                         Text(
                             text = "Reconocimiento de Terreno y Marcación de Zonas",
                             fontSize = 11.sp,
-                            color = Color.White.copy(alpha = 0.7f)
+                            color = textSecondary
                         )
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onVolver) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = textPrimary)
                     }
                 },
                 actions = {
+                    IconButton(onClick = { ThemeManager.toggleTheme() }) {
+                        Text(text = if (isDark) "☀️" else "🌙", fontSize = 18.sp)
+                    }
+
                     FilledTonalButton(
                         onClick = { viewModel.toggleSimulacion() },
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (odoState.modoSimulacion) FredianiGreen.copy(alpha = 0.25f) else RallySurface
+                            containerColor = if (odoState.modoSimulacion) FredianiGreen.copy(alpha = 0.25f) else (if (isDark) RallySurface else Color(0xFFF1F5F9))
                         ),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                         shape = RoundedCornerShape(10.dp)
@@ -71,13 +81,13 @@ fun MapaLibreScreen(
                         Icon(
                             imageVector = if (odoState.modoSimulacion) Icons.Default.Sensors else Icons.Default.SensorsOff,
                             contentDescription = "Simulador",
-                            tint = if (odoState.modoSimulacion) FredianiGreen else Color.White.copy(alpha = 0.7f),
+                            tint = if (odoState.modoSimulacion) FredianiGreen else textSecondary,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = if (odoState.modoSimulacion) "SIMULANDO" else "SIMULAR GPS",
-                            color = if (odoState.modoSimulacion) FredianiGreen else Color.White,
+                            color = if (odoState.modoSimulacion) FredianiGreen else textPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp
                         )
@@ -100,10 +110,10 @@ fun MapaLibreScreen(
                         Text("MARCAR ZONA / POI", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 12.sp)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = RallyDarkBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
-        containerColor = RallyDarkBg
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         BoxWithConstraints(
             modifier = Modifier
@@ -269,10 +279,18 @@ fun MapaLibreScreen(
 
 @Composable
 fun CardPosicionGnss(odoState: com.example.roadbookorganizador.service.OdometerState) {
+    val isDark = ThemeManager.isDarkTheme
+    val cardBg = if (isDark) RallyCardBg else Color.White
+    val cardBorder = if (isDark) RallySurface else Color(0xFFE2E8F0)
+    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
+    val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = RallyCardBg)
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
     ) {
         Row(
             modifier = Modifier
@@ -286,37 +304,37 @@ fun CardPosicionGnss(odoState: com.example.roadbookorganizador.service.OdometerS
                     text = "POSICIÓN ACTUAL (GNSS)",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = OdometerLabel
+                    color = textSecondary
                 )
                 Text(
                     text = if (odoState.latitud != 0.0) String.format("%.5f, %.5f", odoState.latitud, odoState.longitud) else "-32.95772, -60.63779",
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 15.sp,
-                    color = Color.White
+                    color = textPrimary
                 )
                 Text(
-                    text = String.format("Altitud: %.0f msnm • Precisión: ±%.1fm", odoState.altitud, odoState.precisionMetros),
+                    text = String.format("Altitud: %.0f msnm • Precisión: %.1fm", odoState.altitud, odoState.precisionMetros),
                     fontSize = 11.sp,
-                    color = RallyCyanLight
+                    color = if (isDark) RallyCyanLight else FredianiCyanText
                 )
             }
 
             Column(horizontalAlignment = Alignment.End) {
                 Surface(
                     shape = CircleShape,
-                    color = RallySurface,
+                    color = if (isDark) RallySurface else Color(0xFFF1F5F9),
                     modifier = Modifier.size(42.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Navigation, contentDescription = null, tint = RallyCyan)
+                        Icon(Icons.Default.Navigation, contentDescription = null, tint = if (isDark) RallyCyan else FredianiCyanText)
                     }
                 }
                 Text(
                     text = String.format("%.0f°", odoState.rumbo),
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
-                    color = RallyCyan
+                    color = if (isDark) RallyCyan else FredianiCyanText
                 )
             }
         }
@@ -328,10 +346,18 @@ fun PuntoInteresItemRow(
     punto: PuntoInteresEntity,
     onEliminar: () -> Unit
 ) {
+    val isDark = ThemeManager.isDarkTheme
+    val cardBg = if (isDark) RallyCardBg else Color.White
+    val cardBorder = if (isDark) RallySurface else Color(0xFFE2E8F0)
+    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
+    val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = RallyCardBg)
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 1.5.dp)
     ) {
         Row(
             modifier = Modifier
@@ -342,8 +368,8 @@ fun PuntoInteresItemRow(
         ) {
             val (badgeBg, badgeFg) = when (punto.tipo) {
                 "AMBULANCIA", "RESCATE" -> Pair(RallyRed.copy(alpha = 0.25f), RallyRed)
-                "ZONA ESPECTADORES", "PUBLICO" -> Pair(RallyAccentYellow.copy(alpha = 0.25f), RallyAccentYellow)
-                "PARQUE DE ASISTENCIA" -> Pair(RallyCyan.copy(alpha = 0.25f), RallyCyan)
+                "ZONA ESPECTADORES", "PUBLICO" -> Pair(RallyAccentYellow.copy(alpha = 0.25f), if (isDark) RallyAccentYellow else FredianiAmberText)
+                "PARQUE DE ASISTENCIA" -> Pair(RallyCyan.copy(alpha = 0.25f), if (isDark) RallyCyan else FredianiCyanText)
                 "HELIPUERTO" -> Pair(RallyAccentAmber.copy(alpha = 0.25f), RallyAccentAmber)
                 else -> Pair(RallyGreen.copy(alpha = 0.25f), RallyGreen)
             }
@@ -374,19 +400,19 @@ fun PuntoInteresItemRow(
             Spacer(modifier = Modifier.width(10.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = punto.nombre, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                Text(text = punto.nombre, fontWeight = FontWeight.Bold, color = textPrimary, fontSize = 13.sp)
                 Text(
                     text = "${punto.tipo} • ${String.format("%.5f, %.5f", punto.latitud, punto.longitud)}",
                     fontSize = 11.sp,
-                    color = Color.White.copy(alpha = 0.7f)
+                    color = textSecondary
                 )
                 if (punto.descripcion.isNotEmpty()) {
-                    Text(text = punto.descripcion, fontSize = 10.sp, color = RallyCyanLight)
+                    Text(text = punto.descripcion, fontSize = 10.sp, color = if (isDark) RallyCyanLight else FredianiCyanText)
                 }
             }
 
             IconButton(onClick = onEliminar) {
-                Icon(Icons.Default.Close, contentDescription = "Eliminar", tint = Color.Gray, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Close, contentDescription = "Eliminar", tint = textSecondary, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -401,6 +427,12 @@ fun DialogoNuevoPOI(
     onDismiss: () -> Unit,
     onGuardar: (String, String, String) -> Unit
 ) {
+    val isDark = ThemeManager.isDarkTheme
+    val cardBg = if (isDark) RallyCardBg else Color.White
+    val cardBorder = if (isDark) RallySurface else Color(0xFFE2E8F0)
+    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
+    val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+
     var nombre by remember { mutableStateOf("") }
     var tipo by remember { mutableStateOf("ZONA ESPECTADORES") }
     var descripcion by remember { mutableStateOf("") }
@@ -419,7 +451,7 @@ fun DialogoNuevoPOI(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = RallyCardBg,
+        containerColor = cardBg,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.AddLocationAlt, contentDescription = null, tint = RallyAccentYellow)
@@ -428,7 +460,7 @@ fun DialogoNuevoPOI(
                     if (origenClickEnMapa) "Registrar Zona en Punto Marcado" else "Registrar Zona en Posición Actual",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = Color.White
+                    color = textPrimary
                 )
             }
         },
@@ -439,14 +471,15 @@ fun DialogoNuevoPOI(
             ) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = RallySurface,
+                    color = if (isDark) RallySurface else Color(0xFFF1F5F9),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = "Coordenadas: ${String.format("%.5f, %.5f", latitud, longitud)}",
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = RallyCyanLight,
+                        color = if (isDark) RallyCyanLight else FredianiCyanText,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
@@ -457,9 +490,10 @@ fun DialogoNuevoPOI(
                     label = { Text("Nombre de la Zona o Punto (Obligatorio)") },
                     placeholder = { Text("Ej: Zona Espectadores 1, Cruce Ruta 9...") },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = RallyCyan
+                        focusedTextColor = textPrimary,
+                        unfocusedTextColor = textPrimary,
+                        focusedBorderColor = RallyCyan,
+                        unfocusedBorderColor = cardBorder
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -467,7 +501,7 @@ fun DialogoNuevoPOI(
                 Text(
                     text = "SELECCIONAR TIPO DE ZONA / PUNTO:",
                     fontSize = 11.sp,
-                    color = RallyCyan,
+                    color = if (isDark) RallyCyan else FredianiCyanText,
                     fontWeight = FontWeight.Black
                 )
 
@@ -492,8 +526,8 @@ fun DialogoNuevoPOI(
                                 else if (cat.contains("ESPECTADORES")) RallyAccentYellow
                                 else RallyCyan,
                                 selectedLabelColor = Color.Black,
-                                containerColor = RallySurface,
-                                labelColor = Color.White
+                                containerColor = if (isDark) RallySurface else Color(0xFFF1F5F9),
+                                labelColor = textPrimary
                             )
                         )
                     }
@@ -505,9 +539,10 @@ fun DialogoNuevoPOI(
                     label = { Text("Descripción / Instrucciones (Opcional)") },
                     placeholder = { Text("Ej: Ingreso por tranquera blanca a 200m...") },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = RallyCyan
+                        focusedTextColor = textPrimary,
+                        unfocusedTextColor = textPrimary,
+                        focusedBorderColor = RallyCyan,
+                        unfocusedBorderColor = cardBorder
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )

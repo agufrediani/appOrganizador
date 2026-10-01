@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon points="50,28 25,48 75,48" fill="#0F172A" />
+  <rect x="30" y="48" width="40" height="36" fill="#FFFFFF" stroke="#0F172A" stroke-width="3.5" />
+  <!-- Cruz en el campanario -->
+  <line x1="50" y1="12" x2="50" y2="28" stroke="#0F172A" stroke-width="3.5" />
+  <line x1="44" y1="18" x2="56" y2="18" stroke="#0F172A" stroke-width="3.5" />
+  <rect x="44" y="62" width="12" height="22" fill="#0F172A" />
+</svg>

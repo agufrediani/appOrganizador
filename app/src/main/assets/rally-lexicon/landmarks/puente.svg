@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Barandas arqueadas -->
+  <path d="M 15 28 L 35 38 L 65 38 L 85 28" fill="none" stroke="#0F172A" stroke-width="5" stroke-linecap="round" />
+  <path d="M 15 72 L 35 62 L 65 62 L 85 72" fill="none" stroke="#0F172A" stroke-width="5" stroke-linecap="round" />
+  <!-- Calzada central -->
+  <line x1="15" y1="50" x2="85" y2="50" stroke="#94A3B8" stroke-width="4" stroke-dasharray="6,4" />
+</svg>

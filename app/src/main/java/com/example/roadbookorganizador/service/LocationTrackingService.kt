@@ -40,6 +40,12 @@ class LocationTrackingService : Service() {
     val odometerEngine = sharedOdometerEngine
     var currentTramoId: Long? = null
 
+    private val raceBoxListener: (com.example.roadbookorganizador.gps.racebox.RaceBoxTelemetry) -> Unit = { telemetry ->
+        odometerEngine.procesarTelemetriaRaceBox(telemetry)
+        actualizarNotificacion()
+        guardarTrackPoint(telemetry.toAndroidLocation())
+    }
+
     inner class LocalBinder : Binder() {
         fun getService(): LocationTrackingService = this@LocationTrackingService
     }
@@ -72,6 +78,17 @@ class LocationTrackingService : Service() {
             val db = AppDatabase.getInstance(applicationContext)
             val cal = db.calibracionDao().getCalibracionActivaSync()
             cal?.let { odometerEngine.setFactorCalibracion(it.factorCorreccion) }
+        }
+
+        // Suscribir al motor GPS Externo 25Hz BLE
+        val bleManager = com.example.roadbookorganizador.gps.racebox.RaceBoxBleManager.getInstance(applicationContext)
+        bleManager.addTelemetryListener(raceBoxListener)
+
+        serviceScope.launch {
+            bleManager.connectionStatus.collect { status ->
+                val conectado = (status == com.example.roadbookorganizador.gps.racebox.RaceBoxConnectionStatus.CONNECTED)
+                odometerEngine.setRaceBoxBleConectado(conectado)
+            }
         }
 
         startForeground(NOTIFICATION_ID, buildNotification("Iniciando GPS / Wi-Fi de alta precisión..."))
@@ -237,6 +254,8 @@ class LocationTrackingService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         instance = null
+        com.example.roadbookorganizador.gps.racebox.RaceBoxBleManager.getInstance(applicationContext)
+            .removeTelemetryListener(raceBoxListener)
         fusedLocationClient.removeLocationUpdates(locationCallback)
         wakeLock?.let { if (it.isHeld) it.release() }
         serviceScope.cancel()

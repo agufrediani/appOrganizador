@@ -67,33 +67,37 @@ fun MenuPrincipalScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = sesion.nombre.ifBlank { "Organizador Oficial" },
-                                fontWeight = FontWeight.Bold,
+                                text = "FREDIANI ROADBOOK - Organizador",
+                                fontWeight = FontWeight.Black,
                                 fontSize = 15.sp,
-                                color = Color.White
+                                color = if (ThemeManager.isDarkTheme) Color.White else Color(0xFF0F172A)
                             )
                             Text(
-                                text = sesion.club.ifBlank { "Frediani Competición" },
+                                text = "${sesion.nombre.ifBlank { "Organizador Oficial" }} • ${sesion.club.ifBlank { "Frediani Competición" }}",
                                 fontSize = 11.sp,
-                                color = RallyCyanLight
+                                color = if (ThemeManager.isDarkTheme) RallyCyanLight else FredianiCyanText
                             )
                         }
                     }
                 },
                 actions = {
+                    // Toggle Tema Claro / Oscuro
+                    IconButton(onClick = { ThemeManager.toggleTheme() }) {
+                        Text(text = if (ThemeManager.isDarkTheme) "☀️" else "🌙", fontSize = 18.sp)
+                    }
                     // Engranaje de Ajustes (AQUÍ ESTÁ EL CALIBRADOR DISCRETO)
                     IconButton(onClick = onNavigateToAjustes) {
-                        Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = Color.White)
+                        Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = MaterialTheme.colorScheme.onSurface)
                     }
                     // Cerrar sesión
                     IconButton(onClick = onLogout) {
                         Icon(Icons.Default.Logout, contentDescription = "Cerrar Sesión", tint = Color.Gray)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = RallyDarkBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
-        containerColor = RallyDarkBg
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -103,11 +107,19 @@ fun MenuPrincipalScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // TARJETA RALLY ACTIVO Y DASHBOARD
+            val isDark = ThemeManager.isDarkTheme
+            val cardBg = if (isDark) RallyCardBg else Color.White
+            val cardBorder = if (isDark) RallySurface else Color(0xFFE2E8F0)
+            val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
+            val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+
+            // TARJETA RALLY ACTIVO Y DASHBOARD (TODO BLANCO EN TEMA CLARO)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = RallyCardBg)
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(
@@ -123,7 +135,7 @@ fun MenuPrincipalScreen(
                                 text = "RALLY ACTIVO",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 11.sp,
-                                color = RallyCyan,
+                                color = if (isDark) RallyCyan else FredianiCyanText,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
@@ -133,7 +145,8 @@ fun MenuPrincipalScreen(
                                 onClick = { mostrarModalEditarRally = true },
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.4f) else Color(0xFFCBD5E1)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = textPrimary)
                             ) {
                                 Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -144,11 +157,11 @@ fun MenuPrincipalScreen(
                                 onClick = onNavigateToRallies,
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = RallySurface)
+                                colors = ButtonDefaults.buttonColors(containerColor = if (isDark) RallySurface else Color(0xFFF1F5F9))
                             ) {
-                                Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = RallyAccentYellow, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = if (isDark) RallyAccentYellow else FredianiAmberText, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Cambiar", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("Cambiar", fontSize = 12.sp, color = textPrimary, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -159,16 +172,16 @@ fun MenuPrincipalScreen(
                         text = activeRally?.nombre ?: "Sin Rally Seleccionado",
                         fontWeight = FontWeight.Black,
                         fontSize = 20.sp,
-                        color = Color.White
+                        color = textPrimary
                     )
                     Text(
                         text = "${activeRally?.sede ?: "Sede"} • ${activeRally?.fecha ?: "Fecha"}",
                         fontSize = 13.sp,
-                        color = Color.White.copy(alpha = 0.7f)
+                        color = textSecondary
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
-                    HorizontalDivider(color = RallySurface)
+                    HorizontalDivider(color = cardBorder)
                     Spacer(modifier = Modifier.height(14.dp))
 
                     // Estadísticas del Rally
@@ -274,10 +287,16 @@ fun MenuPrincipalScreen(
 
 @Composable
 fun EstadisticaItem(titulo: String, valor: String) {
+    val isDark = ThemeManager.isDarkTheme
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = titulo, fontSize = 11.sp, color = OdometerLabel)
+        Text(text = titulo, fontSize = 11.sp, color = if (isDark) OdometerLabel else Color(0xFF64748B))
         Spacer(modifier = Modifier.height(2.dp))
-        Text(text = valor, fontSize = 17.sp, fontWeight = FontWeight.Black, color = Color.White)
+        Text(
+            text = valor,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Black,
+            color = if (isDark) Color.White else Color(0xFF0F172A)
+        )
     }
 }
 
@@ -290,12 +309,15 @@ fun BotonModuloMenu(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val isDark = ThemeManager.isDarkTheme
     Card(
         modifier = modifier
             .height(130.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = RallyCardBg)
+        colors = CardDefaults.cardColors(containerColor = if (isDark) RallyCardBg else Color.White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) RallySurface else Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -314,8 +336,17 @@ fun BotonModuloMenu(
             }
 
             Column {
-                Text(text = titulo, fontWeight = FontWeight.Black, fontSize = 14.sp, color = Color.White)
-                Text(text = subtitulo, fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
+                Text(
+                    text = titulo,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 14.sp,
+                    color = if (isDark) Color.White else Color(0xFF0F172A)
+                )
+                Text(
+                    text = subtitulo,
+                    fontSize = 11.sp,
+                    color = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF64748B)
+                )
             }
         }
     }

@@ -34,6 +34,16 @@ class RoadbookRepository(private val db: AppDatabase) {
     suspend fun updateVineta(vineta: VinetaEntity) = db.vinetaDao().updateVineta(vineta)
     suspend fun deleteVineta(vineta: VinetaEntity) = db.vinetaDao().deleteVineta(vineta)
 
+    suspend fun propagarDiferenciaKilometrica(tramoId: Long, desdeNumero: Int, deltaKm: Double) {
+        val posteriores = db.vinetaDao().getVinetasPosteriores(tramoId, desdeNumero)
+        if (posteriores.isNotEmpty()) {
+            val actualizadas = posteriores.map { v ->
+                v.copy(distanciaTotal = (v.distanciaTotal + deltaKm).coerceAtLeast(0.0))
+            }
+            db.vinetaDao().updateVinetas(actualizadas)
+        }
+    }
+
     // --- CALIBRACIÓN ---
     fun getCalibracionActiva(): Flow<CalibracionEntity?> = db.calibracionDao().getCalibracionActiva()
     suspend fun getFactorCalibracionActivo(): Double {

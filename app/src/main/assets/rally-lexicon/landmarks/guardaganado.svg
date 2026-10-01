@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect x="15" y="25" width="70" height="50" fill="none" stroke="#0F172A" stroke-width="4" />
+  <!-- Rejillas verticales -->
+  <line x1="27" y1="25" x2="27" y2="75" stroke="#0F172A" stroke-width="3.5" />
+  <line x1="39" y1="25" x2="39" y2="75" stroke="#0F172A" stroke-width="3.5" />
+  <line x1="50" y1="25" x2="50" y2="75" stroke="#0F172A" stroke-width="3.5" />
+  <line x1="61" y1="25" x2="61" y2="75" stroke="#0F172A" stroke-width="3.5" />
+  <line x1="73" y1="25" x2="73" y2="75" stroke="#0F172A" stroke-width="3.5" />
+</svg>

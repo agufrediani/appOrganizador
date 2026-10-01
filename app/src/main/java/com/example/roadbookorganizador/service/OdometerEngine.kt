@@ -21,7 +21,23 @@ data class OdometerState(
     val congelado: Boolean = false,
     val odometroTotalCongeladoKm: Double = 0.0,
     val odometroParcialCongeladoKm: Double = 0.0,
-    val modoSimulacion: Boolean = false
+    val modoSimulacion: Boolean = false,
+    // Telemetría GPS Externo 25Hz
+    val fuenteGps: String = "GPS Tablet",
+    val raceBoxConectado: Boolean = false,
+    val raceBoxTieneFix: Boolean = false,
+    val raceBoxBateriaPct: Int? = null,
+    val raceBoxSatelites: Int? = null,
+    val raceBoxInputVoltage: Float? = null,
+    val raceBoxGForceX: Float = 0.0f,
+    val raceBoxGForceY: Float = 0.0f,
+    val raceBoxGForceZ: Float = 0.0f,
+    val preguntarCambioATablet: Boolean = false,
+    val modoReverso: Boolean = false,
+    val velocidadMinimaFiltroKmh: Float = 2.0f,
+    val autoPcsHabilitado: Boolean = false,
+    val distanciaPrimerPcKm: Double = 0.100,
+    val distanciaIntervaloPcsKm: Double = 0.350
 )
 
 class OdometerEngine {
@@ -33,13 +49,209 @@ class OdometerEngine {
     private var distanciaTotalMetros: Double = 0.0
     private var distanciaParcialMetros: Double = 0.0
     private var factorCalibracion: Double = 1.0
+    private var ultimoTimestampRaceBoxMs: Long = 0L
+
+    private var raceBoxBleConectado: Boolean = false
+    private var algunaVezConectoExterno: Boolean = false
+    private var permitirFallbackTablet: Boolean = false
+
+    private var modoReverso: Boolean = false
+    private var velocidadMinimaFiltroKmh: Float = 2.0f
+    private var autoPcsHabilitado: Boolean = false
+    private var distanciaPrimerPcKm: Double = 0.100
+    private var distanciaIntervaloPcsKm: Double = 0.350
+    private var ultimoPcGeneradoKm: Double = 0.0
+    private var primerPcGenerado: Boolean = false
+
+    var onAutoPcTriggered: ((distanciaKm: Double, lat: Double, lon: Double, tipoPc: String) -> Unit)? = null
 
     fun setFactorCalibracion(factor: Double) {
         factorCalibracion = if (factor > 0.1) factor else 1.0
         _state.value = _state.value.copy(factorCalibracion = factorCalibracion)
     }
 
+    fun toggleModoReverso(): Boolean {
+        modoReverso = !modoReverso
+        _state.value = _state.value.copy(modoReverso = modoReverso)
+        return modoReverso
+    }
+
+    fun setVelocidadMinimaFiltro(kmh: Float) {
+        velocidadMinimaFiltroKmh = kmh.coerceAtLeast(0.0f)
+        _state.value = _state.value.copy(velocidadMinimaFiltroKmh = velocidadMinimaFiltroKmh)
+    }
+
+    fun setAutoPcsHabilitado(habilitado: Boolean, primerPcKm: Double = 0.100, intervaloKm: Double = 0.350) {
+        autoPcsHabilitado = habilitado
+        distanciaPrimerPcKm = primerPcKm
+        distanciaIntervaloPcsKm = intervaloKm
+        primerPcGenerado = false
+        ultimoPcGeneradoKm = _state.value.odometroTotalKm
+        _state.value = _state.value.copy(
+            autoPcsHabilitado = habilitado,
+            distanciaPrimerPcKm = primerPcKm,
+            distanciaIntervaloPcsKm = intervaloKm
+        )
+    }
+
+    fun toggleAutoPcs() {
+        setAutoPcsHabilitado(!autoPcsHabilitado, distanciaPrimerPcKm, distanciaIntervaloPcsKm)
+    }
+
+    fun setIntervaloAutoPcs(intervaloKm: Double) {
+        distanciaIntervaloPcsKm = intervaloKm.coerceAtLeast(0.05)
+        _state.value = _state.value.copy(distanciaIntervaloPcsKm = distanciaIntervaloPcsKm)
+    }
+
+    private fun checkAutoPcTrigger(totalKm: Double, lat: Double, lon: Double) {
+        if (!autoPcsHabilitado) return
+        if (!primerPcGenerado) {
+            if (totalKm >= distanciaPrimerPcKm) {
+                primerPcGenerado = true
+                ultimoPcGeneradoKm = totalKm
+                onAutoPcTriggered?.invoke(totalKm, lat, lon, "PASO")
+            }
+        } else {
+            val delta = totalKm - ultimoPcGeneradoKm
+            if (delta >= distanciaIntervaloPcsKm) {
+                ultimoPcGeneradoKm = totalKm
+                onAutoPcTriggered?.invoke(totalKm, lat, lon, "REGULARIDAD")
+            }
+        }
+    }
+
+    /**
+     * Notifica el estado de conexión del enlace BLE del GPS Externo.
+     * Si se conecta, el GPS Externo toma prioridad absoluta.
+     * Si se desconecta habiendo estado conectado, se solicita confirmación al usuario antes de usar la tablet.
+     */
+    fun setRaceBoxBleConectado(conectado: Boolean) {
+        if (conectado) {
+            raceBoxBleConectado = true
+            algunaVezConectoExterno = true
+            permitirFallbackTablet = false
+            _state.value = _state.value.copy(
+                raceBoxConectado = true,
+                fuenteGps = "GPS Externo (25Hz)",
+                preguntarCambioATablet = false
+            )
+        } else {
+            val estabaConectado = raceBoxBleConectado
+            raceBoxBleConectado = false
+            _state.value = _state.value.copy(
+                raceBoxConectado = false,
+                satelitesConectados = false,
+                preguntarCambioATablet = estabaConectado && !permitirFallbackTablet
+            )
+        }
+    }
+
+    fun aceptarFallbackTablet() {
+        permitirFallbackTablet = true
+        _state.value = _state.value.copy(
+            fuenteGps = "GPS Tablet",
+            preguntarCambioATablet = false
+        )
+    }
+
+    fun cancelarPreguntaCambioATablet() {
+        // El usuario prefiere esperar al GPS Externo sin pasar a la tablet
+        permitirFallbackTablet = false
+        _state.value = _state.value.copy(
+            preguntarCambioATablet = false
+        )
+    }
+
+    /**
+     * Procesa la telemetría ultra-precisa a 25 Hz proveniente del GPS Externo por BLE.
+     */
+    fun procesarTelemetriaRaceBox(telemetry: com.example.roadbookorganizador.gps.racebox.RaceBoxTelemetry) {
+        ultimoTimestampRaceBoxMs = System.currentTimeMillis()
+        raceBoxBleConectado = true
+        algunaVezConectoExterno = true
+        permitirFallbackTablet = false
+
+        val velKmh = telemetry.speedKmh
+        val accuracy = if (telemetry.horizontalAccuracyMeters > 0) telemetry.horizontalAccuracyMeters else _state.value.precisionMetros
+
+        if (!telemetry.hasValidFix) {
+            // Aún buscando satélites o fix 3D (ej. interiores):
+            _state.value = _state.value.copy(
+                fuenteGps = "GPS Externo (25Hz)",
+                raceBoxConectado = true,
+                raceBoxTieneFix = false,
+                satelitesConectados = false,
+                enMovimiento = false,
+                precisionMetros = accuracy,
+                raceBoxBateriaPct = telemetry.batteryPercent,
+                raceBoxSatelites = telemetry.satellitesCount,
+                raceBoxInputVoltage = if (telemetry.isMicroVoltage) telemetry.inputVoltageVolts else null,
+                raceBoxGForceX = telemetry.gForceX,
+                raceBoxGForceY = telemetry.gForceY,
+                raceBoxGForceZ = telemetry.gForceZ
+            )
+            return
+        }
+
+        // Tiene fix válido:
+        val location = telemetry.toAndroidLocation()
+        val prevLoc = ultimaUbicacion
+        ultimaUbicacion = location
+
+        var deltaMetros = 0.0
+
+        if (prevLoc != null) {
+            val dist = prevLoc.distanceTo(location).toDouble()
+            // Filtro de velocidad mínima (< 2 km/h con auto detenido ignora jitter)
+            if (velKmh < velocidadMinimaFiltroKmh && dist < 0.35) {
+                deltaMetros = 0.0
+            } else if (dist >= 0.04 && dist < 60.0) {
+                val dirSign = if (modoReverso) -1.0 else 1.0
+                deltaMetros = dist * factorCalibracion * dirSign
+            }
+        }
+
+        distanciaTotalMetros = (distanciaTotalMetros + deltaMetros).coerceAtLeast(0.0)
+        distanciaParcialMetros = (distanciaParcialMetros + deltaMetros).coerceAtLeast(0.0)
+
+        val totalKm = (distanciaTotalMetros / 1000.0)
+        val parcialKm = (distanciaParcialMetros / 1000.0)
+
+        checkAutoPcTrigger(totalKm, location.latitude, location.longitude)
+
+        _state.value = _state.value.copy(
+            odometroTotalKm = totalKm,
+            odometroParcialKm = parcialKm,
+            velocidadKmh = velKmh,
+            rumbo = telemetry.headingDegrees,
+            latitud = telemetry.latitude,
+            longitud = telemetry.longitude,
+            altitud = telemetry.mslAltitudeMeters,
+            precisionMetros = accuracy,
+            satelitesConectados = true,
+            enMovimiento = velKmh > 0.8f || Math.abs(deltaMetros) > 0.08,
+            fuenteGps = "GPS Externo (25Hz)",
+            raceBoxConectado = true,
+            raceBoxTieneFix = true,
+            raceBoxBateriaPct = telemetry.batteryPercent,
+            raceBoxSatelites = telemetry.satellitesCount,
+            raceBoxInputVoltage = if (telemetry.isMicroVoltage) telemetry.inputVoltageVolts else null,
+            raceBoxGForceX = telemetry.gForceX,
+            raceBoxGForceY = telemetry.gForceY,
+            raceBoxGForceZ = telemetry.gForceZ
+        )
+    }
+
+    /**
+     * Procesa ubicación del GPS de la Tablet.
+     * Si el GPS Externo está conectado o el usuario no autorizó el cambio, se ignora la tablet.
+     */
     fun procesarNuevaUbicacion(location: Location) {
+        if (raceBoxBleConectado || (algunaVezConectoExterno && !permitirFallbackTablet)) {
+            // El GPS Externo tiene prioridad absoluta. La tablet se mantiene en silencio.
+            return
+        }
+
         val prevLoc = ultimaUbicacion
         ultimaUbicacion = location
 
@@ -50,24 +262,28 @@ class OdometerEngine {
             val dist = prevLoc.distanceTo(location).toDouble()
             val tiempoSegundos = if (location.time > prevLoc.time) (location.time - prevLoc.time) / 1000.0 else 1.0
 
-            // Si el chip GPS no entrega velocidad calculada, calcularla por desplazamiento
             if (!location.hasSpeed() && tiempoSegundos > 0) {
                 velKmh = ((dist / tiempoSegundos) * 3.6).toFloat()
             }
 
-            // Aceptar desplazamiento si es mayor a 0.5 metros (sensible para pruebas reales)
-            if (dist >= 0.5 && dist < 500.0) { // Menor a 500m para evitar saltos locos de triangulación
-                deltaMetros = dist * factorCalibracion
+            // Filtro de velocidad mínima en tablet (< 2 km/h ignora jitter)
+            if (velKmh < velocidadMinimaFiltroKmh && dist < 1.2) {
+                deltaMetros = 0.0
+            } else if (dist >= 0.5 && dist < 500.0) {
+                val dirSign = if (modoReverso) -1.0 else 1.0
+                deltaMetros = dist * factorCalibracion * dirSign
             }
         }
 
-        distanciaTotalMetros += deltaMetros
-        distanciaParcialMetros += deltaMetros
+        distanciaTotalMetros = (distanciaTotalMetros + deltaMetros).coerceAtLeast(0.0)
+        distanciaParcialMetros = (distanciaParcialMetros + deltaMetros).coerceAtLeast(0.0)
 
         val rumbo = if (location.hasBearing()) location.bearing else _state.value.rumbo
 
         val totalKm = (distanciaTotalMetros / 1000.0)
         val parcialKm = (distanciaParcialMetros / 1000.0)
+
+        checkAutoPcTrigger(totalKm, location.latitude, location.longitude)
 
         _state.value = _state.value.copy(
             odometroTotalKm = totalKm,
@@ -79,7 +295,9 @@ class OdometerEngine {
             altitud = location.altitude,
             precisionMetros = if (location.hasAccuracy()) location.accuracy else 5.0f,
             satelitesConectados = true,
-            enMovimiento = velKmh > 1.0f || deltaMetros > 0.5
+            enMovimiento = velKmh > 1.0f || Math.abs(deltaMetros) > 0.5,
+            fuenteGps = "GPS Tablet",
+            raceBoxConectado = false
         )
     }
 

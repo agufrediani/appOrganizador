@@ -24,6 +24,12 @@ interface VinetaDao {
     @Update
     suspend fun updateVineta(vineta: VinetaEntity)
 
+    @Update
+    suspend fun updateVinetas(vinetas: List<VinetaEntity>)
+
+    @Query("SELECT * FROM vinetas WHERE tramoId = :tramoId AND numero > :numero ORDER BY numero ASC")
+    suspend fun getVinetasPosteriores(tramoId: Long, numero: Int): List<VinetaEntity>
+
     @Delete
     suspend fun deleteVineta(vineta: VinetaEntity)
 

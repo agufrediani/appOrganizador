@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Postes laterales -->
+  <rect x="12" y="24" width="8" height="56" fill="#0F172A" rx="2" />
+  <rect x="80" y="24" width="8" height="56" fill="#0F172A" rx="2" />
+  <!-- Tablones horizontales -->
+  <line x1="20" y1="30" x2="80" y2="30" stroke="#0F172A" stroke-width="4" />
+  <line x1="20" y1="44" x2="80" y2="44" stroke="#0F172A" stroke-width="4" />
+  <line x1="20" y1="58" x2="80" y2="58" stroke="#0F172A" stroke-width="4" />
+  <line x1="20" y1="72" x2="80" y2="72" stroke="#0F172A" stroke-width="4" />
+  <!-- Diagonales en cruz -->
+  <line x1="20" y1="30" x2="80" y2="72" stroke="#0F172A" stroke-width="3" />
+  <line x1="20" y1="72" x2="80" y2="30" stroke="#0F172A" stroke-width="3" />
+</svg>

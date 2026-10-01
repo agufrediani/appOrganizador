@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Catálogo Oficial de Simbología de Rally - Frediani Roadbook</title>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #F8FAFC; color: #0F172A; margin: 0; padding: 24px; }
+        header { margin-bottom: 24px; }
+        h1 { margin: 0 0 8px 0; font-size: 26px; }
+        p { margin: 0; color: #64748B; }
+        .search-bar { margin: 20px 0; display: flex; gap: 12px; }
+        input[type="text"] { flex: 1; padding: 12px 16px; border: 1.5px solid #CBD5E1; border-radius: 8px; font-size: 15px; outline: none; }
+        input[type="text"]:focus { border-color: #0284C7; }
+        .filter-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+        .btn-filter { padding: 8px 16px; border: 1px solid #CBD5E1; background: #FFF; border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; }
+        .btn-filter.active { background: #0284C7; color: #FFF; border-color: #0284C7; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+        .card { background: #FFF; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.15s, box-shadow 0.15s; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-color: #0284C7; }
+        .icon-box { width: 80px; height: 80px; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: center; }
+        .icon-box img { max-width: 100%; max-height: 100%; }
+        .sym-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+        .sym-id code { background: #F1F5F9; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #0284C7; }
+        .sym-cat { margin-top: 8px; font-size: 10px; font-weight: 900; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 10px; display: inline-block; }
+        .badge-controles { background: #E0F2FE; color: #0369A1; }
+        .badge-peligros { background: #FEE2E2; color: #B91C1C; }
+        .badge-landmarks { background: #F1F5F9; color: #334155; }
+        .badge-terreno { background: #FEF3C7; color: #92400E; }
+        .badge-tulipas { background: #DCFCE7; color: #15803D; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🏁 Catálogo Oficial de Simbología de Rally (FIA / FIM / OpenRally)</h1>
+        <p>Ecosistema Frediani Roadbook Digital — Base vectorial unificada para Android y Plataforma Web</p>
+    </header>
+
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Buscar por nombre, código o palabra clave (ej: tranquera, dz, peligro, vado)..." onkeyup="filterSymbols()">
+    </div>
+
+    <div class="filter-buttons">
+        <button class="btn-filter active" onclick="setCategory('all')">TODOS (40)</button>
+        <button class="btn-filter" onclick="setCategory('controles')">⏰ CONTROLES</button>
+        <button class="btn-filter" onclick="setCategory('peligros')">⚠️ PELIGROS</button>
+        <button class="btn-filter" onclick="setCategory('landmarks')">🚪 REFERENCIAS</button>
+        <button class="btn-filter" onclick="setCategory('terreno')">🏜️ TERRENO</button>
+        <button class="btn-filter" onclick="setCategory('tulipas')">🧭 TULIPAS</button>
+    </div>
+
+    <div class="grid" id="symbolsGrid">
+        
+        <div class="card" data-category="controles" data-tags="reloj tiempo tc control horario tc_clock control horario (tc)">
+            <div class="icon-box">
+                <img src="controles/tc_clock.svg" alt="Control Horario (TC)" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Control Horario (TC)</div>
+                <div class="sym-id"><code>tc_clock</code></div>
+                <div class="sym-cat badge-controles">CONTROLES</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="controles" data-tags="largada start bandera cuadros partida start_flag largada / start">
+            <div class="icon-box">
+                <img src="controles/start_flag.svg" alt="Largada / Start" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Largada / Start</div>
+                <div class="sym-id"><code>start_flag</code></div>
+                <div class="sym-cat badge-controles">CONTROLES</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="controles" data-tags="llegada finish fin bandera meta finish_flag llegada / finish">
+            <div class="icon-box">
+                <img src="controles/finish_flag.svg" alt="Llegada / Finish" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Llegada / Finish</div>
+                <div class="sym-id"><code>finish_flag</code></div>
+                <div class="sym-cat badge-controles">CONTROLES</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="controles" data-tags="stop alto pare detencion stop_sign stop oficial">
+            <div class="icon-box">
+                <img src="controles/stop_sign.svg" alt="STOP Oficial" />
+            </div>
+            <div class="info">
+                <div class="sym-name">STOP Oficial</div>
+                <div class="sym-id"><code>stop_sign</code></div>
+                <div class="sym-cat badge-controles">CONTROLES</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="controles" data-tags="reset cero 0000 odometro calibrar reset_0000 reset odómetro (0000)">
+            <div class="icon-box">
+                <img src="controles/reset_0000.svg" alt="Reset Odómetro (0000)" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Reset Odómetro (0000)</div>
+                <div class="sym-id"><code>reset_0000</code></div>
+                <div class="sym-cat badge-controles">CONTROLES</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="controles" data-tags="dz radar velocidad inicio zona maxima speed_dz zona control de velocidad (dz)">
+            <div class="icon-box">
+                <img src="controles/speed_dz.svg" alt="Zona Control de Velocidad (DZ)" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Zona Control de Velocidad (DZ)</div>
+                <div class="sym-id"><code>speed_dz</code></div>
+                <div class="sym-cat badge-controles">CONTROLES</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="controles" data-tags="fz fin velocidad radar liberacion speed_fz fin zona de velocidad (fz)">
+            <div class="icon-box">
+                <img src="controles/speed_fz.svg" alt="Fin Zona de Velocidad (FZ)" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Fin Zona de Velocidad (FZ)</div>
+                <div class="sym-id"><code>speed_fz</code></div>
+                <div class="sym-cat badge-controles">CONTROLES</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="controles" data-tags="combustible nafta gasolina surtidor fuel fuel_surtidor reabastecimiento de combustible">
+            <div class="icon-box">
+                <img src="controles/fuel_surtidor.svg" alt="Reabastecimiento de Combustible" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Reabastecimiento de Combustible</div>
+                <div class="sym-id"><code>fuel_surtidor</code></div>
+                <div class="sym-cat badge-controles">CONTROLES</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="controles" data-tags="taller mecanica asistencia llave service assistance_wrench asistencia / taller mecánico">
+            <div class="icon-box">
+                <img src="controles/assistance_wrench.svg" alt="Asistencia / Taller Mecánico" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Asistencia / Taller Mecánico</div>
+                <div class="sym-id"><code>assistance_wrench</code></div>
+                <div class="sym-cat badge-controles">CONTROLES</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="controles" data-tags="medico cruz roja ambulancia primeros auxilios medical_cross punto de asistencia médica">
+            <div class="icon-box">
+                <img src="controles/medical_cross.svg" alt="Punto de Asistencia Médica" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Punto de Asistencia Médica</div>
+                <div class="sym-id"><code>medical_cross</code></div>
+                <div class="sym-cat badge-controles">CONTROLES</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="controles" data-tags="wpv waypoint visible gps punto wp_visible waypoint visible (wpv)">
+            <div class="icon-box">
+                <img src="controles/wp_visible.svg" alt="Waypoint Visible (WPV)" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Waypoint Visible (WPV)</div>
+                <div class="sym-id"><code>wp_visible</code></div>
+                <div class="sym-cat badge-controles">CONTROLES</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="peligros" data-tags="peligro 1 signo atencion cuidado danger_1 peligro 1 (!)">
+            <div class="icon-box">
+                <img src="peligros/danger_1.svg" alt="Peligro 1 (!)" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Peligro 1 (!)</div>
+                <div class="sym-id"><code>danger_1</code></div>
+                <div class="sym-cat badge-peligros">PELIGROS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="peligros" data-tags="peligro 2 doble peligro frenar grave danger_2 peligro 2 (!!)">
+            <div class="icon-box">
+                <img src="peligros/danger_2.svg" alt="Peligro 2 (!!)" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Peligro 2 (!!)</div>
+                <div class="sym-id"><code>danger_2</code></div>
+                <div class="sym-cat badge-peligros">PELIGROS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="peligros" data-tags="peligro 3 maximo peligro alto riesgo parar danger_3 peligro 3 (!!!)">
+            <div class="icon-box">
+                <img src="peligros/danger_3.svg" alt="Peligro 3 (!!!)" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Peligro 3 (!!!)</div>
+                <div class="sym-id"><code>danger_3</code></div>
+                <div class="sym-cat badge-peligros">PELIGROS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="peligros" data-tags="precaucion alerta triangulo warning_triangle triángulo de precaución">
+            <div class="icon-box">
+                <img src="peligros/warning_triangle.svg" alt="Triángulo de Precaución" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Triángulo de Precaución</div>
+                <div class="sym-id"><code>warning_triangle</code></div>
+                <div class="sym-cat badge-peligros">PELIGROS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="landmarks" data-tags="tranquera porton alambrado campo gate tranquera tranquera / portón rural">
+            <div class="icon-box">
+                <img src="landmarks/tranquera.svg" alt="Tranquera / Portón Rural" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Tranquera / Portón Rural</div>
+                <div class="sym-id"><code>tranquera</code></div>
+                <div class="sym-cat badge-landmarks">LANDMARKS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="landmarks" data-tags="guardaganado rejilla alambrado grid guardaganado guardaganado / rejilla">
+            <div class="icon-box">
+                <img src="landmarks/guardaganado.svg" alt="Guardaganado / Rejilla" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Guardaganado / Rejilla</div>
+                <div class="sym-id"><code>guardaganado</code></div>
+                <div class="sym-cat badge-landmarks">LANDMARKS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="landmarks" data-tags="puente cruce arroyo alcantarilla bridge puente puente sobre río / arroyo">
+            <div class="icon-box">
+                <img src="landmarks/puente.svg" alt="Puente sobre Río / Arroyo" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Puente sobre Río / Arroyo</div>
+                <div class="sym-id"><code>puente</code></div>
+                <div class="sym-cat badge-landmarks">LANDMARKS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="landmarks" data-tags="alcantarilla tubo desague boca alcantarilla alcantarilla / tubo de desagüe">
+            <div class="icon-box">
+                <img src="landmarks/alcantarilla.svg" alt="Alcantarilla / Tubo de Desagüe" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Alcantarilla / Tubo de Desagüe</div>
+                <div class="sym-id"><code>alcantarilla</code></div>
+                <div class="sym-cat badge-landmarks">LANDMARKS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="landmarks" data-tags="vias tren ferrocarril rieles vias_tren cruce vías férreas">
+            <div class="icon-box">
+                <img src="landmarks/vias_tren.svg" alt="Cruce Vías Férreas" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Cruce Vías Férreas</div>
+                <div class="sym-id"><code>vias_tren</code></div>
+                <div class="sym-cat badge-landmarks">LANDMARKS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="landmarks" data-tags="antena torre comunicaciones radio antena antena / torre de transmisión">
+            <div class="icon-box">
+                <img src="landmarks/antena.svg" alt="Antena / Torre de Transmisión" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Antena / Torre de Transmisión</div>
+                <div class="sym-id"><code>antena</code></div>
+                <div class="sym-cat badge-landmarks">LANDMARKS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="landmarks" data-tags="molino tanque campo viento molino molino de viento rural">
+            <div class="icon-box">
+                <img src="landmarks/molino.svg" alt="Molino de Viento Rural" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Molino de Viento Rural</div>
+                <div class="sym-id"><code>molino</code></div>
+                <div class="sym-cat badge-landmarks">LANDMARKS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="landmarks" data-tags="casa poblado aldea edificacion casa_poblado poblado / caserío">
+            <div class="icon-box">
+                <img src="landmarks/casa_poblado.svg" alt="Poblado / Caserío" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Poblado / Caserío</div>
+                <div class="sym-id"><code>casa_poblado</code></div>
+                <div class="sym-cat badge-landmarks">LANDMARKS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="landmarks" data-tags="iglesia capilla cruz templo iglesia capilla / iglesia">
+            <div class="icon-box">
+                <img src="landmarks/iglesia.svg" alt="Capilla / Iglesia" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Capilla / Iglesia</div>
+                <div class="sym-id"><code>iglesia</code></div>
+                <div class="sym-cat badge-landmarks">LANDMARKS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="terreno" data-tags="vado rio agua arroyo cruce de agua vado_rio vado con agua / río">
+            <div class="icon-box">
+                <img src="terreno/vado_rio.svg" alt="Vado con Agua / Río" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Vado con Agua / Río</div>
+                <div class="sym-id"><code>vado_rio</code></div>
+                <div class="sym-cat badge-terreno">TERRENO</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="terreno" data-tags="salto lomo cresta ondulacion jump salto_lomo salto / lomo / cresta">
+            <div class="icon-box">
+                <img src="terreno/salto_lomo.svg" alt="Salto / Lomo / Cresta" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Salto / Lomo / Cresta</div>
+                <div class="sym-id"><code>salto_lomo</code></div>
+                <div class="sym-cat badge-terreno">TERRENO</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="terreno" data-tags="zanja corte grieta canal foso zanja zanja / corte transversal">
+            <div class="icon-box">
+                <img src="terreno/zanja.svg" alt="Zanja / Corte Transversal" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Zanja / Corte Transversal</div>
+                <div class="sym-id"><code>zanja</code></div>
+                <div class="sym-cat badge-terreno">TERRENO</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="terreno" data-tags="dunas arena erg dakar desierto dunas dunas / zona de arena">
+            <div class="icon-box">
+                <img src="terreno/dunas.svg" alt="Dunas / Zona de Arena" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Dunas / Zona de Arena</div>
+                <div class="sym-id"><code>dunas</code></div>
+                <div class="sym-cat badge-terreno">TERRENO</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="terreno" data-tags="piedras rocas pedregal ripio grueso piedras piedras / terreno rocoso">
+            <div class="icon-box">
+                <img src="terreno/piedras.svg" alt="Piedras / Terreno Rocoso" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Piedras / Terreno Rocoso</div>
+                <div class="sym-id"><code>piedras</code></div>
+                <div class="sym-cat badge-terreno">TERRENO</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="terreno" data-tags="barro huellas roderas pantano barro_huellas barro / huellas profundas">
+            <div class="icon-box">
+                <img src="terreno/barro_huellas.svg" alt="Barro / Huellas Profundas" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Barro / Huellas Profundas</div>
+                <div class="sym-id"><code>barro_huellas</code></div>
+                <div class="sym-cat badge-terreno">TERRENO</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="tulipas" data-tags="recta seguir derecho straight recta recto / continuar por principal">
+            <div class="icon-box">
+                <img src="tulipas/recta.svg" alt="Recto / Continuar por Principal" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Recto / Continuar por Principal</div>
+                <div class="sym-id"><code>recta</code></div>
+                <div class="sym-cat badge-tulipas">TULIPAS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="tulipas" data-tags="curva derecha suave curva_der curva a la derecha">
+            <div class="icon-box">
+                <img src="tulipas/curva_der.svg" alt="Curva a la Derecha" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Curva a la Derecha</div>
+                <div class="sym-id"><code>curva_der</code></div>
+                <div class="sym-cat badge-tulipas">TULIPAS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="tulipas" data-tags="curva izquierda suave curva_izq curva a la izquierda">
+            <div class="icon-box">
+                <img src="tulipas/curva_izq.svg" alt="Curva a la Izquierda" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Curva a la Izquierda</div>
+                <div class="sym-id"><code>curva_izq</code></div>
+                <div class="sym-cat badge-tulipas">TULIPAS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="tulipas" data-tags="derecha 90 grados escuadra cruce der_90 giro derecha 90°">
+            <div class="icon-box">
+                <img src="tulipas/der_90.svg" alt="Giro Derecha 90°" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Giro Derecha 90°</div>
+                <div class="sym-id"><code>der_90</code></div>
+                <div class="sym-cat badge-tulipas">TULIPAS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="tulipas" data-tags="izquierda 90 grados escuadra cruce izq_90 giro izquierda 90°">
+            <div class="icon-box">
+                <img src="tulipas/izq_90.svg" alt="Giro Izquierda 90°" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Giro Izquierda 90°</div>
+                <div class="sym-id"><code>izq_90</code></div>
+                <div class="sym-cat badge-tulipas">TULIPAS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="tulipas" data-tags="horquilla retome u-turn cerrada horquilla_der horquilla / retome a derecha">
+            <div class="icon-box">
+                <img src="tulipas/horquilla_der.svg" alt="Horquilla / Retome a Derecha" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Horquilla / Retome a Derecha</div>
+                <div class="sym-id"><code>horquilla_der</code></div>
+                <div class="sym-cat badge-tulipas">TULIPAS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="tulipas" data-tags="horquilla retome u-turn cerrada horquilla_izq horquilla / retome a izquierda">
+            <div class="icon-box">
+                <img src="tulipas/horquilla_izq.svg" alt="Horquilla / Retome a Izquierda" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Horquilla / Retome a Izquierda</div>
+                <div class="sym-id"><code>horquilla_izq</code></div>
+                <div class="sym-cat badge-tulipas">TULIPAS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="tulipas" data-tags="cruce cuatro esquinas interseccion cruce_x cruce en cruz (+) - recto">
+            <div class="icon-box">
+                <img src="tulipas/cruce_x.svg" alt="Cruce en Cruz (+) - Recto" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Cruce en Cruz (+) - Recto</div>
+                <div class="sym-id"><code>cruce_x</code></div>
+                <div class="sym-cat badge-tulipas">TULIPAS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="tulipas" data-tags="bifurcacion y horqueta desvio bifurcacion_y bifurcación en y (tomar derecha)">
+            <div class="icon-box">
+                <img src="tulipas/bifurcacion_y.svg" alt="Bifurcación en Y (Tomar Derecha)" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Bifurcación en Y (Tomar Derecha)</div>
+                <div class="sym-id"><code>bifurcacion_y</code></div>
+                <div class="sym-cat badge-tulipas">TULIPAS</div>
+            </div>
+        </div>
+        
+        <div class="card" data-category="tulipas" data-tags="rotonda glorieta circulo rotonda rotonda / glorieta">
+            <div class="icon-box">
+                <img src="tulipas/rotonda.svg" alt="Rotonda / Glorieta" />
+            </div>
+            <div class="info">
+                <div class="sym-name">Rotonda / Glorieta</div>
+                <div class="sym-id"><code>rotonda</code></div>
+                <div class="sym-cat badge-tulipas">TULIPAS</div>
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+        let currentCat = 'all';
+
+        function setCategory(cat) {
+            currentCat = cat;
+            document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            filterSymbols();
+        }
+
+        function filterSymbols() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.card');
+
+            cards.forEach(card => {
+                const cat = card.getAttribute('data-category');
+                const tags = card.getAttribute('data-tags');
+                const matchesCat = (currentCat === 'all' || cat === currentCat);
+                const matchesQuery = (query === '' || tags.includes(query));
+
+                if (matchesCat && matchesQuery) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -46,12 +46,33 @@ class MenuPrincipalViewModel(application: Application) : AndroidViewModel(applic
     val syncMessage: SharedFlow<String> = _syncMessage.asSharedFlow()
 
     init {
-        // Asegurar que si hay rallies pero ninguno está marcado activo, activar el primero
         viewModelScope.launch {
-            rallies.collect { list ->
-                if (list.isNotEmpty() && activeRally.value == null) {
-                    repository.setRallyActivo(list.first().id)
+            // Migrar cualquier registro existente en la base de datos que contenga "Rally Master"
+            val allRallies = repository.getAllRallies().first()
+            allRallies.forEach { r ->
+                if (r.nombre.contains("Rally Master", ignoreCase = true)) {
+                    val nuevoNombre = r.nombre
+                        .replace("Rally Master Frediani 2026", "Rally Frediani 2026")
+                        .replace("Rally Master", "Rally", ignoreCase = true)
+                        .trim()
+                    repository.updateRally(r.copy(nombre = nuevoNombre))
                 }
+            }
+
+            val list = repository.getAllRallies().first()
+            if (list.isEmpty()) {
+                val newRallyId = repository.insertRally(
+                    RallyEntity(
+                        nombre = "Rally Frediani 2026",
+                        sede = "Villa Carlos Paz, Córdoba",
+                        fecha = "18-20 Septiembre 2026",
+                        campeonato = "Campeonato Argentino de Rally",
+                        esActivo = true
+                    )
+                )
+                repository.setRallyActivo(newRallyId)
+            } else if (repository.getActiveRally().first() == null) {
+                repository.setRallyActivo(list.first().id)
             }
         }
     }

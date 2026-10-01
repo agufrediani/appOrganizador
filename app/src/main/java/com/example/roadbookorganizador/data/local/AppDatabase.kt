@@ -16,7 +16,7 @@ import com.example.roadbookorganizador.data.local.entity.*
         TrackPointEntity::class,
         PuntoInteresEntity::class
     ],
-    version = 3,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

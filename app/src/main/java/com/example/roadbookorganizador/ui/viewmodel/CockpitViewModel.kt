@@ -8,6 +8,7 @@ import android.location.LocationManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.roadbookorganizador.data.local.AppDatabase
+import com.example.roadbookorganizador.data.local.entity.PuntoInteresEntity
 import com.example.roadbookorganizador.data.local.entity.TrackPointEntity
 import com.example.roadbookorganizador.data.local.entity.TramoEntity
 import com.example.roadbookorganizador.data.local.entity.VinetaEntity
@@ -33,10 +34,27 @@ data class DialogoMarcadoState(
     val longitud: Double = 0.0,
     val altitud: Double = 0.0,
     val rumbo: Float = 0.0f,
-    val tulipaSeleccionada: String = "RECTA",
+    val tulipaSeleccionada: String = "BLANCO",
     val nota: String = "",
     val peligro: String = ""
 )
+
+data class DialogoPuntoManualState(
+    val visible: Boolean = false,
+    val numero: Int = 1,
+    val latitud: Double = 0.0,
+    val longitud: Double = 0.0,
+    val distanciaTotal: Double = 0.0,
+    val distanciaParcial: Double = 0.0,
+    val tipoPunto: String = "INICIO",
+    val nombrePunto: String = "",
+    val nota: String = "",
+    val dibujoTipo: String = "RECTA",
+    val peligro: String = "",
+    val nombreCamino: String = "",
+    val esOffRoad: Boolean = false
+)
+
 
 class CockpitViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -56,6 +74,9 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
     private val _dialogoMarcado = MutableStateFlow(DialogoMarcadoState())
     val dialogoMarcado: StateFlow<DialogoMarcadoState> = _dialogoMarcado.asStateFlow()
 
+    private val _dialogoPuntoManual = MutableStateFlow(DialogoPuntoManualState())
+    val dialogoPuntoManual: StateFlow<DialogoPuntoManualState> = _dialogoPuntoManual.asStateFlow()
+
     private val _exportResult = MutableSharedFlow<String>()
     val exportResult: SharedFlow<String> = _exportResult.asSharedFlow()
 
@@ -65,6 +86,40 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val factor = repository.getFactorCalibracionActivo()
             odometerEngine.setFactorCalibracion(factor)
+        }
+        viewModelScope.launch {
+            val bleManager = com.example.roadbookorganizador.gps.racebox.RaceBoxBleManager.getInstance(application)
+            bleManager.connectionStatus.collect { status ->
+                val conectado = (status == com.example.roadbookorganizador.gps.racebox.RaceBoxConnectionStatus.CONNECTED)
+                odometerEngine.setRaceBoxBleConectado(conectado)
+            }
+        }
+        odometerEngine.onAutoPcTriggered = { kmTotal, lat, lon, tipoPc ->
+            val tId = _tramoActivo.value?.id
+            if (tId != null) {
+                viewModelScope.launch {
+                    val s = odometerEngine.state.value
+                    val numProxima = vinetas.value.size + 1
+                    val entidad = VinetaEntity(
+                        tramoId = tId,
+                        numero = numProxima,
+                        distanciaTotal = kmTotal,
+                        distanciaParcial = s.odometroParcialKm,
+                        latitud = lat,
+                        longitud = lon,
+                        altitud = s.altitud,
+                        rumbo = s.rumbo,
+                        velocidadKmh = s.velocidadKmh,
+                        tulipTipo = "CONTROL_HORARIO",
+                        informacion = "WP Auto ($tipoPc)",
+                        peligro = "",
+                        esPuntoControl = true,
+                        tipoPuntoControl = tipoPc
+                    )
+                    repository.insertVineta(entidad)
+                    odometerEngine.resetParcial()
+                }
+            }
         }
         iniciarEscuchaGps(application)
     }
@@ -158,7 +213,7 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
             longitud = s.longitud,
             altitud = s.altitud,
             rumbo = s.rumbo,
-            tulipaSeleccionada = "RECTA",
+            tulipaSeleccionada = "BLANCO",
             nota = "",
             peligro = ""
         )
@@ -217,8 +272,63 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
         odometerEngine.resetParcial()
     }
 
+    fun resetTotalManual(nuevoKm: Double = 0.0) {
+        odometerEngine.resetTotalYParcial(nuevoKm)
+    }
+
     fun ajustarMetros(delta: Double) {
         odometerEngine.ajustarMetros(delta)
+    }
+
+    fun toggleModoReverso() {
+        odometerEngine.toggleModoReverso()
+    }
+
+    fun toggleAutoPcs() {
+        odometerEngine.toggleAutoPcs()
+    }
+
+    fun setAutoPcsIntervalo(metros: Int) {
+        odometerEngine.setIntervaloAutoPcs((metros / 1000.0).coerceAtLeast(0.05))
+    }
+
+    fun insertarPuntoControlManual(tipo: String = "REGULARIDAD") {
+        val tId = _tramoActivo.value?.id ?: return
+        val s = odometerEngine.state.value
+        val numProxima = vinetas.value.size + 1
+        viewModelScope.launch {
+            val entidad = VinetaEntity(
+                tramoId = tId,
+                numero = numProxima,
+                distanciaTotal = s.odometroTotalKm,
+                distanciaParcial = s.odometroParcialKm,
+                latitud = s.latitud,
+                longitud = s.longitud,
+                altitud = s.altitud,
+                rumbo = s.rumbo,
+                velocidadKmh = s.velocidadKmh,
+                tulipTipo = "CONTROL_HORARIO",
+                informacion = "WP $tipo",
+                peligro = "",
+                esPuntoControl = true,
+                tipoPuntoControl = tipo
+            )
+            repository.insertVineta(entidad)
+            odometerEngine.resetParcial()
+            repository.updateDistanciaYEstado(tId, s.odometroTotalKm, "EN_TRAZADO")
+        }
+    }
+
+    fun propagarDiferenciaKilometrica(desdeNumero: Int, deltaKm: Double) {
+        val tId = _tramoActivo.value?.id ?: return
+        viewModelScope.launch {
+            repository.propagarDiferenciaKilometrica(tId, desdeNumero, deltaKm)
+            val ult = repository.getUltimaVineta(tId)
+            if (ult != null) {
+                odometerEngine.resetTotalYParcial(ult.distanciaTotal)
+                repository.updateDistanciaYEstado(tId, ult.distanciaTotal, "EN_TRAZADO")
+            }
+        }
     }
 
     fun finalizarTramo() {
@@ -256,9 +366,31 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
         return file
     }
 
+    fun exportarKml(): File? {
+        val tramo = _tramoActivo.value ?: return null
+        val context = getApplication<Application>()
+        val vList = vinetas.value
+        val ptList = runCatching {
+            emptyList<TrackPointEntity>()
+        }.getOrDefault(emptyList())
+
+        val file = GpxKmzExporter.exportarKml(context, tramo, vList, ptList)
+        viewModelScope.launch {
+            _exportResult.emit("Google Earth KML exportado en: ${file.name}")
+        }
+        return file
+    }
+
     fun eliminarVineta(vineta: VinetaEntity) {
         viewModelScope.launch {
             repository.deleteVineta(vineta)
+        }
+    }
+
+    fun eliminarVinetasPorIds(ids: Set<Long>) {
+        viewModelScope.launch {
+            val toDelete = vinetas.value.filter { it.id in ids }
+            toDelete.forEach { repository.deleteVineta(it) }
         }
     }
 
@@ -267,4 +399,166 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
             repository.updateVineta(vineta)
         }
     }
+
+    fun actualizarTramo(tramo: TramoEntity) {
+        viewModelScope.launch {
+            repository.updateTramo(tramo)
+            _tramoActivo.value = tramo
+        }
+    }
+
+    // =========================================================================
+    // TRACKEO MANUAL: CREACIÓN DE PUNTOS DE PASO POR CLIC EN MAPA
+    // =========================================================================
+
+    fun iniciarCreacionPuntoManual(lat: Double, lng: Double, roadName: String = "", esOffRoad: Boolean = false) {
+        val lista = vinetas.value
+        val numProximo = lista.size + 1
+        val esPrimero = lista.isEmpty()
+
+        // REGLA SOLICITADA POR EL USUARIO:
+        // Si es el 1ro -> preseleccionado INICIO
+        // Luego (2do, 3ro, etc.) -> preseleccionado WAYPOINT
+        val tipoDefecto = if (esPrimero) "INICIO" else "WAYPOINT"
+        val dibujoDefecto = if (esPrimero) "LARGADA" else "RECTA"
+
+        val (totKm, parKm) = if (esPrimero) {
+            Pair(0.0, 0.0)
+        } else {
+            val ult = lista.last()
+            val deltaMetros = calcularDistanciaMetros(ult.latitud, ult.longitud, lat, lng)
+            val deltaKm = deltaMetros / 1000.0
+            val tot = ult.distanciaTotal + deltaKm
+            Pair(tot, deltaKm)
+        }
+
+        _dialogoPuntoManual.value = DialogoPuntoManualState(
+            visible = true,
+            numero = numProximo,
+            latitud = lat,
+            longitud = lng,
+            distanciaTotal = totKm,
+            distanciaParcial = parKm,
+            tipoPunto = tipoDefecto,
+            dibujoTipo = dibujoDefecto,
+            nombreCamino = roadName,
+            nota = when (tipoDefecto) {
+                "INICIO" -> "Largada Oficial PE"
+                else -> if (roadName.isNotBlank()) roadName else ""
+            },
+            esOffRoad = esOffRoad
+        )
+    }
+
+    fun actualizarTipoPuntoManual(tipo: String) {
+        val current = _dialogoPuntoManual.value
+        val dibujo = when (tipo) {
+            "INICIO" -> "LARGADA"
+            "FINAL" -> "LLEGADA"
+            "WAYPOINT" -> "RECTA"
+            "AMBULANCIA" -> "CRUZ_ROJA"
+            "HIDRATACIÓN" -> "RECTA"
+            "BOMBEROS" -> "PRECAUCION"
+            "CONTROL HORARIO (CH)" -> "CONTROL_HORARIO"
+            "RESCATE 4X4" -> "PRECAUCION"
+            "HELIPUERTO" -> "PRECAUCION"
+            "PELIGRO (!)" -> "PRECAUCION"
+            "ZONA DE ESPECTADORES" -> "PRECAUCION"
+            "PARQUE DE ASISTENCIA" -> "PRECAUCION"
+            else -> "RECTA"
+        }
+        val peligro = if (tipo == "PELIGRO (!)") "!" else ""
+        val notaSugerida = when (tipo) {
+            "INICIO" -> "Largada Oficial PE"
+            "FINAL" -> "Llegada / Stop PE"
+            "AMBULANCIA" -> "Puesto Médico / Ambulancia"
+            "HIDRATACIÓN" -> "Puesto de Hidratación"
+            "BOMBEROS" -> "Dotación Bomberos y Rescate"
+            "CONTROL HORARIO (CH)" -> "CH - Control Horario"
+            "RESCATE 4X4" -> "Unidad de Rescate 4x4"
+            "HELIPUERTO" -> "Punto Evacuación / Helipuerto"
+            "PELIGRO (!)" -> "Precaución / Peligro 1"
+            "ZONA DE ESPECTADORES" -> "Zona Espectadores"
+            "PARQUE DE ASISTENCIA" -> "Parque de Asistencia"
+            else -> if (current.nombreCamino.isNotBlank()) current.nombreCamino else ""
+        }
+
+        _dialogoPuntoManual.value = current.copy(
+            tipoPunto = tipo,
+            dibujoTipo = dibujo,
+            peligro = peligro,
+            nota = if (current.nota.isBlank() || current.nota.startsWith("Largada") || current.nota.startsWith("Llegada") || current.nota.startsWith("Puesto") || current.nota.startsWith("CH") || current.nota.startsWith("Dotación") || current.nota.startsWith("Zona") || current.nota.startsWith("Parque") || current.nota.startsWith("Unidad") || current.nota.startsWith("Precaución")) notaSugerida else current.nota
+        )
+    }
+
+    fun actualizarNotaPuntoManual(nota: String) {
+        _dialogoPuntoManual.value = _dialogoPuntoManual.value.copy(nota = nota)
+    }
+
+    fun cancelarPuntoManual() {
+        _dialogoPuntoManual.value = DialogoPuntoManualState(visible = false)
+    }
+
+    fun confirmarPuntoManual() {
+        val tId = _tramoActivo.value?.id ?: return
+        val dlg = _dialogoPuntoManual.value
+        if (!dlg.visible) return
+
+        viewModelScope.launch {
+            val entidad = VinetaEntity(
+                tramoId = tId,
+                numero = dlg.numero,
+                distanciaTotal = dlg.distanciaTotal,
+                distanciaParcial = dlg.distanciaParcial,
+                latitud = dlg.latitud,
+                longitud = dlg.longitud,
+                altitud = 0.0,
+                rumbo = odoState.value.rumbo,
+                velocidadKmh = 0f,
+                tulipTipo = dlg.dibujoTipo,
+                informacion = if (dlg.nota.isNotBlank()) "${dlg.tipoPunto}: ${dlg.nota}" else dlg.tipoPunto,
+                peligro = dlg.peligro,
+                esOffRoad = dlg.esOffRoad
+            )
+
+            repository.insertVineta(entidad)
+            repository.updateDistanciaYEstado(tId, dlg.distanciaTotal, "EN_TRAZADO")
+            odometerEngine.resetTotalYParcial(dlg.distanciaTotal)
+
+            val tiposPoi = listOf("AMBULANCIA", "BOMBEROS", "ZONA DE ESPECTADORES", "PARQUE DE ASISTENCIA", "HIDRATACIÓN", "HELIPUERTO", "RESCATE 4X4")
+            if (dlg.tipoPunto in tiposPoi) {
+                val rId = _tramoActivo.value?.rallyId ?: 1L
+                repository.insertPuntoInteres(
+                    PuntoInteresEntity(
+                        rallyId = rId,
+                        nombre = "${dlg.tipoPunto} #${dlg.numero}",
+                        tipo = when (dlg.tipoPunto) {
+                            "AMBULANCIA" -> "AMBULANCIA"
+                            "BOMBEROS", "RESCATE 4X4" -> "RESCATE"
+                            "ZONA DE ESPECTADORES" -> "PUBLICO"
+                            "HELIPUERTO" -> "HELIPUERTO"
+                            else -> "ACCESO"
+                        },
+                        latitud = dlg.latitud,
+                        longitud = dlg.longitud,
+                        descripcion = dlg.nota
+                    )
+                )
+            }
+
+            _dialogoPuntoManual.value = DialogoPuntoManualState(visible = false)
+        }
+    }
+
+    private fun calcularDistanciaMetros(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6371000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return r * c
+    }
 }
+

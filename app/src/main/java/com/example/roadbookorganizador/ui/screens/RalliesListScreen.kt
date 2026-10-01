@@ -29,6 +29,12 @@ fun RalliesListScreen(
     val activeRally by viewModel.activeRally.collectAsState()
     var rallyParaEditar by remember { mutableStateOf<RallyEntity?>(null) }
 
+    val isDark = ThemeManager.isDarkTheme
+    val cardBg = if (isDark) RallyCardBg else Color.White
+    val cardBorder = if (isDark) RallySurface else Color(0xFFE2E8F0)
+    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
+    val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -37,18 +43,23 @@ fun RalliesListScreen(
                         text = "MIS RALLIES ASIGNADOS",
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
-                        color = RallyCyanLight
+                        color = if (isDark) RallyCyanLight else FredianiNavy
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onVolver) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = textPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = RallyDarkBg)
+                actions = {
+                    IconButton(onClick = { ThemeManager.toggleTheme() }) {
+                        Text(text = if (isDark) "☀️" else "🌙", fontSize = 18.sp)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
-        containerColor = RallyDarkBg
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -61,15 +72,16 @@ fun RalliesListScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = RallySurface)
+                colors = CardDefaults.cardColors(containerColor = if (isDark) RallySurface else Color(0xFFF1F5F9)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder)
             ) {
                 Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Info, contentDescription = null, tint = RallyCyan, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.Info, contentDescription = null, tint = if (isDark) RallyCyan else FredianiCyanText, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = "Los nuevos rallies se dan de alta desde la Plataforma Web Central y se descargan automáticamente al sincronizar.",
                         fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.8f)
+                        color = textSecondary
                     )
                 }
             }
@@ -110,12 +122,18 @@ fun RallyCardItem(
     onSeleccionar: () -> Unit,
     onEditar: () -> Unit
 ) {
+    val isDark = ThemeManager.isDarkTheme
+    val cardBg = if (isDark) (if (esActivo) RallyCardBg else RallySurface.copy(alpha = 0.5f)) else (if (esActivo) Color(0xFFF0FDF4) else Color.White)
+    val cardBorder = if (esActivo) FredianiGreen else (if (isDark) RallySurface else Color(0xFFE2E8F0))
+    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
+    val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (esActivo) RallyCardBg else RallySurface.copy(alpha = 0.5f)
-        )
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = androidx.compose.foundation.BorderStroke(if (esActivo) 2.dp else 1.dp, cardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -139,29 +157,29 @@ fun RallyCardItem(
                 } else {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color.White.copy(alpha = 0.1f)
+                        color = if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFFF1F5F9)
                     ) {
                         Text(
                             text = "DISPONIBLE",
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
-                            color = Color.White.copy(alpha = 0.6f),
+                            color = textSecondary,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
                 }
 
                 IconButton(onClick = onEditar) {
-                    Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.Gray)
+                    Icon(Icons.Default.Edit, contentDescription = "Editar", tint = textSecondary)
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = rally.nombre, fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color.White)
-            Text(text = "${rally.sede} • ${rally.fecha}", fontSize = 13.sp, color = Color.White.copy(alpha = 0.7f))
+            Text(text = rally.nombre, fontWeight = FontWeight.Black, fontSize = 18.sp, color = textPrimary)
+            Text(text = "${rally.sede} • ${rally.fecha}", fontSize = 13.sp, color = textSecondary)
 
             if (rally.organizadorClub.isNotEmpty()) {
-                Text(text = "Club: ${rally.organizadorClub}", fontSize = 12.sp, color = RallyCyanLight)
+                Text(text = "Club: ${rally.organizadorClub}", fontSize = 12.sp, color = if (isDark) RallyCyanLight else FredianiCyanText)
             }
 
             Spacer(modifier = Modifier.height(12.dp))

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect x="20" y="24" width="42" height="64" rx="4" fill="#F8FAFC" stroke="#0F172A" stroke-width="4" />
+  <rect x="28" y="34" width="26" height="20" rx="2" fill="#E2E8F0" stroke="#0F172A" stroke-width="2" />
+  <!-- Manguera y pistola -->
+  <path d="M 62 40 L 74 40 L 74 70 L 80 62" fill="none" stroke="#0F172A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Pico surtidor -->
+  <path d="M 80 62 L 78 54 L 84 50" fill="none" stroke="#0F172A" stroke-width="3" stroke-linecap="round" />
+</svg>
