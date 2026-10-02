@@ -200,6 +200,25 @@ object DiagramaCanvasRenderer {
         }
     }
 
+    fun renderStampPreview(
+        drawScope: DrawScope,
+        type: String,
+        primaryColor: Color = Color.Black
+    ) {
+        val w = drawScope.size.width
+        val h = drawScope.size.height
+        val cx = w / 2f
+        val cy = h / 2f
+        val scale = (minOf(w, h) / 70f).coerceIn(0.4f, 1.2f)
+
+        drawScope.withTransform({
+            translate(left = cx, top = cy)
+            scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        }) {
+            drawStampShape(this, type, primaryColor)
+        }
+    }
+
     fun drawStampShape(drawScope: DrawScope, type: String, color: Color) {
         val stroke = Stroke(width = 6f, cap = StrokeCap.Round, join = StrokeJoin.Round)
         when (type.uppercase()) {

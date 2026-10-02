@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -99,6 +100,9 @@ fun RoadbookMasterView(
     var vinetaParaEditarNotas by remember { mutableStateOf<VinetaEntity?>(null) }
     var mostrarDialogoVelocidadesTramo by remember { mutableStateOf(false) }
     var datosPropagacionPendiente by remember { mutableStateOf<Triple<VinetaEntity, Double, Int>?>(null) }
+    var sidebarExpanded by remember { mutableStateOf(true) }
+    var sidebarWidthDp by remember { mutableFloatStateOf(260f) }
+    val density = LocalDensity.current
 
     // Selección múltiple para borrado de viñetas
     var vinetasSeleccionadasParaBorrar by remember { mutableStateOf(setOf<Long>()) }
@@ -159,18 +163,21 @@ fun RoadbookMasterView(
         }
     }
 
-    Card(
-        modifier = modifier.fillMaxSize(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
-        border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
-    ) {
-        Column(
+    Row(modifier = modifier.fillMaxSize()) {
+        Card(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp)
+                .weight(1f)
+                .fillMaxHeight(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+            elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp)
+            ) {
             // 1. CABECERA TRAMO + CAPAS + BOTÓN BORRAR SELECCIONADAS
             Row(
                 modifier = Modifier
@@ -268,6 +275,24 @@ fun RoadbookMasterView(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+                    IconButton(
+                        onClick = { sidebarExpanded = !sidebarExpanded },
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(
+                                if (sidebarExpanded) (if (isDark) RallyCyan.copy(alpha = 0.15f) else FredianiCyan.copy(alpha = 0.15f)) else Color.Transparent,
+                                RoundedCornerShape(6.dp)
+                            )
+                    ) {
+                        Icon(
+                            imageVector = if (sidebarExpanded) Icons.Default.ViewSidebar else Icons.Default.VerticalSplit,
+                            contentDescription = if (sidebarExpanded) "Minimizar Símbolos" else "Mostrar Símbolos",
+                            tint = if (sidebarExpanded) (if (isDark) RallyCyan else FredianiCyanText) else textSecondary,
+                            modifier = Modifier.size(17.dp)
+                        )
                     }
                 }
             }
@@ -505,13 +530,35 @@ fun RoadbookMasterView(
                     }
                 }
             }
+        }
+    }
 
-            Spacer(modifier = Modifier.height(4.dp))
+    // DIVISOR REDIMENSIONABLE / RESIZE SPLITTER
+        if (sidebarExpanded) {
+            Box(
+                modifier = Modifier
+                    .width(10.dp)
+                    .fillMaxHeight()
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            val deltaDp = dragAmount.x / density.density
+                            sidebarWidthDp = (sidebarWidthDp - deltaDp).coerceIn(180f, 420f)
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
+                )
+            }
 
-            // 6. BANDEJA DE SÍMBOLOS FIA / DAKAR ANCLADA AL PIE (RALLY NAVIGATOR STYLE)
-            DockedRallyNavigatorBar(
-                activeTab = activeTab,
-                onTabSelected = { activeTab = it },
+            // PANEL DERECHO: PALETA DE SÍMBOLOS Y NOTAS FIA
+            SidebarSymbolsPalette(
                 onInsertStamp = { stampCode ->
                     val targetVineta = vinetas.find { it.id == vinetaEnEdicionId } ?: vinetas.firstOrNull()
                     if (targetVineta != null) {
@@ -569,27 +616,45 @@ fun RoadbookMasterView(
                         }
                     }
                 },
-                selectedStamp = if (selectedStampIdx != null && selectedStampIdx in drawingDraft.stamps.indices) {
-                    drawingDraft.stamps[selectedStampIdx!!]
-                } else null,
-                selectedArrow = if (selectedArrowIdx != null && selectedArrowIdx in drawingDraft.arrows.indices) {
-                    drawingDraft.arrows[selectedArrowIdx!!]
-                } else null,
-                onDeleteSelected = {
-                    if (selectedStampIdx != null && selectedStampIdx in drawingDraft.stamps.indices) {
-                        val nst = drawingDraft.stamps.toMutableList()
-                        nst.removeAt(selectedStampIdx!!)
-                        selectedStampIdx = null
-                        persistDraft(drawingDraft.copy(stamps = nst))
-                    } else if (selectedArrowIdx != null && selectedArrowIdx in drawingDraft.arrows.indices) {
-                        val na = drawingDraft.arrows.toMutableList()
-                        na.removeAt(selectedArrowIdx!!)
-                        selectedArrowIdx = null
-                        persistDraft(drawingDraft.copy(arrows = na))
+                onAppendNoteText = { noteShortcut ->
+                    val targetVineta = vinetas.find { it.id == vinetaEnEdicionId } ?: vinetas.firstOrNull()
+                    if (targetVineta != null) {
+                        val currentText = targetVineta.informacion.trim()
+                        val updatedText = if (currentText.isEmpty()) noteShortcut else "$currentText $noteShortcut"
+                        onGuardarVineta(targetVineta.copy(informacion = updatedText))
                     }
                 },
-                vinetaEnEdicionNumero = vinetas.find { it.id == vinetaEnEdicionId }?.numero
+                onCollapse = { sidebarExpanded = false },
+                vinetaNumeroActiva = vinetas.find { it.id == vinetaEnEdicionId }?.numero,
+                modifier = Modifier
+                    .width(sidebarWidthDp.dp)
+                    .fillMaxHeight()
             )
+        } else {
+            // Tira compacta colapsada (~28dp) para expandir con 1 solo clic
+            Surface(
+                onClick = { sidebarExpanded = true },
+                shape = RoundedCornerShape(8.dp),
+                color = if (isDark) RallySurface else Color(0xFFF1F5F9),
+                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                modifier = Modifier
+                    .width(28.dp)
+                    .fillMaxHeight()
+                    .padding(vertical = 4.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Default.ChevronLeft,
+                        contentDescription = "Expandir Paleta de Símbolos",
+                        tint = if (isDark) RallyCyan else FredianiCyanText,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
     }
 

@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,7 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,6 +57,8 @@ fun CockpitScreen(
     var vinetaSeleccionadaId by remember { mutableStateOf<Long?>(null) }
     var mostrarDialogoTelemetria by remember { mutableStateOf(false) }
     var mostrarDialogoPcs by remember { mutableStateOf(false) }
+    var mapExpanded by remember { mutableStateOf(true) }
+    var mapWidthRatio by remember { mutableFloatStateOf(0.28f) }
 
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -243,109 +248,126 @@ fun CockpitScreen(
                     }
                 },
                 actions = {
-                    // BOTÓN VERDE + AÑADIR INDICACIÓN
+                    // BOTÓN VERDE + AÑADIR INDICACIÓN (COMPACTO)
                     Button(
                         onClick = { viewModel.presionarMarcarVineta() },
                         colors = ButtonDefaults.buttonColors(containerColor = FredianiGreen),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp)
                     ) {
                         Icon(
                             Icons.Default.AddLocation,
-                            contentDescription = null,
+                            contentDescription = "Añadir Indicación",
                             tint = Color.White,
                             modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
                         Text(
-                            text = "+ AÑADIR INDICACIÓN",
+                            text = "AÑADIR",
                             fontWeight = FontWeight.Black,
-                            fontSize = 11.sp,
+                            fontSize = 10.5.sp,
                             color = Color.White
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
 
                     // BOTÓN MODO REVERSO (RESTA KILOMETRAJE AL RETROCEDER)
-                    FilledTonalButton(
+                    IconButton(
                         onClick = { viewModel.toggleModoReverso() },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (odoState.modoReverso) Color(0xFFDC2626) else (if (isDark) RallySurface else Color(0xFFF1F5F9)),
-                            contentColor = if (odoState.modoReverso) Color.White else (if (isDark) RallyCyan else FredianiCyanText)
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(
+                                if (odoState.modoReverso) Color(0xFFDC2626) else (if (isDark) RallySurface else Color(0xFFF1F5F9)),
+                                RoundedCornerShape(8.dp)
+                            )
                     ) {
                         Icon(
                             Icons.Default.SwapHoriz,
-                            contentDescription = "Odómetro Reverso",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (odoState.modoReverso) "◀ REVERSO (-)" else "REVERSO",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 11.sp
+                            contentDescription = "Modo Reverso (-)",
+                            tint = if (odoState.modoReverso) Color.White else (if (isDark) RallyCyan else FredianiCyanText),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
 
                     // BOTÓN GESTIÓN DE WAYPOINTS (WPS)
-                    FilledTonalButton(
+                    IconButton(
                         onClick = { mostrarDialogoPcs = true },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (odoState.autoPcsHabilitado) Color(0xFF581C87) else (if (isDark) RallySurface else Color(0xFFF1F5F9)),
-                            contentColor = if (odoState.autoPcsHabilitado) Color(0xFFE9D5FF) else Color(0xFFA855F7)
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(
+                                if (odoState.autoPcsHabilitado) Color(0xFF581C87) else (if (isDark) RallySurface else Color(0xFFF1F5F9)),
+                                RoundedCornerShape(8.dp)
+                            )
                     ) {
-                        Icon(
-                            Icons.Default.Flag,
-                            contentDescription = "WayPoints",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (odoState.autoPcsHabilitado) "WP (AUTO ON)" else "WP",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
+                        BadgedBox(
+                            badge = {
+                                if (odoState.autoPcsHabilitado) {
+                                    Badge(
+                                        containerColor = Color(0xFFA855F7),
+                                        modifier = Modifier.offset(x = 4.dp, y = (-2).dp)
+                                    ) {
+                                        Text("AUTO", fontSize = 7.sp, fontWeight = FontWeight.Black)
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.Flag,
+                                contentDescription = "WayPoints",
+                                tint = if (odoState.autoPcsHabilitado) Color(0xFFE9D5FF) else Color(0xFFA855F7),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
 
                     // BOTÓN INFO / TELEMETRÍA (ABRE MODAL DE ODÓMETRO COMPLETO)
-                    FilledTonalButton(
+                    IconButton(
                         onClick = { mostrarDialogoTelemetria = true },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (isDark) RallySurface else Color(0xFFF1F5F9),
-                            contentColor = if (isDark) RallyCyan else FredianiCyanText
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(if (isDark) RallySurface else Color(0xFFF1F5F9), RoundedCornerShape(8.dp))
                     ) {
                         Icon(
-                            Icons.Default.Info,
+                            Icons.Default.Speed,
                             contentDescription = "Telemetría y Odómetro",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "ODÓMETRO",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
+                            tint = if (isDark) RallyCyan else FredianiCyanText,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
+
+                    // BOTÓN TOGGLE MAPA
+                    IconButton(
+                        onClick = { mapExpanded = !mapExpanded },
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(
+                                if (mapExpanded) (if (isDark) RallyCyan.copy(alpha = 0.15f) else FredianiCyan.copy(alpha = 0.15f)) else (if (isDark) RallySurface else Color(0xFFF1F5F9)),
+                                RoundedCornerShape(8.dp)
+                            )
+                    ) {
+                        Icon(
+                            Icons.Default.Map,
+                            contentDescription = if (mapExpanded) "Minimizar Mapa" else "Mostrar Mapa",
+                            tint = if (mapExpanded) (if (isDark) RallyCyan else FredianiCyanText) else textSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(3.dp))
 
                     // SIMULAR GPS
                     IconButton(
                         onClick = { viewModel.toggleSimulacion() },
                         modifier = Modifier
+                            .size(34.dp)
                             .background(
                                 if (odoState.modoSimulacion) FredianiGreen.copy(alpha = 0.2f) else Color.Transparent,
                                 CircleShape
@@ -355,22 +377,34 @@ fun CockpitScreen(
                             imageVector = if (odoState.modoSimulacion) Icons.Default.Sensors else Icons.Default.SensorsOff,
                             contentDescription = "Simular GPS",
                             tint = if (odoState.modoSimulacion) FredianiGreen else textSecondary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
                     // TEMA CLARO / OSCURO
-                    IconButton(onClick = { ThemeManager.isDarkTheme = !ThemeManager.isDarkTheme }) {
+                    IconButton(
+                        onClick = { ThemeManager.isDarkTheme = !ThemeManager.isDarkTheme },
+                        modifier = Modifier.size(34.dp)
+                    ) {
                         Icon(
                             imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
                             contentDescription = "Cambiar tema",
-                            tint = if (isDark) RallyAccentYellow else FredianiAmberText
+                            tint = if (isDark) RallyAccentYellow else FredianiAmberText,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
                     // EXPORTAR
-                    IconButton(onClick = { onNavigateToExportar(tramoId) }) {
-                        Icon(Icons.Default.Share, contentDescription = "Exportar", tint = if (isDark) RallyCyan else FredianiCyanText)
+                    IconButton(
+                        onClick = { onNavigateToExportar(tramoId) },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = "Exportar",
+                            tint = if (isDark) RallyCyan else FredianiCyanText,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -386,44 +420,118 @@ fun CockpitScreen(
                 .padding(padding)
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
+            val density = LocalDensity.current
+            val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+
             if (isLandscape) {
                 // =========================================================================
                 // SPLIT SCREEN HORIZONTAL (RALLY NAVIGATOR PRO):
-                // IZQUIERDA (~44%): MAPA SATELITAL MAPBOX / GOOGLE HYBRID CON STREET VIEW
-                // DERECHA (~56%): GRILLA ROADBOOK OFICIAL CON EDICIÓN IN-SITU Y SHELF INFERIOR
+                // IZQUIERDA: MAPA SATELITAL FINO (DEFAULT 28%), REDIMENSIONABLE Y MINIMIZABLE
+                // DERECHA: GRILLA ROADBOOK OFICIAL CON PALETA DE SÍMBOLOS LATERAL
                 // =========================================================================
                 Row(
                     modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // PANEL IZQUIERDO: MAPA SATELITAL
-                    Card(
-                        modifier = Modifier
-                            .weight(0.44f)
-                            .fillMaxHeight(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = cardBg),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, cardBorder)
-                    ) {
-                        RallyMapView(
-                            latitud = odoState.latitud,
-                            longitud = odoState.longitud,
-                            rumbo = odoState.rumbo,
-                            indicaciones = vinetas,
-                            mapboxToken = mapboxToken,
-                            snapToRoadInitial = snapToRoad,
-                            vinetaSeleccionadaId = vinetaSeleccionadaId,
-                            onMapClickWithRoadAndMode = { lat, lng, road, isOffRoad ->
-                                viewModel.iniciarCreacionPuntoManual(lat, lng, road, isOffRoad)
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
+                    if (mapExpanded) {
+                        // PANEL IZQUIERDO: MAPA SATELITAL
+                        Card(
+                            modifier = Modifier
+                                .weight(mapWidthRatio)
+                                .fillMaxHeight(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = cardBg),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, cardBorder)
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                RallyMapView(
+                                    latitud = odoState.latitud,
+                                    longitud = odoState.longitud,
+                                    rumbo = odoState.rumbo,
+                                    indicaciones = vinetas,
+                                    mapboxToken = mapboxToken,
+                                    snapToRoadInitial = snapToRoad,
+                                    vinetaSeleccionadaId = vinetaSeleccionadaId,
+                                    onMapClickWithRoadAndMode = { lat, lng, road, isOffRoad ->
+                                        viewModel.iniciarCreacionPuntoManual(lat, lng, road, isOffRoad)
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+
+                                // Botón flotante para minimizar el mapa
+                                IconButton(
+                                    onClick = { mapExpanded = false },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(6.dp)
+                                        .size(28.dp)
+                                        .background(
+                                            if (isDark) RallySurface.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f),
+                                            CircleShape
+                                        )
+                                ) {
+                                    Icon(
+                                        Icons.Default.ChevronLeft,
+                                        contentDescription = "Minimizar Mapa",
+                                        tint = textPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // BARRA VERTICAL DIVISORA REDIMENSIONABLE
+                        Box(
+                            modifier = Modifier
+                                .width(10.dp)
+                                .fillMaxHeight()
+                                .pointerInput(Unit) {
+                                    detectDragGestures { change, dragAmount ->
+                                        change.consume()
+                                        val deltaRatio = dragAmount.x / screenWidthPx
+                                        mapWidthRatio = (mapWidthRatio + deltaRatio).coerceIn(0.15f, 0.55f)
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(4.dp)
+                                    .height(36.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
+                            )
+                        }
+                    } else {
+                        // TIRA VERTICAL COLAPSADA PARA REABRIR EL MAPA
+                        Surface(
+                            onClick = { mapExpanded = true },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isDark) RallySurface else Color(0xFFF1F5F9),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                            modifier = Modifier
+                                .width(28.dp)
+                                .fillMaxHeight()
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.ChevronRight,
+                                    contentDescription = "Expandir Mapa",
+                                    tint = if (isDark) RallyCyan else FredianiCyanText,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
 
-                    // PANEL DERECHO: GRILLA ROADBOOK MAESTRA + EDICIÓN EN LA PROPIA CELDA
+                    // PANEL DERECHO: GRILLA ROADBOOK MAESTRA + PALETA SÍMBOLOS
                     Box(
                         modifier = Modifier
-                            .weight(0.56f)
+                            .weight(if (mapExpanded) (1f - mapWidthRatio).coerceAtLeast(0.4f) else 1f)
                             .fillMaxHeight()
                     ) {
                         RoadbookMasterView(
@@ -455,40 +563,63 @@ fun CockpitScreen(
             } else {
                 // =========================================================================
                 // SPLIT SCREEN VERTICAL (PORTRAIT):
-                // ARRIBA (40%): MAPA SATELITAL
-                // ABAJO (60%): GRILLA ROADBOOK
+                // ARRIBA: MAPA SATELITAL (MINIMIZABLE)
+                // ABAJO: GRILLA ROADBOOK
                 // =========================================================================
                 Column(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(0.40f),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = cardBg),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, cardBorder)
-                    ) {
-                        RallyMapView(
-                            latitud = odoState.latitud,
-                            longitud = odoState.longitud,
-                            rumbo = odoState.rumbo,
-                            indicaciones = vinetas,
-                            mapboxToken = mapboxToken,
-                            snapToRoadInitial = snapToRoad,
-                            vinetaSeleccionadaId = vinetaSeleccionadaId,
-                            onMapClickWithRoadAndMode = { lat, lng, road, isOffRoad ->
-                                viewModel.iniciarCreacionPuntoManual(lat, lng, road, isOffRoad)
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
+                    if (mapExpanded) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(0.35f),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = cardBg),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, cardBorder)
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                RallyMapView(
+                                    latitud = odoState.latitud,
+                                    longitud = odoState.longitud,
+                                    rumbo = odoState.rumbo,
+                                    indicaciones = vinetas,
+                                    mapboxToken = mapboxToken,
+                                    snapToRoadInitial = snapToRoad,
+                                    vinetaSeleccionadaId = vinetaSeleccionadaId,
+                                    onMapClickWithRoadAndMode = { lat, lng, road, isOffRoad ->
+                                        viewModel.iniciarCreacionPuntoManual(lat, lng, road, isOffRoad)
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+
+                                IconButton(
+                                    onClick = { mapExpanded = false },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(6.dp)
+                                        .size(28.dp)
+                                        .background(
+                                            if (isDark) RallySurface.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f),
+                                            CircleShape
+                                        )
+                                ) {
+                                    Icon(
+                                        Icons.Default.ExpandLess,
+                                        contentDescription = "Minimizar Mapa",
+                                        tint = textPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(0.60f)
+                            .weight(if (mapExpanded) 0.65f else 1f)
                     ) {
                         RoadbookMasterView(
                             tramo = tramo,
