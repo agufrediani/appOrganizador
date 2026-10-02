@@ -41,6 +41,7 @@ enum class DragTarget {
     ARROW_P1,
     ARROW_P2,
     ARROW_P3,
+    ARROW_PIN,
     MOVE_ARROW,
     RESIZE_ARROW
 }
@@ -559,6 +560,7 @@ fun RoadbookDrawingCanvas(
                                     DragTarget.ARROW_P1,
                                     DragTarget.ARROW_P2,
                                     DragTarget.ARROW_P3,
+                                    DragTarget.ARROW_PIN,
                                     DragTarget.MOVE_ARROW,
                                     DragTarget.RESIZE_ARROW -> {}
                                 }

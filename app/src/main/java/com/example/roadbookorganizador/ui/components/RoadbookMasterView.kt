@@ -307,6 +307,7 @@ fun RoadbookMasterView(
                 selectedStrokeColor = selectedStrokeColor,
                 strokeWidth = selectedStrokeWidth,
                 asistenteTrazo = asistenteTrazoActivo,
+                hasPinKm = selectedArrowIdx != null && selectedArrowIdx in drawingDraft.arrows.indices && drawingDraft.arrows[selectedArrowIdx!!].hasPin,
                 onToggleAsistente = { asistenteTrazoActivo = !asistenteTrazoActivo },
                 onAddArrow = {
                     val na = drawingDraft.arrows.toMutableList()
@@ -317,13 +318,29 @@ fun RoadbookMasterView(
                             p2 = PointData(0.65f, 0.40f),
                             p3 = PointData(0.80f, 0.25f),
                             strokeWidth = selectedStrokeWidth,
-                            colorHex = selectedStrokeColor
+                            colorHex = selectedStrokeColor,
+                            hasPin = true,
+                            pinT = 0.5f,
+                            pinSide = 1f
                         )
                     )
                     persistDraft(drawingDraft.copy(arrows = na))
                     selectedArrowIdx = na.lastIndex
                     selectedStampIdx = null
                     activeTool = ActiveDrawTool.SELECT
+                },
+                onTogglePinKm = {
+                    if (selectedArrowIdx != null && selectedArrowIdx in drawingDraft.arrows.indices) {
+                        val na = drawingDraft.arrows.toMutableList()
+                        val cur = na[selectedArrowIdx!!]
+                        val next = when {
+                            cur.hasPin && cur.pinSide > 0 -> cur.copy(pinSide = -1f)
+                            cur.hasPin && cur.pinSide < 0 -> cur.copy(hasPin = false)
+                            else -> cur.copy(hasPin = true, pinSide = 1f)
+                        }
+                        na[selectedArrowIdx!!] = next
+                        persistDraft(drawingDraft.copy(arrows = na))
+                    }
                 },
                 onToolChange = { activeTool = it },
                 onColorChange = { selectedStrokeColor = it },
@@ -1467,6 +1484,29 @@ fun InPlaceDiagramCanvas(
                                 return@detectDragGestures
                             }
 
+                            // Tirador del Pin de Kilometraje Oficial FIA (Art. 5.6.2)
+                            if (arr.hasPin) {
+                                val t = arr.pinT.coerceIn(0.15f, 0.85f)
+                                val u = 1f - t
+                                val bx = u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x
+                                val by = u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y
+                                val tdx = 3 * u * u * (p1.x - p0.x) + 6 * u * t * (p2.x - p1.x) + 3 * t * t * (p3.x - p2.x)
+                                val tdy = 3 * u * u * (p1.y - p0.y) + 6 * u * t * (p2.y - p1.y) + 3 * t * t * (p3.y - p2.y)
+                                val tAngle = Math.atan2(tdy.toDouble(), tdx.toDouble()).toFloat()
+                                val sideSign = if (arr.pinSide >= 0) 1f else -1f
+                                val pinAngle = tAngle + sideSign * (Math.PI.toFloat() * 0.72f)
+                                val pinLen = 28f
+                                val pinHead = Offset(
+                                    (bx + pinLen * Math.cos(pinAngle.toDouble())).toFloat(),
+                                    (by + pinLen * Math.sin(pinAngle.toDouble())).toFloat()
+                                )
+                                if (Math.hypot((offset.x - pinHead.x).toDouble(), (offset.y - pinHead.y).toDouble()) <= 42f) {
+                                    activeArrowIdx = selArrIdx
+                                    dragTarget = DragTarget.ARROW_PIN
+                                    return@detectDragGestures
+                                }
+                            }
+
                             // Toca dentro del marco de la flecha o a lo largo del cuerpo para moverla
                             if (offset.x in left..right && offset.y in top..bottom) {
                                 activeArrowIdx = selArrIdx
@@ -1640,6 +1680,47 @@ fun InPlaceDiagramCanvas(
                                 if (idx != null && idx in arrows.indices) {
                                     val na = arrows.toMutableList()
                                     na[idx] = na[idx].copy(p3 = PointData((change.position.x / w).coerceIn(0f, 1f), (change.position.y / h).coerceIn(0f, 1f)))
+                                    arrows = na
+                                    currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
+                                }
+                            }
+                            DragTarget.ARROW_PIN -> {
+                                val idx = activeArrowIdx
+                                if (idx != null && idx in arrows.indices) {
+                                    val cur = arrows[idx]
+                                    val p0 = Offset(cur.p0.x * w, cur.p0.y * h)
+                                    val p1 = Offset(cur.p1.x * w, cur.p1.y * h)
+                                    val p2 = Offset(cur.p2.x * w, cur.p2.y * h)
+                                    val p3 = Offset(cur.p3.x * w, cur.p3.y * h)
+                                    val touchPos = change.position
+
+                                    // Muestreo paramétrico sobre la curva Bézier para encontrar el t más cercano
+                                    var bestT = cur.pinT
+                                    var bestDist = Float.MAX_VALUE
+                                    for (step in 15..85 step 2) {
+                                        val st = step / 100f
+                                        val su = 1f - st
+                                        val bx = su * su * su * p0.x + 3 * su * su * st * p1.x + 3 * su * st * st * p2.x + st * st * st * p3.x
+                                        val by = su * su * su * p0.y + 3 * su * su * st * p1.y + 3 * su * st * st * p2.y + st * st * st * p3.y
+                                        val d = Math.hypot((touchPos.x - bx).toDouble(), (touchPos.y - by).toDouble()).toFloat()
+                                        if (d < bestDist) {
+                                            bestDist = d
+                                            bestT = st
+                                        }
+                                    }
+
+                                    // Lado de la curva (orientación respecto al vector tangente)
+                                    val u = 1f - bestT
+                                    val bx = u * u * u * p0.x + 3 * u * u * bestT * p1.x + 3 * u * bestT * bestT * p2.x + bestT * bestT * bestT * p3.x
+                                    val by = u * u * u * p0.y + 3 * u * u * bestT * p1.y + 3 * u * bestT * bestT * p2.y + bestT * bestT * bestT * p3.y
+                                    val tdx = 3 * u * u * (p1.x - p0.x) + 6 * u * bestT * (p2.x - p1.x) + 3 * bestT * bestT * (p3.x - p2.x)
+                                    val tdy = 3 * u * u * (p1.y - p0.y) + 6 * u * bestT * (p2.y - p1.y) + 3 * bestT * bestT * (p3.y - p2.y)
+
+                                    val cross = (touchPos.x - bx) * tdy - (touchPos.y - by) * tdx
+                                    val newSide = if (cross >= 0) 1f else -1f
+
+                                    val na = arrows.toMutableList()
+                                    na[idx] = cur.copy(pinT = bestT, pinSide = newSide)
                                     arrows = na
                                     currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
                                 }
@@ -2136,8 +2217,10 @@ fun RoadbookDrawingToolbar(
     selectedStrokeColor: String,
     strokeWidth: Float,
     asistenteTrazo: Boolean = true,
+    hasPinKm: Boolean = false,
     onToggleAsistente: () -> Unit = {},
     onAddArrow: () -> Unit = {},
+    onTogglePinKm: () -> Unit = {},
     onToolChange: (ActiveDrawTool) -> Unit,
     onColorChange: (String) -> Unit,
     onStrokeWidthChange: (Float) -> Unit,
@@ -2215,6 +2298,15 @@ fun RoadbookDrawingToolbar(
                         selected = false,
                         tint = FredianiCyan,
                         onClick = onAddArrow
+                    )
+
+                    // Botón PIN KM OFICIAL FIA (Art. 5.6.2)
+                    ToolIconButton(
+                        icon = Icons.Default.PinDrop,
+                        label = if (hasPinKm) "Pin Km Activo" else "Pin Km",
+                        selected = hasPinKm,
+                        tint = if (hasPinKm) Color(0xFFF59E0B) else null,
+                        onClick = onTogglePinKm
                     )
 
                     // Botón ASISTENTE DE TRAZO

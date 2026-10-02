@@ -25,7 +25,10 @@ data class ManeuverArrow(
     val p2: PointData = PointData(0.5f, 0.35f), // Control Bézier 2
     val p3: PointData = PointData(0.5f, 0.12f), // Fin (punta de flecha de salida)
     val strokeWidth: Float = 10f,
-    val colorHex: String = "#000000"
+    val colorHex: String = "#0284C7", // Azul reglamentario FIA Art. 5.6.1
+    val hasPin: Boolean = true, // Pin de kilometraje FIA Art. 5.6.2
+    val pinT: Float = 0.5f, // Posición 0.0..1.0 sobre la curva Bézier
+    val pinSide: Float = 1.0f // +1 = derecha, -1 = izquierda
 ) {
     fun toJson(): JSONObject {
         val obj = JSONObject()
@@ -39,6 +42,9 @@ data class ManeuverArrow(
         obj.put("y3", p3.y.toDouble())
         obj.put("width", strokeWidth.toDouble())
         obj.put("color", colorHex)
+        obj.put("hasPin", hasPin)
+        obj.put("pinT", pinT.toDouble())
+        obj.put("pinSide", pinSide.toDouble())
         return obj
     }
 
@@ -52,7 +58,10 @@ data class ManeuverArrow(
                     p2 = PointData(obj.optDouble("x2", 0.5).toFloat(), obj.optDouble("y2", 0.35).toFloat()),
                     p3 = PointData(obj.optDouble("x3", 0.5).toFloat(), obj.optDouble("y3", 0.12).toFloat()),
                     strokeWidth = obj.optDouble("width", 10.0).toFloat(),
-                    colorHex = obj.optString("color", "#000000")
+                    colorHex = obj.optString("color", "#0284C7"),
+                    hasPin = obj.optBoolean("hasPin", true),
+                    pinT = obj.optDouble("pinT", 0.5).toFloat(),
+                    pinSide = obj.optDouble("pinSide", 1.0).toFloat()
                 )
             } catch (e: Exception) {
                 null

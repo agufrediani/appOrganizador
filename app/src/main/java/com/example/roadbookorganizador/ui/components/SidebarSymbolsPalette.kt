@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.example.roadbookorganizador.ui.theme.*
 
 enum class SidebarTab(val titulo: String, val iconName: String) {
-    CROSS_COUNTRY("TULIPAS", "Directions"),
+    CROSS_COUNTRY("MANIOBRAS", "Directions"),
     SIGNS("SIGNOS", "Warning"),
     LANDMARKS("LANDMARKS", "LocationOn"),
     TERRAIN("TERRENO", "Terrain"),
@@ -59,10 +59,10 @@ fun SidebarSymbolsPalette(
     var searchQuery by remember { mutableStateOf("") }
     var selectedTab by remember { mutableStateOf(SidebarTab.CROSS_COUNTRY) }
 
-    // Catálogo completo idéntico a Rally Navigator 2.0 (Maniobras, Signos, Landmarks, Terreno, y Lexicon FIA)
+    // Catálogo completo oficial FIA 2026 / Rally Navigator (Reglamento Art. 5.14)
     val allSymbols = remember {
         listOf(
-            // --- CROSS COUNTRY / TULIPAS ---
+            // --- MANIOBRAS / PISTAS FIA ---
             SymbolItem("FLECHA_MANIOBRA", "CURVA FLEX", SidebarTab.CROSS_COUNTRY, isArrow = true),
             SymbolItem("RECTA", "RECTA", SidebarTab.CROSS_COUNTRY, isArrow = true),
             SymbolItem("CURVA_DER", "CURVA DER", SidebarTab.CROSS_COUNTRY),
@@ -75,8 +75,12 @@ fun SidebarSymbolsPalette(
             SymbolItem("CRUCE_T", "EMPALME T", SidebarTab.CROSS_COUNTRY),
             SymbolItem("BIFURCACION_Y", "DESVÍO Y", SidebarTab.CROSS_COUNTRY),
             SymbolItem("ROTONDA", "ROTONDA", SidebarTab.CROSS_COUNTRY),
+            SymbolItem("PISTA_PRINCIPAL", "PISTA PPAL", SidebarTab.CROSS_COUNTRY),
+            SymbolItem("PISTAS_PARALELAS", "PISTAS //", SidebarTab.CROSS_COUNTRY),
+            SymbolItem("HORS_PISTE", "HP (FUERA PISTA)", SidebarTab.CROSS_COUNTRY),
+            SymbolItem("HP_PROHIBIDO", "HP PROHIBIDO", SidebarTab.CROSS_COUNTRY),
 
-            // --- SIGNOS / PELIGROS ---
+            // --- SIGNOS / CONTROLES / PELIGROS FIA ---
             SymbolItem("PELIGRO_1", "! ATENCIÓN", SidebarTab.SIGNS),
             SymbolItem("PELIGRO_2", "!! PELIGRO", SidebarTab.SIGNS),
             SymbolItem("PELIGRO_3", "!!! GRAVE", SidebarTab.SIGNS),
@@ -85,37 +89,80 @@ fun SidebarSymbolsPalette(
             SymbolItem("RADAR_DZ", "DZ RADAR", SidebarTab.SIGNS),
             SymbolItem("RADAR_FZ", "FZ FIN", SidebarTab.SIGNS),
             SymbolItem("RESET_0000", "0000 RESET", SidebarTab.SIGNS),
-            SymbolItem("GPS_POINT", "WPV GPS", SidebarTab.SIGNS),
             SymbolItem("TC", "TC CONTROL", SidebarTab.SIGNS),
-            SymbolItem("LARGADA", "LARGADA", SidebarTab.SIGNS),
-            SymbolItem("LLEGADA", "LLEGADA", SidebarTab.SIGNS),
+            SymbolItem("CP", "CP PASO", SidebarTab.SIGNS),
+            SymbolItem("DSS", "DSS LARGADA", SidebarTab.SIGNS),
+            SymbolItem("ASS", "ASS LLEGADA", SidebarTab.SIGNS),
+            SymbolItem("DN", "DN NEUTRA", SidebarTab.SIGNS),
+            SymbolItem("SOBREPASO_DZ", "DZ NO PASAR", SidebarTab.SIGNS),
             SymbolItem("SURTIDOR", "COMBUST.", SidebarTab.SIGNS),
             SymbolItem("ASISTENCIA", "ASISTENCIA", SidebarTab.SIGNS),
             SymbolItem("MEDICO", "MÉDICO", SidebarTab.SIGNS),
+            SymbolItem("GPS_POINT", "WPV GPS", SidebarTab.SIGNS),
 
-            // --- LANDMARKS ---
+            // --- LANDMARKS / REFERENCIAS FIA ---
+            SymbolItem("PIN_KM", "PIN KM FIA", SidebarTab.LANDMARKS),
             SymbolItem("TRANQUERA", "TRANQUERA", SidebarTab.LANDMARKS),
             SymbolItem("GUARDAGANADO", "GUARDAG.", SidebarTab.LANDMARKS),
             SymbolItem("PUENTE", "PUENTE", SidebarTab.LANDMARKS),
+            SymbolItem("TUNEL", "TÚNEL", SidebarTab.LANDMARKS),
             SymbolItem("ALCANTARILLA", "ALCANT.", SidebarTab.LANDMARKS),
             SymbolItem("VIAS_TREN", "VÍAS TREN", SidebarTab.LANDMARKS),
+            SymbolItem("ALAMBRADO", "ALAMBRADO", SidebarTab.LANDMARKS),
+            SymbolItem("ALAMBRADO_PUAS", "ALAMB. PÚAS", SidebarTab.LANDMARKS),
+            SymbolItem("POSTE", "POSTE", SidebarTab.LANDMARKS),
+            SymbolItem("POSTE_LUZ", "POSTE LUZ", SidebarTab.LANDMARKS),
+            SymbolItem("LINEA_ELECTRICA", "LÍNEA ELECT.", SidebarTab.LANDMARKS),
+            SymbolItem("TORRE_ALTA_TENSION", "TORRE A.T.", SidebarTab.LANDMARKS),
             SymbolItem("ANTENA", "ANTENA", SidebarTab.LANDMARKS),
-            SymbolItem("MOLINO", "MOLINO", SidebarTab.LANDMARKS),
+            SymbolItem("MOLINO", "MOLINO/POZO", SidebarTab.LANDMARKS),
+            SymbolItem("TANQUES", "TANQUES", SidebarTab.LANDMARKS),
+            SymbolItem("BARRILES", "BARRILES", SidebarTab.LANDMARKS),
+            SymbolItem("NEUMATICOS", "NEUMÁTICOS", SidebarTab.LANDMARKS),
+            SymbolItem("CARTELES", "CARTEL RUTA", SidebarTab.LANDMARKS),
+            SymbolItem("MURO", "MURO/PIRCA", SidebarTab.LANDMARKS),
+            SymbolItem("PIPELINE", "DUCTO", SidebarTab.LANDMARKS),
             SymbolItem("CASA", "POBLADO", SidebarTab.LANDMARKS),
             SymbolItem("IGLESIA", "IGLESIA", SidebarTab.LANDMARKS),
+            SymbolItem("RUINAS", "RUINAS", SidebarTab.LANDMARKS),
+            SymbolItem("CEMENTERIO", "CEMENTERIO", SidebarTab.LANDMARKS),
+            SymbolItem("CAMPAMENTO", "CAMPAMENTO", SidebarTab.LANDMARKS),
+            SymbolItem("ARBOL", "ÁRBOL", SidebarTab.LANDMARKS),
+            SymbolItem("ARBOL_SECO", "ÁRBOL SECO", SidebarTab.LANDMARKS),
+            SymbolItem("PALMERA", "PALMERA", SidebarTab.LANDMARKS),
+            SymbolItem("CAMEL_GRASS", "CAMEL GRASS", SidebarTab.LANDMARKS),
+            SymbolItem("VEGETACION", "ARBUSTO", SidebarTab.LANDMARKS),
+            SymbolItem("VACA", "VACA/ANIMAL", SidebarTab.LANDMARKS),
+            SymbolItem("CAMELLO", "CAMELLO", SidebarTab.LANDMARKS),
+            SymbolItem("CAIRN", "APACHETA", SidebarTab.LANDMARKS),
+            SymbolItem("MONUMENTO", "MONUMENTO", SidebarTab.LANDMARKS),
             SymbolItem("CIRCULO", "MOJÓN", SidebarTab.LANDMARKS),
 
-            // --- TERRENO ---
-            SymbolItem("VADO", "VADO", SidebarTab.TERRAIN),
-            SymbolItem("SALTO", "SALTO", SidebarTab.TERRAIN),
+            // --- TERRENO Y RELIEVE FIA ---
+            SymbolItem("SALTO", "SALTO/LOMO", SidebarTab.TERRAIN),
+            SymbolItem("POZO", "POZO/DIP", SidebarTab.TERRAIN),
+            SymbolItem("COMPRESION", "COMPRESIÓN", SidebarTab.TERRAIN),
             SymbolItem("ZANJA", "ZANJA", SidebarTab.TERRAIN),
+            SymbolItem("CRESTA", "CRESTA", SidebarTab.TERRAIN),
+            SymbolItem("ESCALON_SUBIDA", "ESCALÓN SUBIDA", SidebarTab.TERRAIN),
+            SymbolItem("ESCALON_BAJADA", "ESCALÓN BAJADA", SidebarTab.TERRAIN),
             SymbolItem("DUNAS", "DUNAS", SidebarTab.TERRAIN),
+            SymbolItem("CUVETTE", "CUVETTE/OLLA", SidebarTab.TERRAIN),
+            SymbolItem("DUNA_CORTADA", "DUNA CORTADA", SidebarTab.TERRAIN),
+            SymbolItem("FESH_FESH", "FESH-FESH", SidebarTab.TERRAIN),
+            SymbolItem("VADO", "VADO AGUA", SidebarTab.TERRAIN),
+            SymbolItem("RIO", "RÍO", SidebarTab.TERRAIN),
+            SymbolItem("WADI", "WADI/OUED", SidebarTab.TERRAIN),
             SymbolItem("PIEDRAS", "PIEDRAS", SidebarTab.TERRAIN),
-            SymbolItem("BARRO", "HUELLAS", SidebarTab.TERRAIN)
+            SymbolItem("BARRO", "HUELLAS", SidebarTab.TERRAIN),
+            SymbolItem("CHOTT", "SALAR/CHOTT", SidebarTab.TERRAIN),
+            SymbolItem("PASO_HORMIGON", "RADIER/BADÉN", SidebarTab.TERRAIN),
+            SymbolItem("SINUOSO", "SINUOSO", SidebarTab.TERRAIN),
+            SymbolItem("PERALTE", "PERALTE", SidebarTab.TERRAIN)
         )
     }
 
-    // Abreviaturas oficiales de Notas estilo Rally Navigator (Note box)
+    // Abreviaturas oficiales de Notas estilo Rally Navigator (Lexicon FIA Art. 5.14)
     val fiaNoteShortcuts = remember {
         listOf(
             "L" to "Left", "R" to "Right", "kpL" to "Keep Left", "kpR" to "Keep Right",
@@ -124,7 +171,9 @@ fun SidebarSymbolsPalette(
             "RGH" to "Rough", "GAR" to "Gravel", "NR" to "Narrow Road", "GV" to "Grave",
             "BTW" to "Between", "RJ" to "Rejoin Road", "FA" to "Fast", "VAL" to "Valley",
             "DN" to "Downhill", "UP" to "Uphill", "CAP" to "Follow CAP", "PP" to "Main Track",
-            "VADO" to "Water Cross", "CH" to "Time Control", "DZ" to "Danger Zone", "FZ" to "End Zone"
+            "VADO" to "Water Cross", "WADI" to "Dry Riverbed", "HP" to "Hors Piste", "NBX" to "Many",
+            "CH" to "Time Control", "DZ" to "Danger Zone", "FZ" to "End Zone", "CP" to "Check Point",
+            "DSS" to "Start SS", "ASS" to "Finish SS", "MODIF" to "Opening Car Modif", "SA" to "Sandy", "ET" to "And / Next"
         )
     }
 

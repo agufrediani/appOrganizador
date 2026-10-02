@@ -639,6 +639,7 @@ fun RoadbookNotesEditor(
                                         DragTarget.ARROW_P1,
                                         DragTarget.ARROW_P2,
                                         DragTarget.ARROW_P3,
+                                        DragTarget.ARROW_PIN,
                                         DragTarget.MOVE_ARROW,
                                         DragTarget.RESIZE_ARROW -> {}
                                     }

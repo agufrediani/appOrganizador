@@ -11,8 +11,6 @@ import com.example.roadbookorganizador.data.model.StrokeData
 
 object DiagramaCanvasRenderer {
 
-    val TulipaCanvasRenderer get() = this
-
     fun render(
         drawScope: DrawScope,
         drawingData: DrawingData,
@@ -138,6 +136,55 @@ object DiagramaCanvasRenderer {
             close()
         }
         drawScope.drawPath(path = headPath, color = arrowColor)
+
+        // 4. Pin / Alfiler de Kilometraje Oficial FIA (Art. 5.6.2 del Reglamento FIA 2026)
+        if (arrow.hasPin) {
+            val t = arrow.pinT.coerceIn(0.15f, 0.85f)
+            val u = 1f - t
+            // Posición exacta sobre la curva Bézier
+            val bx = u * u * u * pt0.x + 3 * u * u * t * pt1.x + 3 * u * t * t * pt2.x + t * t * t * pt3.x
+            val by = u * u * u * pt0.y + 3 * u * u * t * pt1.y + 3 * u * t * t * pt2.y + t * t * t * pt3.y
+            val curvePt = Offset(bx, by)
+
+            // Vector tangente de la curva en t
+            val tdx = 3 * u * u * (pt1.x - pt0.x) + 6 * u * t * (pt2.x - pt1.x) + 3 * t * t * (pt3.x - pt2.x)
+            val tdy = 3 * u * u * (pt1.y - pt0.y) + 6 * u * t * (pt2.y - pt1.y) + 3 * t * t * (pt3.y - pt2.y)
+            val tAngle = Math.atan2(tdy.toDouble(), tdx.toDouble()).toFloat()
+
+            // Inclinación hacia el costado/atrás (ángulo reglamentario FIA ~125°)
+            val sideSign = if (arrow.pinSide >= 0) 1f else -1f
+            val pinAngle = tAngle + sideSign * (Math.PI.toFloat() * 0.72f)
+            val pinLen = 28f // Longitud del alfiler
+            val pinEnd = Offset(
+                (curvePt.x + pinLen * Math.cos(pinAngle.toDouble())).toFloat(),
+                (curvePt.y + pinLen * Math.sin(pinAngle.toDouble())).toFloat()
+            )
+
+            // Segmento del alfiler (negro)
+            drawScope.drawLine(
+                color = Color.Black,
+                start = curvePt,
+                end = pinEnd,
+                strokeWidth = 3.5f,
+                cap = StrokeCap.Round
+            )
+            // Cabeza esférica del alfiler (negra rellena)
+            drawScope.drawCircle(
+                color = Color.Black,
+                radius = 6f,
+                center = pinEnd
+            )
+
+            // Si la flecha está seleccionada, indicador en la cabeza del pin
+            if (isSelected) {
+                drawScope.drawCircle(
+                    color = Color(0xFF0284C7),
+                    radius = 9f,
+                    center = pinEnd,
+                    style = Stroke(2f)
+                )
+            }
+        }
 
         // 4. Si está seleccionada, dibujar guías tangentes y 4 tiradores de control
         if (isSelected) {
@@ -464,7 +511,11 @@ object DiagramaCanvasRenderer {
                 drawScope.drawCircle(color = Color(0xFFDC2626), radius = 3f, center = Offset(0f, 12f))
             }
 
-            // === REFERENCIAS / INFRAESTRUCTURA (LANDMARKS) ===
+            // === REFERENCIAS / INFRAESTRUCTURA (LANDMARKS FIA) ===
+            "PIN_KM", "ALFILER" -> {
+                drawScope.drawLine(color = Color.Black, start = Offset(-14f, 14f), end = Offset(14f, -14f), strokeWidth = 4f, cap = StrokeCap.Round)
+                drawScope.drawCircle(color = Color.Black, radius = 7f, center = Offset(14f, -14f))
+            }
             "TRANQUERA" -> {
                 drawScope.drawRect(color = color, topLeft = Offset(-24f, -14f), size = Size(48f, 28f), style = Stroke(4f))
                 drawScope.drawLine(color = color, start = Offset(-24f, -14f), end = Offset(24f, 14f), strokeWidth = 3.5f)
@@ -477,12 +528,22 @@ object DiagramaCanvasRenderer {
                     drawScope.drawLine(color = color, start = Offset(x, -14f), end = Offset(x, 14f), strokeWidth = 3f)
                 }
             }
-            "PUENTE" -> {
+            "PUENTE", "SOBRE_PUENTE" -> {
                 drawScope.drawLine(color = color, start = Offset(-22f, -22f), end = Offset(-12f, 0f), strokeWidth = 5f)
                 drawScope.drawLine(color = color, start = Offset(-12f, 0f), end = Offset(-22f, 22f), strokeWidth = 5f)
                 drawScope.drawLine(color = color, start = Offset(22f, -22f), end = Offset(12f, 0f), strokeWidth = 5f)
                 drawScope.drawLine(color = color, start = Offset(12f, 0f), end = Offset(22f, 22f), strokeWidth = 5f)
                 drawScope.drawLine(color = color, start = Offset(0f, 22f), end = Offset(0f, -22f), strokeWidth = 4f)
+            }
+            "TUNEL", "BAJO_PUENTE" -> {
+                val p = Path().apply {
+                    moveTo(-20f, 18f); lineTo(-20f, -4f)
+                    cubicTo(-20f, -24f, 20f, -24f, 20f, -4f)
+                    lineTo(20f, 18f); close()
+                }
+                drawScope.drawPath(path = p, color = color, style = Stroke(4f))
+                drawScope.drawLine(color = color, start = Offset(-12f, 18f), end = Offset(-12f, 0f), strokeWidth = 3f)
+                drawScope.drawLine(color = color, start = Offset(12f, 18f), end = Offset(12f, 0f), strokeWidth = 3f)
             }
             "ALCANTARILLA" -> {
                 drawScope.drawCircle(color = color, radius = 16f, center = Offset(0f, 0f), style = Stroke(4f))
@@ -496,6 +557,53 @@ object DiagramaCanvasRenderer {
                     drawScope.drawLine(color = color, start = Offset(x, -14f), end = Offset(x, 14f), strokeWidth = 3f)
                 }
             }
+            "ALAMBRADO" -> {
+                drawScope.drawLine(color = color, start = Offset(-26f, 0f), end = Offset(26f, 0f), strokeWidth = 3f)
+                for (x in listOf(-18f, 0f, 18f)) {
+                    drawScope.drawLine(color = color, start = Offset(x, -14f), end = Offset(x, 14f), strokeWidth = 3.5f)
+                    drawScope.drawLine(color = color, start = Offset(x - 5f, -5f), end = Offset(x + 5f, 5f), strokeWidth = 2f)
+                    drawScope.drawLine(color = color, start = Offset(x - 5f, 5f), end = Offset(x + 5f, -5f), strokeWidth = 2f)
+                }
+            }
+            "ALAMBRADO_PUAS" -> {
+                drawScope.drawLine(color = color, start = Offset(-26f, -6f), end = Offset(26f, -6f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = color, start = Offset(-26f, 6f), end = Offset(26f, 6f), strokeWidth = 2.5f)
+                for (x in listOf(-20f, -7f, 7f, 20f)) {
+                    drawScope.drawLine(color = color, start = Offset(x - 4f, -11f), end = Offset(x + 4f, -1f), strokeWidth = 2f)
+                    drawScope.drawLine(color = color, start = Offset(x + 4f, -11f), end = Offset(x - 4f, -1f), strokeWidth = 2f)
+                    drawScope.drawLine(color = color, start = Offset(x - 4f, 1f), end = Offset(x + 4f, 11f), strokeWidth = 2f)
+                    drawScope.drawLine(color = color, start = Offset(x + 4f, 1f), end = Offset(x - 4f, 11f), strokeWidth = 2f)
+                }
+            }
+            "TORRE_ALTA_TENSION" -> {
+                val p = Path().apply {
+                    moveTo(-12f, 24f); lineTo(-3f, -24f); lineTo(3f, -24f); lineTo(12f, 24f)
+                }
+                drawScope.drawPath(path = p, color = color, style = Stroke(3f))
+                drawScope.drawLine(color = color, start = Offset(-22f, -16f), end = Offset(22f, -16f), strokeWidth = 3.5f)
+                drawScope.drawLine(color = color, start = Offset(-18f, -6f), end = Offset(18f, -6f), strokeWidth = 3f)
+                drawScope.drawLine(color = color, start = Offset(-8f, 6f), end = Offset(8f, 6f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = color, start = Offset(-6f, 6f), end = Offset(6f, -6f), strokeWidth = 2f)
+                drawScope.drawLine(color = color, start = Offset(6f, 6f), end = Offset(-6f, -6f), strokeWidth = 2f)
+            }
+            "POSTE_LUZ" -> {
+                drawScope.drawLine(color = color, start = Offset(0f, 24f), end = Offset(0f, -24f), strokeWidth = 4f)
+                drawScope.drawLine(color = color, start = Offset(-18f, -18f), end = Offset(18f, -18f), strokeWidth = 3.5f)
+                drawScope.drawCircle(color = color, radius = 3f, center = Offset(-18f, -15f))
+                drawScope.drawCircle(color = color, radius = 3f, center = Offset(18f, -15f))
+            }
+            "LINEA_ELECTRICA" -> {
+                drawScope.drawLine(color = color, start = Offset(-18f, 22f), end = Offset(-18f, -18f), strokeWidth = 3.5f)
+                drawScope.drawLine(color = color, start = Offset(18f, 22f), end = Offset(18f, -18f), strokeWidth = 3.5f)
+                val catenary = Path().apply {
+                    moveTo(-18f, -18f)
+                    cubicTo(-6f, -6f, 6f, -6f, 18f, -18f)
+                }
+                drawScope.drawPath(catenary, color = color, style = Stroke(2.5f))
+            }
+            "POSTE" -> {
+                drawScope.drawRect(color = color, topLeft = Offset(-4f, -22f), size = Size(8f, 44f), style = Stroke(3f))
+            }
             "ANTENA" -> {
                 val p = Path().apply {
                     moveTo(0f, -26f); lineTo(14f, 24f); lineTo(-14f, 24f); close()
@@ -504,11 +612,49 @@ object DiagramaCanvasRenderer {
                 drawScope.drawLine(color = color, start = Offset(-8f, 8f), end = Offset(8f, 8f), strokeWidth = 3f)
                 drawScope.drawLine(color = color, start = Offset(-4f, -6f), end = Offset(4f, -6f), strokeWidth = 3f)
             }
-            "MOLINO" -> {
+            "MOLINO", "POZO_AGUA" -> {
                 drawScope.drawLine(color = color, start = Offset(0f, 24f), end = Offset(0f, -6f), strokeWidth = 4f)
                 drawScope.drawCircle(color = color, radius = 14f, center = Offset(0f, -6f), style = Stroke(3f))
                 drawScope.drawLine(color = color, start = Offset(-12f, -6f), end = Offset(12f, -6f), strokeWidth = 3f)
                 drawScope.drawLine(color = color, start = Offset(0f, -18f), end = Offset(0f, 6f), strokeWidth = 3f)
+            }
+            "TANQUES" -> {
+                drawScope.drawRoundRect(color = color, topLeft = Offset(-24f, -16f), size = Size(20f, 32f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f), style = Stroke(3.5f))
+                drawScope.drawRoundRect(color = color, topLeft = Offset(4f, -16f), size = Size(20f, 32f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f), style = Stroke(3.5f))
+                drawScope.drawLine(color = color, start = Offset(-28f, 16f), end = Offset(28f, 16f), strokeWidth = 3f)
+            }
+            "BARRILES" -> {
+                for (ox in listOf(-12f, 8f)) {
+                    drawScope.drawRoundRect(color = color, topLeft = Offset(ox - 8f, -14f), size = Size(16f, 28f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f), style = Stroke(3f))
+                    drawScope.drawLine(color = color, start = Offset(ox - 8f, -5f), end = Offset(ox + 8f, -5f), strokeWidth = 2f)
+                    drawScope.drawLine(color = color, start = Offset(ox - 8f, 5f), end = Offset(ox + 8f, 5f), strokeWidth = 2f)
+                }
+            }
+            "NEUMATICOS" -> {
+                drawScope.drawRoundRect(color = Color(0xFF334155), topLeft = Offset(-18f, 6f), size = Size(36f, 12f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f, 5f), style = Stroke(3.5f))
+                drawScope.drawRoundRect(color = Color(0xFF334155), topLeft = Offset(-16f, -5f), size = Size(32f, 12f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f, 5f), style = Stroke(3.5f))
+                drawScope.drawRoundRect(color = Color(0xFF334155), topLeft = Offset(-14f, -16f), size = Size(28f, 12f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f, 5f), style = Stroke(3.5f))
+            }
+            "CARTELES" -> {
+                drawScope.drawLine(color = color, start = Offset(0f, 22f), end = Offset(0f, -8f), strokeWidth = 3.5f)
+                drawScope.drawRoundRect(color = color, topLeft = Offset(-20f, -22f), size = Size(40f, 16f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f), style = Stroke(3.5f))
+                drawScope.drawLine(color = color, start = Offset(-14f, -14f), end = Offset(14f, -14f), strokeWidth = 2.5f)
+            }
+            "MURO" -> {
+                drawScope.drawRect(color = color, topLeft = Offset(-24f, -12f), size = Size(48f, 24f), style = Stroke(3.5f))
+                drawScope.drawLine(color = color, start = Offset(-24f, 0f), end = Offset(24f, 0f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = color, start = Offset(-8f, -12f), end = Offset(-8f, 0f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = color, start = Offset(8f, -12f), end = Offset(8f, 0f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = color, start = Offset(-16f, 0f), end = Offset(-16f, 12f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = color, start = Offset(0f, 0f), end = Offset(0f, 12f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = color, start = Offset(16f, 0f), end = Offset(16f, 12f), strokeWidth = 2.5f)
+            }
+            "PIPELINE" -> {
+                drawScope.drawLine(color = color, start = Offset(-26f, -6f), end = Offset(26f, -6f), strokeWidth = 5f)
+                drawScope.drawLine(color = color, start = Offset(-26f, 2f), end = Offset(26f, 2f), strokeWidth = 5f)
+                for (x in listOf(-16f, 16f)) {
+                    drawScope.drawRect(color = color, topLeft = Offset(x - 5f, 2f), size = Size(10f, 16f))
+                }
             }
             "CASA", "POBLADO" -> {
                 val p = Path().apply {
@@ -522,8 +668,114 @@ object DiagramaCanvasRenderer {
                 drawScope.drawLine(color = color, start = Offset(0f, -2f), end = Offset(0f, -24f), strokeWidth = 4f)
                 drawScope.drawLine(color = color, start = Offset(-7f, -16f), end = Offset(7f, -16f), strokeWidth = 4f)
             }
+            "RUINAS" -> {
+                drawScope.drawLine(color = color, start = Offset(-22f, 16f), end = Offset(-22f, -8f), strokeWidth = 4f)
+                drawScope.drawLine(color = color, start = Offset(-22f, -8f), end = Offset(-10f, 0f), strokeWidth = 3f)
+                drawScope.drawLine(color = color, start = Offset(-10f, 0f), end = Offset(4f, -14f), strokeWidth = 3f)
+                drawScope.drawLine(color = color, start = Offset(4f, -14f), end = Offset(18f, 2f), strokeWidth = 3f)
+                drawScope.drawLine(color = color, start = Offset(18f, 2f), end = Offset(22f, 16f), strokeWidth = 4f)
+            }
+            "CEMENTERIO" -> {
+                for (ox in listOf(-14f, 0f, 14f)) {
+                    drawScope.drawLine(color = color, start = Offset(ox, -14f), end = Offset(ox, 14f), strokeWidth = 3.5f)
+                    drawScope.drawLine(color = color, start = Offset(ox - 6f, -6f), end = Offset(ox + 6f, -6f), strokeWidth = 3.5f)
+                }
+            }
+            "CAMPAMENTO", "VIVAC" -> {
+                val tent = Path().apply {
+                    moveTo(0f, -20f); lineTo(-20f, 16f); lineTo(20f, 16f); close()
+                }
+                drawScope.drawPath(tent, color = color, style = Stroke(3.5f))
+                drawScope.drawLine(color = color, start = Offset(0f, -20f), end = Offset(0f, 16f), strokeWidth = 3f)
+            }
+            "ARBOL" -> {
+                drawScope.drawLine(color = Color(0xFF78350F), start = Offset(0f, 22f), end = Offset(0f, -2f), strokeWidth = 6f, cap = StrokeCap.Round)
+                drawScope.drawCircle(color = Color(0xFF16A34A), radius = 17f, center = Offset(0f, -10f))
+                drawScope.drawCircle(color = Color(0xFF15803D), radius = 12f, center = Offset(-6f, -12f))
+                drawScope.drawCircle(color = Color(0xFF166534), radius = 17f, center = Offset(0f, -10f), style = Stroke(2.5f))
+            }
+            "ARBOL_SECO" -> {
+                drawScope.drawLine(color = color, start = Offset(0f, 22f), end = Offset(0f, -6f), strokeWidth = 5f, cap = StrokeCap.Round)
+                drawScope.drawLine(color = color, start = Offset(0f, 4f), end = Offset(-14f, -8f), strokeWidth = 3.5f)
+                drawScope.drawLine(color = color, start = Offset(-14f, -8f), end = Offset(-20f, -18f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = color, start = Offset(0f, -2f), end = Offset(14f, -14f), strokeWidth = 3.5f)
+                drawScope.drawLine(color = color, start = Offset(14f, -14f), end = Offset(18f, -22f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = color, start = Offset(0f, -6f), end = Offset(0f, -22f), strokeWidth = 3.5f)
+            }
+            "PALMERA" -> {
+                val trunk = Path().apply {
+                    moveTo(-3f, 22f)
+                    cubicTo(-1f, 8f, 4f, -4f, 6f, -12f)
+                }
+                drawScope.drawPath(trunk, color = Color(0xFF78350F), style = Stroke(5f, cap = StrokeCap.Round))
+                val leaves = listOf(
+                    Offset(-18f, -22f), Offset(-12f, -26f), Offset(4f, -28f), Offset(18f, -24f), Offset(22f, -16f)
+                )
+                for (leaf in leaves) {
+                    val lp = Path().apply {
+                        moveTo(6f, -12f)
+                        cubicTo((6f + leaf.x)/2f, -24f, leaf.x, leaf.y - 4f, leaf.x, leaf.y)
+                    }
+                    drawScope.drawPath(lp, color = Color(0xFF16A34A), style = Stroke(3.5f, cap = StrokeCap.Round))
+                }
+            }
+            "CAMEL_GRASS" -> {
+                for (ox in listOf(-14f, 0f, 14f)) {
+                    val tuft = Path().apply {
+                        moveTo(ox - 6f, 12f); lineTo(ox, -2f); lineTo(ox + 6f, 12f)
+                        moveTo(ox - 4f, 12f); lineTo(ox - 2f, -6f); lineTo(ox + 2f, 12f)
+                        moveTo(ox, 12f); lineTo(ox + 3f, -4f); lineTo(ox + 5f, 12f)
+                    }
+                    drawScope.drawPath(tuft, color = Color(0xFF65A30D), style = Stroke(2.5f, cap = StrokeCap.Round))
+                }
+                drawScope.drawLine(color = Color(0xFF65A30D), start = Offset(-24f, 14f), end = Offset(24f, 14f), strokeWidth = 2f)
+            }
+            "VEGETACION", "ARBUSTO" -> {
+                val bush = Path().apply {
+                    moveTo(-20f, 14f)
+                    cubicTo(-24f, -4f, -10f, -14f, -6f, -8f)
+                    cubicTo(-2f, -20f, 14f, -18f, 16f, -6f)
+                    cubicTo(24f, -4f, 22f, 14f, 20f, 14f)
+                    close()
+                }
+                drawScope.drawPath(bush, color = Color(0xFF16A34A).copy(alpha = 0.35f))
+                drawScope.drawPath(bush, color = Color(0xFF15803D), style = Stroke(3f))
+            }
+            "VACA", "ANIMALES" -> {
+                val cow = Path().apply {
+                    moveTo(-16f, -4f); lineTo(10f, -4f); lineTo(14f, -10f); lineTo(18f, -10f); lineTo(16f, -2f); lineTo(12f, 4f)
+                    lineTo(12f, 16f); lineTo(9f, 16f); lineTo(9f, 4f)
+                    lineTo(-9f, 4f)
+                    lineTo(-9f, 16f); lineTo(-12f, 16f); lineTo(-12f, 4f)
+                    lineTo(-16f, 4f); close()
+                }
+                drawScope.drawPath(cow, color = color, style = Stroke(3.5f, join = StrokeJoin.Round))
+            }
+            "CAMELLO" -> {
+                val camel = Path().apply {
+                    moveTo(-14f, 16f); lineTo(-14f, 4f); lineTo(-10f, 4f)
+                    cubicTo(-8f, -12f, 4f, -12f, 6f, 4f)
+                    lineTo(10f, 4f); lineTo(10f, 16f); lineTo(7f, 16f); lineTo(7f, 2f)
+                    lineTo(9f, -8f); lineTo(15f, -16f); lineTo(18f, -14f); lineTo(12f, -4f)
+                    lineTo(6f, 4f); lineTo(-10f, 4f); lineTo(-10f, 16f); close()
+                }
+                drawScope.drawPath(camel, color = color, style = Stroke(3f, join = StrokeJoin.Round))
+            }
+            "CAIRN", "APACHETA" -> {
+                drawScope.drawOval(color = Color(0xFF64748B), topLeft = Offset(-18f, 4f), size = Size(36f, 14f), style = Stroke(3.5f))
+                drawScope.drawOval(color = Color(0xFF64748B), topLeft = Offset(-13f, -6f), size = Size(26f, 12f), style = Stroke(3.5f))
+                drawScope.drawOval(color = Color(0xFF64748B), topLeft = Offset(-8f, -16f), size = Size(16f, 10f), style = Stroke(3.5f))
+            }
+            "MONUMENTO" -> {
+                drawScope.drawRect(color = color, topLeft = Offset(-16f, 10f), size = Size(32f, 10f), style = Stroke(3.5f))
+                drawScope.drawRect(color = color, topLeft = Offset(-10f, 2f), size = Size(20f, 8f), style = Stroke(3.5f))
+                val obelisk = Path().apply {
+                    moveTo(-6f, 2f); lineTo(-3f, -22f); lineTo(0f, -26f); lineTo(3f, -22f); lineTo(6f, 2f); close()
+                }
+                drawScope.drawPath(obelisk, color = color, style = Stroke(3f))
+            }
 
-            // === TERRENO Y GEOGRAFÍA ===
+            // === TERRENO Y GEOGRAFÍA FIA ===
             "VADO", "AGUA" -> {
                 for (offsetY in listOf(-8f, 8f)) {
                     val p = Path().apply {
@@ -534,7 +786,27 @@ object DiagramaCanvasRenderer {
                     drawScope.drawPath(path = p, color = Color(0xFF00B4D8), style = stroke)
                 }
             }
-            "SALTO", "LOMO" -> {
+            "RIO", "AGUA_CORRIENTE" -> {
+                val water = Color(0xFF0284C7)
+                for (oy in listOf(-10f, 10f)) {
+                    val riverBank = Path().apply {
+                        moveTo(-26f, oy)
+                        cubicTo(-12f, oy - 10f, 0f, oy + 10f, 12f, oy - 8f)
+                        cubicTo(18f, oy - 4f, 22f, oy, 26f, oy)
+                    }
+                    drawScope.drawPath(riverBank, color = water, style = Stroke(4f, cap = StrokeCap.Round))
+                }
+            }
+            "WADI", "OUED" -> {
+                val sandWadi = Color(0xFFD97706)
+                for (oy in listOf(-12f, 12f)) {
+                    drawScope.drawLine(color = sandWadi, start = Offset(-26f, oy), end = Offset(26f, oy), strokeWidth = 3.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 5f), 0f))
+                }
+                drawScope.drawCircle(color = Color(0xFF64748B), radius = 3.5f, center = Offset(-10f, 0f))
+                drawScope.drawCircle(color = Color(0xFF64748B), radius = 4.5f, center = Offset(6f, -2f))
+                drawScope.drawCircle(color = Color(0xFF64748B), radius = 3f, center = Offset(16f, 3f))
+            }
+            "SALTO", "LOMO", "BUMP" -> {
                 val p = Path().apply {
                     moveTo(-28f, 6f)
                     cubicTo(-14f, -22f, 14f, -22f, 28f, 6f)
@@ -542,7 +814,24 @@ object DiagramaCanvasRenderer {
                 drawScope.drawPath(path = p, color = color, style = stroke)
                 drawScope.drawCircle(color = Color(0xFFDC2626), radius = 5f, center = Offset(0f, -24f))
             }
-            "ZANJA" -> {
+            "POZO", "DIP" -> {
+                val dip = Path().apply {
+                    moveTo(-26f, -10f); lineTo(-12f, -10f); cubicTo(-6f, 18f, 6f, 18f, 12f, -10f); lineTo(26f, -10f)
+                }
+                drawScope.drawPath(dip, color = Color(0xFFB45309), style = Stroke(5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+            "COMPRESION" -> {
+                val comp = Color(0xFFDC2626)
+                val topChevron = Path().apply {
+                    moveTo(-20f, -20f); lineTo(0f, -6f); lineTo(20f, -20f)
+                }
+                val botChevron = Path().apply {
+                    moveTo(-20f, 20f); lineTo(0f, 6f); lineTo(20f, 20f)
+                }
+                drawScope.drawPath(topChevron, color = comp, style = Stroke(6f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                drawScope.drawPath(botChevron, color = comp, style = Stroke(6f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+            "ZANJA", "DITCH" -> {
                 val p = Path().apply {
                     moveTo(-26f, -14f)
                     lineTo(-10f, 14f)
@@ -550,6 +839,31 @@ object DiagramaCanvasRenderer {
                     lineTo(26f, -14f)
                 }
                 drawScope.drawPath(path = p, color = Color(0xFFB45309), style = Stroke(5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+            "CRESTA", "SUMMIT" -> {
+                val crest = Path().apply {
+                    moveTo(-26f, 12f); lineTo(0f, -18f); lineTo(26f, 12f)
+                }
+                drawScope.drawPath(crest, color = color, style = Stroke(5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                drawScope.drawLine(color = color, start = Offset(0f, -18f), end = Offset(0f, 12f), strokeWidth = 3f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 4f), 0f))
+            }
+            "ESCALON_SUBIDA", "STEP_UP" -> {
+                val step = Path().apply {
+                    moveTo(-22f, 14f); lineTo(-2f, 14f); lineTo(-2f, -14f); lineTo(22f, -14f)
+                }
+                drawScope.drawPath(step, color = color, style = Stroke(5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                drawScope.drawLine(color = Color(0xFF10B981), start = Offset(0f, 6f), end = Offset(0f, -6f), strokeWidth = 4f, cap = StrokeCap.Round)
+                drawScope.drawLine(color = Color(0xFF10B981), start = Offset(0f, -6f), end = Offset(-6f, 0f), strokeWidth = 4f, cap = StrokeCap.Round)
+                drawScope.drawLine(color = Color(0xFF10B981), start = Offset(0f, -6f), end = Offset(6f, 0f), strokeWidth = 4f, cap = StrokeCap.Round)
+            }
+            "ESCALON_BAJADA", "STEP_DOWN" -> {
+                val step = Path().apply {
+                    moveTo(-22f, -14f); lineTo(-2f, -14f); lineTo(-2f, 14f); lineTo(22f, 14f)
+                }
+                drawScope.drawPath(step, color = color, style = Stroke(5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                drawScope.drawLine(color = Color(0xFFDC2626), start = Offset(0f, -6f), end = Offset(0f, 6f), strokeWidth = 4f, cap = StrokeCap.Round)
+                drawScope.drawLine(color = Color(0xFFDC2626), start = Offset(0f, 6f), end = Offset(-6f, 0f), strokeWidth = 4f, cap = StrokeCap.Round)
+                drawScope.drawLine(color = Color(0xFFDC2626), start = Offset(0f, 6f), end = Offset(6f, 0f), strokeWidth = 4f, cap = StrokeCap.Round)
             }
             "DUNAS", "ARENA" -> {
                 val sand = Color(0xFFD97706)
@@ -560,6 +874,34 @@ object DiagramaCanvasRenderer {
                         lineTo(24f, offsetY)
                     }
                     drawScope.drawPath(path = p, color = sand, style = Stroke(4f, cap = StrokeCap.Round))
+                }
+            }
+            "CUVETTE" -> {
+                val cuv = Path().apply {
+                    moveTo(-26f, -12f)
+                    cubicTo(-18f, 22f, 18f, 22f, 26f, -12f)
+                }
+                drawScope.drawPath(cuv, color = Color(0xFFD97706), style = Stroke(5f, cap = StrokeCap.Round))
+                drawScope.drawCircle(color = Color(0xFFD97706).copy(alpha = 0.2f), radius = 14f, center = Offset(0f, 4f))
+            }
+            "DUNA_CORTADA" -> {
+                val dc = Path().apply {
+                    moveTo(-24f, 12f)
+                    cubicTo(-14f, 2f, -4f, -16f, 4f, -16f)
+                    lineTo(4f, 12f)
+                }
+                drawScope.drawPath(dc, color = Color(0xFFD97706), style = Stroke(5f, cap = StrokeCap.Round))
+                drawScope.drawLine(color = Color(0xFFDC2626), start = Offset(4f, -16f), end = Offset(4f, 12f), strokeWidth = 4f)
+            }
+            "FESH_FESH" -> {
+                val fesh = Path().apply {
+                    moveTo(-24f, 6f)
+                    cubicTo(-16f, 0f, -8f, 12f, 0f, 6f)
+                    cubicTo(8f, 0f, 16f, 12f, 24f, 6f)
+                }
+                drawScope.drawPath(fesh, color = Color(0xFFCA8A04), style = Stroke(4f, cap = StrokeCap.Round))
+                for (p in listOf(Offset(-12f, -6f), Offset(2f, -10f), Offset(14f, -4f), Offset(-4f, -2f))) {
+                    drawScope.drawCircle(color = Color(0xFFCA8A04), radius = 2.5f, center = p)
                 }
             }
             "PIEDRAS", "ROCAS" -> {
@@ -574,6 +916,100 @@ object DiagramaCanvasRenderer {
                 drawScope.drawLine(color = mud, start = Offset(10f, -22f), end = Offset(10f, 22f), strokeWidth = 5f, cap = StrokeCap.Round)
                 drawScope.drawCircle(color = mud, radius = 3.5f, center = Offset(-18f, 0f))
                 drawScope.drawCircle(color = mud, radius = 3.5f, center = Offset(18f, 0f))
+            }
+            "CHOTT", "SALAR" -> {
+                drawScope.drawLine(color = color, start = Offset(-26f, 12f), end = Offset(26f, 12f), strokeWidth = 3f)
+                val crack = Path().apply {
+                    moveTo(-20f, 12f); lineTo(-14f, 0f); lineTo(-6f, 6f); lineTo(4f, -4f); lineTo(12f, 6f); lineTo(20f, 12f)
+                }
+                drawScope.drawPath(crack, color = color, style = Stroke(2.5f))
+            }
+            "PASO_HORMIGON" -> {
+                drawScope.drawRoundRect(color = Color(0xFF64748B), topLeft = Offset(-24f, -10f), size = Size(48f, 20f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f), style = Stroke(4f))
+                drawScope.drawLine(color = Color(0xFF64748B), start = Offset(-10f, -10f), end = Offset(-10f, 10f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = Color(0xFF64748B), start = Offset(10f, -10f), end = Offset(10f, 10f), strokeWidth = 2.5f)
+            }
+            "SINUOSO" -> {
+                val sCurve = Path().apply {
+                    moveTo(0f, 25f)
+                    cubicTo(-20f, 10f, 20f, -10f, 0f, -25f)
+                }
+                drawScope.drawPath(sCurve, color = color, style = Stroke(5f, cap = StrokeCap.Round))
+            }
+            "PERALTE", "INCLINACION" -> {
+                drawScope.drawLine(color = color, start = Offset(-24f, 14f), end = Offset(24f, -8f), strokeWidth = 4f)
+                drawScope.drawRoundRect(color = Color(0xFF0284C7), topLeft = Offset(-10f, -6f), size = Size(20f, 12f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f), style = Stroke(3f))
+            }
+
+            // === CONTROLES FIA Y PISTAS ESPECIALES ===
+            "DSS" -> {
+                val dssCol = Color(0xFF16A34A)
+                drawScope.drawRoundRect(color = dssCol, topLeft = Offset(-24f, -16f), size = Size(48f, 32f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f, 5f), style = Stroke(4f))
+                drawScope.drawRoundRect(color = dssCol.copy(alpha = 0.15f), topLeft = Offset(-24f, -16f), size = Size(48f, 32f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f, 5f))
+                drawScope.drawLine(color = dssCol, start = Offset(-16f, -8f), end = Offset(-16f, 8f), strokeWidth = 3f)
+                drawScope.drawArc(color = dssCol, startAngle = -90f, sweepAngle = 180f, useCenter = false, topLeft = Offset(-19f, -8f), size = Size(10f, 16f), style = Stroke(3f))
+                val s1 = Path().apply { moveTo(2f, -8f); lineTo(-3f, -8f); lineTo(-3f, 0f); lineTo(2f, 0f); lineTo(2f, 8f); lineTo(-3f, 8f) }
+                drawScope.drawPath(s1, color = dssCol, style = Stroke(2.5f))
+                val s2 = Path().apply { moveTo(14f, -8f); lineTo(9f, -8f); lineTo(9f, 0f); lineTo(14f, 0f); lineTo(14f, 8f); lineTo(9f, 8f) }
+                drawScope.drawPath(s2, color = dssCol, style = Stroke(2.5f))
+            }
+            "ASS" -> {
+                val assCol = Color(0xFFDC2626)
+                drawScope.drawRoundRect(color = assCol, topLeft = Offset(-24f, -16f), size = Size(48f, 32f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f, 5f), style = Stroke(4f))
+                drawScope.drawRoundRect(color = assCol.copy(alpha = 0.15f), topLeft = Offset(-24f, -16f), size = Size(48f, 32f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f, 5f))
+                val aPath = Path().apply { moveTo(-16f, 8f); lineTo(-11f, -8f); lineTo(-6f, 8f); moveTo(-14f, 2f); lineTo(-8f, 2f) }
+                drawScope.drawPath(aPath, color = assCol, style = Stroke(2.5f))
+                val s1 = Path().apply { moveTo(2f, -8f); lineTo(-3f, -8f); lineTo(-3f, 0f); lineTo(2f, 0f); lineTo(2f, 8f); lineTo(-3f, 8f) }
+                drawScope.drawPath(s1, color = assCol, style = Stroke(2.5f))
+                val s2 = Path().apply { moveTo(14f, -8f); lineTo(9f, -8f); lineTo(9f, 0f); lineTo(14f, 0f); lineTo(14f, 8f); lineTo(9f, 8f) }
+                drawScope.drawPath(s2, color = assCol, style = Stroke(2.5f))
+            }
+            "CP" -> {
+                val cpCol = Color(0xFFF59E0B)
+                drawScope.drawCircle(color = cpCol, radius = 22f, center = Offset(0f, 0f), style = Stroke(4.5f))
+                drawScope.drawCircle(color = cpCol.copy(alpha = 0.15f), radius = 22f, center = Offset(0f, 0f))
+                drawScope.drawArc(color = cpCol, startAngle = 45f, sweepAngle = 270f, useCenter = false, topLeft = Offset(-16f, -10f), size = Size(14f, 20f), style = Stroke(3.5f))
+                drawScope.drawLine(color = cpCol, start = Offset(2f, -10f), end = Offset(2f, 10f), strokeWidth = 3.5f)
+                drawScope.drawArc(color = cpCol, startAngle = -90f, sweepAngle = 180f, useCenter = false, topLeft = Offset(-2f, -10f), size = Size(12f, 12f), style = Stroke(3.5f))
+            }
+            "DN", "FN" -> {
+                val dnCol = Color(0xFF0284C7)
+                drawScope.drawRoundRect(color = dnCol, topLeft = Offset(-22f, -14f), size = Size(44f, 28f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f), style = Stroke(3.5f))
+                drawScope.drawLine(color = dnCol, start = Offset(-14f, -8f), end = Offset(-14f, 8f), strokeWidth = 3f)
+                drawScope.drawArc(color = dnCol, startAngle = -90f, sweepAngle = 180f, useCenter = false, topLeft = Offset(-18f, -8f), size = Size(10f, 16f), style = Stroke(3f))
+                val nP = Path().apply { moveTo(2f, 8f); lineTo(2f, -8f); lineTo(12f, 8f); lineTo(12f, -8f) }
+                drawScope.drawPath(nP, color = dnCol, style = Stroke(3f))
+            }
+            "SOBREPASO_DZ" -> {
+                drawScope.drawRoundRect(color = Color(0xFFDC2626), topLeft = Offset(-18f, -8f), size = Size(14f, 18f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f), style = Stroke(2.5f))
+                drawScope.drawRoundRect(color = Color(0xFF1E293B), topLeft = Offset(4f, -8f), size = Size(14f, 18f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f), style = Stroke(2.5f))
+                drawScope.drawCircle(color = Color(0xFFDC2626), radius = 22f, center = Offset.Zero, style = Stroke(4f))
+                drawScope.drawLine(color = Color(0xFFDC2626), start = Offset(-16f, 16f), end = Offset(16f, -16f), strokeWidth = 3.5f)
+            }
+            "PISTA_PRINCIPAL" -> {
+                drawScope.drawLine(color = color, start = Offset(0f, 25f), end = Offset(0f, -25f), strokeWidth = 8f, cap = StrokeCap.Round)
+                drawScope.drawLine(color = color, start = Offset(0f, 5f), end = Offset(22f, -15f), strokeWidth = 3.5f, cap = StrokeCap.Round)
+            }
+            "PISTAS_PARALELAS" -> {
+                drawScope.drawLine(color = color, start = Offset(-8f, 25f), end = Offset(-8f, -25f), strokeWidth = 5f, cap = StrokeCap.Round)
+                drawScope.drawLine(color = color, start = Offset(8f, 25f), end = Offset(8f, -25f), strokeWidth = 5f, cap = StrokeCap.Round)
+            }
+            "HORS_PISTE", "HP" -> {
+                drawScope.drawLine(color = color, start = Offset(0f, 25f), end = Offset(0f, -25f), strokeWidth = 4f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f), 0f))
+                drawScope.drawLine(color = Color(0xFFDC2626), start = Offset(-18f, -12f), end = Offset(-18f, 4f), strokeWidth = 3f)
+                drawScope.drawLine(color = Color(0xFFDC2626), start = Offset(-10f, -12f), end = Offset(-10f, 4f), strokeWidth = 3f)
+                drawScope.drawLine(color = Color(0xFFDC2626), start = Offset(-18f, -4f), end = Offset(-10f, -4f), strokeWidth = 3f)
+                drawScope.drawLine(color = Color(0xFFDC2626), start = Offset(10f, -12f), end = Offset(10f, 4f), strokeWidth = 3f)
+                drawScope.drawArc(color = Color(0xFFDC2626), startAngle = -90f, sweepAngle = 180f, useCenter = false, topLeft = Offset(6f, -12f), size = Size(10f, 9f), style = Stroke(3f))
+            }
+            "HP_PROHIBIDO" -> {
+                drawScope.drawCircle(color = Color(0xFFDC2626), radius = 22f, center = Offset.Zero, style = Stroke(4f))
+                drawScope.drawLine(color = Color(0xFFDC2626), start = Offset(-16f, 16f), end = Offset(16f, -16f), strokeWidth = 4f)
+                drawScope.drawLine(color = Color.Black, start = Offset(-14f, -8f), end = Offset(-14f, 4f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = Color.Black, start = Offset(-8f, -8f), end = Offset(-8f, 4f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = Color.Black, start = Offset(-14f, -2f), end = Offset(-8f, -2f), strokeWidth = 2.5f)
+                drawScope.drawLine(color = Color.Black, start = Offset(6f, -8f), end = Offset(6f, 4f), strokeWidth = 2.5f)
+                drawScope.drawArc(color = Color.Black, startAngle = -90f, sweepAngle = 180f, useCenter = false, topLeft = Offset(3f, -8f), size = Size(8f, 7f), style = Stroke(2.5f))
             }
             "CIRCULO", "MOJON" -> {
                 drawScope.drawCircle(color = color, radius = 15f, center = Offset(0f, 0f), style = Stroke(4f))
