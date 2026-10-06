@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -63,6 +65,7 @@ enum class ActiveDrawTool {
     RULER
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RoadbookMasterView(
     tramo: TramoEntity?,
@@ -105,7 +108,7 @@ fun RoadbookMasterView(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     var sidebarExpanded by remember(isLandscape) { mutableStateOf(isLandscape) }
-    var sidebarWidthDp by remember { mutableFloatStateOf(260f) }
+    var sidebarWidthDp by remember { mutableFloatStateOf(290f) }
     val density = LocalDensity.current
 
     // Selección múltiple para borrado de viñetas
@@ -585,6 +588,11 @@ fun RoadbookMasterView(
                                 onSeleccionarVineta(v)
                                 vinetaEnEdicionId = v.id
                             },
+                            onEditarIndicacion = {
+                                onSeleccionarVineta(v)
+                                vinetaEnEdicionId = v.id
+                                vinetaParaEditarNotas = v
+                            },
                             onActivarEdicionDiagrama = {
                                 onSeleccionarVineta(v)
                                 vinetaEnEdicionId = v.id
@@ -874,6 +882,7 @@ fun RoadbookMasterView(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FilaRoadbookInPlace(
     vineta: VinetaEntity,
@@ -895,6 +904,7 @@ fun FilaRoadbookInPlace(
     capaAnotacionesVisible: Boolean,
     capaRegresivaVisible: Boolean,
     onTocarFila: () -> Unit,
+    onEditarIndicacion: () -> Unit = onTocarFila,
     onActivarEdicionDiagrama: () -> Unit,
     onTocarAnotaciones: () -> Unit,
     onUpdateDraft: (DrawingData) -> Unit,
@@ -920,7 +930,11 @@ fun FilaRoadbookInPlace(
         border = androidx.compose.foundation.BorderStroke(if (isEditing) 2.dp else 1.dp, cardBorder),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onTocarFila() }
+            .combinedClickable(
+                onClick = { onTocarFila() },
+                onDoubleClick = { onEditarIndicacion() },
+                onLongClick = { onEditarIndicacion() }
+            )
     ) {
         Row(
             modifier = Modifier
@@ -1069,7 +1083,11 @@ fun FilaRoadbookInPlace(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clickable { onActivarEdicionDiagrama() }
+                                .combinedClickable(
+                                    onClick = { onActivarEdicionDiagrama() },
+                                    onDoubleClick = { onEditarIndicacion() },
+                                    onLongClick = { onEditarIndicacion() }
+                                )
                         ) {
                             Canvas(modifier = Modifier.fillMaxSize().padding(6.dp)) {
                                 DiagramaCanvasRenderer.render(
@@ -1107,7 +1125,11 @@ fun FilaRoadbookInPlace(
                     .clip(RoundedCornerShape(8.dp))
                     .background(if (isDark) RallySurface else Color(0xFFF8FAFC))
                     .border(1.dp, cardBorder, RoundedCornerShape(8.dp))
-                    .clickable { onTocarAnotaciones() }
+                    .combinedClickable(
+                        onClick = { onTocarAnotaciones() },
+                        onDoubleClick = { onEditarIndicacion() },
+                        onLongClick = { onEditarIndicacion() }
+                    )
                     .padding(6.dp)
             ) {
                 if (capaAnotacionesVisible) {

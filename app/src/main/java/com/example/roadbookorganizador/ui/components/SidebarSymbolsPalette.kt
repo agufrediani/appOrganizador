@@ -25,12 +25,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.roadbookorganizador.ui.theme.*
 
-enum class SidebarTab(val titulo: String, val iconName: String) {
-    CROSS_COUNTRY("MANIOBRAS", "Directions"),
-    SIGNS("SIGNOS", "Warning"),
-    LANDMARKS("LANDMARKS", "LocationOn"),
-    TERRAIN("TERRENO", "Terrain"),
-    NOTES_FIA("NOTAS FIA", "EditNote")
+enum class SidebarTab(val titulo: String, val icono: androidx.compose.ui.graphics.vector.ImageVector) {
+    CROSS_COUNTRY("PISTAS", Icons.Default.CallSplit),
+    SIGNS("PELIGROS", Icons.Default.Warning),
+    LANDMARKS("PUNTOS", Icons.Default.Place),
+    TERRAIN("TERRENO", Icons.Default.Terrain),
+    NOTES_FIA("NOTAS", Icons.Default.EditNote)
 }
 
 data class SymbolItem(
@@ -272,13 +272,13 @@ fun SidebarSymbolsPalette(
                 textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp)
             )
 
-            // 3. TABS VERTICALES / HORIZONTALES COMPACTOS
+            // 3. TABS DE CATEGORÍAS CON ICONOS DESTACADOS
             if (searchQuery.isEmpty()) {
                 ScrollableTabRow(
                     selectedTabIndex = SidebarTab.values().indexOf(selectedTab),
                     containerColor = Color.Transparent,
                     divider = {},
-                    edgePadding = 0.dp,
+                    edgePadding = 2.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     SidebarTab.values().forEach { tab ->
@@ -286,15 +286,23 @@ fun SidebarSymbolsPalette(
                         Tab(
                             selected = sel,
                             onClick = { selectedTab = tab },
+                            icon = {
+                                Icon(
+                                    imageVector = tab.icono,
+                                    contentDescription = tab.titulo,
+                                    tint = if (sel) (if (isDark) RallyCyan else FredianiCyanText) else textSecondary,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            },
                             text = {
                                 Text(
                                     text = tab.titulo,
-                                    fontSize = 9.5.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = if (sel) FontWeight.Black else FontWeight.Bold,
                                     color = if (sel) (if (isDark) RallyCyan else FredianiCyanText) else textSecondary
                                 )
                             },
-                            modifier = Modifier.height(34.dp)
+                            modifier = Modifier.height(48.dp)
                         )
                     }
                 }
@@ -354,38 +362,39 @@ fun SidebarSymbolsPalette(
                     }
                 }
             } else {
-                // GRILLA REGULAR DE SÍMBOLOS GRÁFICOS
+                // GRILLA REGULAR DE SÍMBOLOS GRÁFICOS MAXIMIZADOS
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 74.dp),
+                    columns = GridCells.Adaptive(minSize = 78.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(filteredSymbols, key = { it.code }) { item ->
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = if (isDark) RallySurface else Color.White,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, borderCol),
+                            border = androidx.compose.foundation.BorderStroke(1.2.dp, borderCol),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(64.dp)
+                                .height(78.dp)
                                 .clickable { onInsertStamp(item.code) }
                         ) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(4.dp),
+                                    .padding(horizontal = 2.dp, vertical = 3.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(34.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color.White),
+                                        .size(54.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color.White)
+                                        .border(0.8.dp, Color(0xFFCBD5E1), RoundedCornerShape(6.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize().padding(3.dp)) {
+                                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize().padding(2.dp)) {
                                         DiagramaCanvasRenderer.renderStampPreview(
                                             drawScope = this,
                                             type = item.code,
@@ -396,7 +405,7 @@ fun SidebarSymbolsPalette(
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = item.label,
-                                    fontSize = 8.5.sp,
+                                    fontSize = 7.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = textPrimary,
                                     maxLines = 1,
