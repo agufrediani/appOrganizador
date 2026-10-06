@@ -12,9 +12,11 @@ import com.example.roadbookorganizador.data.local.entity.PuntoInteresEntity
 import com.example.roadbookorganizador.data.local.entity.TrackPointEntity
 import com.example.roadbookorganizador.data.local.entity.TramoEntity
 import com.example.roadbookorganizador.data.local.entity.VinetaEntity
+import com.example.roadbookorganizador.data.local.SessionManager
 import com.example.roadbookorganizador.data.repository.RoadbookRepository
 import com.example.roadbookorganizador.service.OdometerEngine
 import com.example.roadbookorganizador.service.OdometerState
+import com.example.roadbookorganizador.service.RoadSnappingService
 import com.example.roadbookorganizador.util.GpxKmzExporter
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -59,6 +61,8 @@ data class DialogoPuntoManualState(
 class CockpitViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: RoadbookRepository = RoadbookRepository(AppDatabase.getInstance(application))
+    private val roadSnappingService = RoadSnappingService()
+    private val sessionManager = SessionManager(application)
     val odometerEngine = com.example.roadbookorganizador.service.LocationTrackingService.sharedOdometerEngine
 
     private val _tramoActivo = MutableStateFlow<TramoEntity?>(null)
@@ -448,6 +452,29 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
             },
             esOffRoad = esOffRoad
         )
+
+        // Si es camino (no off-road) y ya existe un punto previo, calcular la distancia REAL de calzada con curvas
+        if (!esOffRoad && !esPrimero) {
+            val ult = lista.last()
+            viewModelScope.launch {
+                val token = sessionManager.mapboxToken.value
+                val pointsList = listOf(Pair(ult.latitud, ult.longitud), Pair(lat, lng))
+                val route = roadSnappingService.snapTraceToRoad(
+                    points = pointsList,
+                    mapboxToken = token.takeIf { it.isNotBlank() }
+                )
+                if (route != null && route.distanciaMetros > 0) {
+                    val roadDeltaKm = route.distanciaMetros / 1000.0
+                    val cur = _dialogoPuntoManual.value
+                    if (cur.visible && cur.latitud == lat && cur.longitud == lng) {
+                        _dialogoPuntoManual.value = cur.copy(
+                            distanciaParcial = roadDeltaKm,
+                            distanciaTotal = ult.distanciaTotal + roadDeltaKm
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fun actualizarTipoPuntoManual(tipo: String) {

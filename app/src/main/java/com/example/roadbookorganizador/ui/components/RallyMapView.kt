@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.roadbookorganizador.data.local.entity.PuntoInteresEntity
 import com.example.roadbookorganizador.data.local.entity.VinetaEntity
+import com.example.roadbookorganizador.service.RoadSnappingService
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -32,6 +33,7 @@ fun RallyMapView(
 ) {
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var isMapLoaded by remember { mutableStateOf(false) }
+    val roadSnappingService = remember { RoadSnappingService() }
 
     // Centrar en la indicación seleccionada si cambia
     LaunchedEffect(vinetaSeleccionadaId, isMapLoaded) {
@@ -186,6 +188,72 @@ fun RallyMapView(
                                     android.util.Log.e("RallyMapView", "Error abriendo Street View", e2)
                                 }
                             }
+                        }
+                    }
+
+                    @JavascriptInterface
+                    fun snapPointSync(lat: Double, lng: Double): String {
+                        return try {
+                            val res = kotlinx.coroutines.runBlocking {
+                                roadSnappingService.snapPointToNearestRoad(lat, lng, mapboxToken.takeIf { it.isNotBlank() })
+                            }
+                            if (res != null) {
+                                org.json.JSONObject().apply {
+                                    put("success", true)
+                                    put("lat", res.latitud)
+                                    put("lng", res.longitud)
+                                    put("roadName", res.nombreCamino)
+                                    put("distOriginal", res.distanciaOriginalMetros)
+                                }.toString()
+                            } else {
+                                org.json.JSONObject().apply {
+                                    put("success", false)
+                                    put("lat", lat)
+                                    put("lng", lng)
+                                }.toString()
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("RallyMapView", "Error en snapPointSync", e)
+                            org.json.JSONObject().apply {
+                                put("success", false)
+                                put("lat", lat)
+                                put("lng", lng)
+                            }.toString()
+                        }
+                    }
+
+                    @JavascriptInterface
+                    fun getRouteBetweenSync(lat1: Double, lng1: Double, lat2: Double, lng2: Double): String {
+                        return try {
+                            val route = kotlinx.coroutines.runBlocking {
+                                roadSnappingService.snapTraceToRoad(
+                                    listOf(Pair(lat1, lng1), Pair(lat2, lng2)),
+                                    mapboxToken.takeIf { it.isNotBlank() }
+                                )
+                            }
+                            if (route != null && route.puntos.isNotEmpty()) {
+                                val jsonArr = org.json.JSONArray()
+                                route.puntos.forEach { (pLat, pLng) ->
+                                    val pt = org.json.JSONArray()
+                                    pt.put(pLat)
+                                    pt.put(pLng)
+                                    jsonArr.put(pt)
+                                }
+                                org.json.JSONObject().apply {
+                                    put("success", true)
+                                    put("points", jsonArr)
+                                    put("distMeters", route.distanciaMetros)
+                                }.toString()
+                            } else {
+                                org.json.JSONObject().apply {
+                                    put("success", false)
+                                }.toString()
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("RallyMapView", "Error en getRouteBetweenSync", e)
+                            org.json.JSONObject().apply {
+                                put("success", false)
+                            }.toString()
                         }
                     }
                 }, "AndroidBridge")
@@ -740,14 +808,86 @@ private fun generarHtmlMapa(
                 renderTrackSegments(indicaciones);
             }
 
+            function fetchRoadSegment(prev, curr, onResult) {
+                // 1. Intento nativo vía AndroidBridge (sin CORS, ultra-estable con multi-espejo)
+                if (window.AndroidBridge && typeof window.AndroidBridge.getRouteBetweenSync === 'function') {
+                    try {
+                        var resStr = window.AndroidBridge.getRouteBetweenSync(prev.lat, prev.lng, curr.lat, curr.lng);
+                        if (resStr && resStr.length > 5) {
+                            var parsed = JSON.parse(resStr);
+                            if (parsed && parsed.success && parsed.points && parsed.points.length > 0) {
+                                onResult(parsed.points);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.error("AndroidBridge route error:", e);
+                    }
+                }
+
+                // 2. Respaldo directo en Web
+                var pairCoords = prev.lng.toFixed(6) + ',' + prev.lat.toFixed(6) + ';' + curr.lng.toFixed(6) + ',' + curr.lat.toFixed(6);
+
+                function tryOsmDe() {
+                    var osmDeUrl = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/' + pairCoords + '?overview=full&geometries=geojson';
+                    fetch(osmDeUrl)
+                        .then(function(r) { return r.json(); })
+                        .then(function(d) {
+                            if (d && d.code === 'Ok' && d.routes && d.routes.length > 0) {
+                                var pts = d.routes[0].geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+                                onResult(pts);
+                            }
+                        })
+                        .catch(function() {});
+                }
+
+                function tryProjectOsrm() {
+                    var osrmUrl = 'https://router.project-osrm.org/route/v1/driving/' + pairCoords + '?overview=full&geometries=geojson';
+                    fetch(osrmUrl)
+                        .then(function(r) { return r.json(); })
+                        .then(function(d) {
+                            if (d && d.code === 'Ok' && d.routes && d.routes.length > 0) {
+                                var pts = d.routes[0].geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
+                                onResult(pts);
+                            } else {
+                                tryOsmDe();
+                            }
+                        })
+                        .catch(function() {
+                            tryOsmDe();
+                        });
+                }
+
+                if (isMapboxConfigured) {
+                    var routeUrl = 'https://api.mapbox.com/directions/v5/mapbox/driving/' + pairCoords + '?geometries=geojson&overview=full&access_token=' + mapboxToken;
+                    fetch(routeUrl)
+                        .then(function(r) {
+                            if (!r.ok) throw new Error("Mapbox HTTP " + r.status);
+                            return r.json();
+                        })
+                        .then(function(data) {
+                            if (data && data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                                var coords = data.routes[0].geometry.coordinates;
+                                var roadPoints = coords.map(function(c) { return [c[1], c[0]]; });
+                                onResult(roadPoints);
+                            } else {
+                                tryProjectOsrm();
+                            }
+                        })
+                        .catch(function() {
+                            tryProjectOsrm();
+                        });
+                } else {
+                    tryProjectOsrm();
+                }
+            }
+
             function renderTrackSegments(indicaciones) {
                 if (typeof trackSegmentsLayer === 'undefined' || !trackSegmentsLayer || !map) return;
                 trackSegmentsLayer.clearLayers();
 
                 var validInds = indicaciones.filter(function(i) { return i.lat !== 0 && i.lng !== 0; });
                 if (validInds.length < 2) return;
-
-                var activeToken = (mapboxToken && mapboxToken.length > 20) ? mapboxToken : '$safeToken';
 
                 for (var i = 1; i < validInds.length; i++) {
                     (function(prev, curr) {
@@ -772,50 +912,22 @@ private fun generarHtmlMapa(
                             } else {
                                 var tempLine = L.polyline([[prev.lat, prev.lng], [curr.lat, curr.lng]], {
                                     color: '#00B4D8',
-                                    weight: 3.5,
-                                    opacity: 0.6
+                                    weight: 2.5,
+                                    dashArray: '3, 5',
+                                    opacity: 0.5
                                 }).addTo(trackSegmentsLayer);
 
-                                var pairCoords = prev.lng.toFixed(6) + ',' + prev.lat.toFixed(6) + ';' + curr.lng.toFixed(6) + ',' + curr.lat.toFixed(6);
-                                var routeUrl = 'https://api.mapbox.com/directions/v5/mapbox/driving/' + pairCoords + '?geometries=geojson&overview=full&access_token=' + activeToken;
-
-                                fetch(routeUrl)
-                                    .then(function(r) { return r.json(); })
-                                    .then(function(data) {
-                                        if (data && data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                                            var coords = data.routes[0].geometry.coordinates;
-                                            var roadPoints = coords.map(function(c) { return [c[1], c[0]]; });
-                                            segmentCache[cacheKey] = roadPoints;
-                                            if (trackSegmentsLayer.hasLayer(tempLine)) {
-                                                trackSegmentsLayer.removeLayer(tempLine);
-                                            }
-                                            L.polyline(roadPoints, {
-                                                color: '#00B4D8',
-                                                weight: 4.5,
-                                                opacity: 0.95
-                                            }).addTo(trackSegmentsLayer);
-                                        } else {
-                                            var osrmUrl = 'https://router.project-osrm.org/route/v1/driving/' + pairCoords + '?overview=full&geometries=geojson';
-                                            fetch(osrmUrl)
-                                                .then(function(res) { return res.json(); })
-                                                .then(function(oData) {
-                                                    if (oData && oData.routes && oData.routes.length > 0) {
-                                                        var oCoords = oData.routes[0].geometry.coordinates.map(function(c) { return [c[1], c[0]]; });
-                                                        segmentCache[cacheKey] = oCoords;
-                                                        if (trackSegmentsLayer.hasLayer(tempLine)) {
-                                                            trackSegmentsLayer.removeLayer(tempLine);
-                                                        }
-                                                        L.polyline(oCoords, {
-                                                            color: '#00B4D8',
-                                                            weight: 4.5,
-                                                            opacity: 0.95
-                                                        }).addTo(trackSegmentsLayer);
-                                                    }
-                                                })
-                                                .catch(function() {});
-                                        }
-                                    })
-                                    .catch(function() {});
+                                fetchRoadSegment(prev, curr, function(roadPoints) {
+                                    segmentCache[cacheKey] = roadPoints;
+                                    if (trackSegmentsLayer.hasLayer(tempLine)) {
+                                        trackSegmentsLayer.removeLayer(tempLine);
+                                    }
+                                    L.polyline(roadPoints, {
+                                        color: '#00B4D8',
+                                        weight: 4.5,
+                                        opacity: 0.95
+                                    }).addTo(trackSegmentsLayer);
+                                });
                             }
                         }
                     })(validInds[i-1], validInds[i]);
@@ -858,88 +970,108 @@ private fun generarHtmlMapa(
                     return;
                 }
 
-                if (snapToRoadActive) {
-                    // SNAP TO ROAD CON MAPBOX MAP MATCHING: Ajustar exactamente a la calzada
-                    var activeToken = (mapboxToken && mapboxToken.length > 20) ? mapboxToken : '$safeToken';
-                    var lng1 = e.latlng.lng;
-                    var lat1 = e.latlng.lat;
-                    var lng2 = (lng1 + 0.00008).toFixed(6);
-                    var lat2 = (lat1 + 0.00008).toFixed(6);
-                    var mapboxMatchUrl = 'https://api.mapbox.com/matching/v5/mapbox/driving/' + lng1.toFixed(6) + ',' + lat1.toFixed(6) + ';' + lng2 + ',' + lat2 + '?radiuses=150;150&geometries=geojson&access_token=' + activeToken;
-
-                    fetch(mapboxMatchUrl)
-                        .then(function(r) { return r.json(); })
-                        .then(function(data) {
-                            if (data && data.code === 'Ok' && data.tracepoints && data.tracepoints[0]) {
-                                var tp = data.tracepoints[0];
-                                var sLng = tp.location[0];
-                                var sLat = tp.location[1];
-                                var roadName = (tp.name && tp.name.trim().length > 0) ? tp.name : 'Camino detectado (Mapbox)';
-                                showToast('🛣️ Mapbox Snap: ' + roadName);
-                                if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoadAndMode === 'function') {
-                                    window.AndroidBridge.onLocationClickedWithRoadAndMode(sLat, sLng, roadName, false);
-                                } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoad === 'function') {
-                                    window.AndroidBridge.onLocationClickedWithRoad(sLat, sLng, roadName);
-                                } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClicked === 'function') {
-                                    window.AndroidBridge.onLocationClicked(sLat, sLng);
-                                }
-                            } else {
-                                // Fallback secundario a OSRM si Mapbox no encontró camino cercano
-                                var nearestUrl = 'https://router.project-osrm.org/nearest/v1/driving/' + e.latlng.lng + ',' + e.latlng.lat;
-                                fetch(nearestUrl)
-                                    .then(function(or) { return or.json(); })
-                                    .then(function(oData) {
-                                        if (oData && oData.waypoints && oData.waypoints.length > 0) {
-                                            var wp = oData.waypoints[0];
-                                            var osLat = wp.location[1];
-                                            var osLng = wp.location[0];
-                                            var oName = wp.name || 'Camino / Pista';
-                                            showToast('🛣️ Ajustado a ' + oName);
-                                            if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoadAndMode === 'function') {
-                                                window.AndroidBridge.onLocationClickedWithRoadAndMode(osLat, osLng, oName, false);
-                                            } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoad === 'function') {
-                                                window.AndroidBridge.onLocationClickedWithRoad(osLat, osLng, oName);
-                                            } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClicked === 'function') {
-                                                window.AndroidBridge.onLocationClicked(osLat, osLng);
-                                            }
-                                        } else {
-                                            if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoadAndMode === 'function') {
-                                                window.AndroidBridge.onLocationClickedWithRoadAndMode(e.latlng.lat, e.latlng.lng, '', false);
-                                            } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoad === 'function') {
-                                                window.AndroidBridge.onLocationClickedWithRoad(e.latlng.lat, e.latlng.lng, '');
-                                            } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClicked === 'function') {
-                                                window.AndroidBridge.onLocationClicked(e.latlng.lat, e.latlng.lng);
-                                            }
-                                        }
-                                    })
-                                    .catch(function() {
-                                        if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoadAndMode === 'function') {
-                                            window.AndroidBridge.onLocationClickedWithRoadAndMode(e.latlng.lat, e.latlng.lng, '', false);
-                                        } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoad === 'function') {
-                                            window.AndroidBridge.onLocationClickedWithRoad(e.latlng.lat, e.latlng.lng, '');
-                                        } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClicked === 'function') {
-                                            window.AndroidBridge.onLocationClicked(e.latlng.lat, e.latlng.lng);
-                                        }
-                                    });
-                            }
-                        })
-                        .catch(function(err) {
-                            if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoadAndMode === 'function') {
-                                window.AndroidBridge.onLocationClickedWithRoadAndMode(e.latlng.lat, e.latlng.lng, '', false);
-                            } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoad === 'function') {
-                                window.AndroidBridge.onLocationClickedWithRoad(e.latlng.lat, e.latlng.lng, '');
-                            } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClicked === 'function') {
-                                window.AndroidBridge.onLocationClicked(e.latlng.lat, e.latlng.lng);
-                            }
-                        });
-                } else {
+                function sendLocationToBridge(lat, lng, name, isOff) {
                     if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoadAndMode === 'function') {
-                        window.AndroidBridge.onLocationClickedWithRoadAndMode(e.latlng.lat, e.latlng.lng, 'Coordenada libre (Off-road)', true);
+                        window.AndroidBridge.onLocationClickedWithRoadAndMode(lat, lng, name, isOff);
                     } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClickedWithRoad === 'function') {
-                        window.AndroidBridge.onLocationClickedWithRoad(e.latlng.lat, e.latlng.lng, 'Coordenada libre (Off-road)');
+                        window.AndroidBridge.onLocationClickedWithRoad(lat, lng, name);
                     } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClicked === 'function') {
-                        window.AndroidBridge.onLocationClicked(e.latlng.lat, e.latlng.lng);
+                        window.AndroidBridge.onLocationClicked(lat, lng);
                     }
+                }
+
+                if (snapToRoadActive) {
+                    // 1. Intento nativo vía AndroidBridge (sin CORS, ultra-estable con multi-espejo)
+                    if (window.AndroidBridge && typeof window.AndroidBridge.snapPointSync === 'function') {
+                        try {
+                            var sResultStr = window.AndroidBridge.snapPointSync(e.latlng.lat, e.latlng.lng);
+                            if (sResultStr && sResultStr.length > 5) {
+                                var sResult = JSON.parse(sResultStr);
+                                if (sResult && sResult.success) {
+                                    var sLat = sResult.lat;
+                                    var sLng = sResult.lng;
+                                    var sName = sResult.roadName || 'Camino detectado';
+                                    showToast('🛣️ Ajustado a: ' + sName);
+                                    sendLocationToBridge(sLat, sLng, sName, false);
+                                    return;
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Bridge snap error:", err);
+                        }
+                    }
+
+                    // 2. Respaldo directo en Web
+                    function fallbackOsmDeNearest() {
+                        var nUrl = 'https://routing.openstreetmap.de/routed-car/nearest/v1/driving/' + e.latlng.lng + ',' + e.latlng.lat;
+                        fetch(nUrl)
+                            .then(function(r) { return r.json(); })
+                            .then(function(oData) {
+                                if (oData && oData.waypoints && oData.waypoints.length > 0) {
+                                    var wp = oData.waypoints[0];
+                                    var oName = wp.name || 'Camino rural';
+                                    showToast('🛣️ Ajustado a ' + oName);
+                                    sendLocationToBridge(wp.location[1], wp.location[0], oName, false);
+                                } else {
+                                    sendLocationToBridge(e.latlng.lat, e.latlng.lng, '', false);
+                                }
+                            })
+                            .catch(function() {
+                                sendLocationToBridge(e.latlng.lat, e.latlng.lng, '', false);
+                            });
+                    }
+
+                    function fallbackOsrmNearest() {
+                        var nearestUrl = 'https://router.project-osrm.org/nearest/v1/driving/' + e.latlng.lng + ',' + e.latlng.lat;
+                        fetch(nearestUrl)
+                            .then(function(or) { return or.json(); })
+                            .then(function(oData) {
+                                if (oData && oData.waypoints && oData.waypoints.length > 0) {
+                                    var wp = oData.waypoints[0];
+                                    var oName = wp.name || 'Camino / Pista';
+                                    showToast('🛣️ Ajustado a ' + oName);
+                                    sendLocationToBridge(wp.location[1], wp.location[0], oName, false);
+                                } else {
+                                    fallbackOsmDeNearest();
+                                }
+                            })
+                            .catch(function() {
+                                fallbackOsmDeNearest();
+                            });
+                    }
+
+                    if (isMapboxConfigured) {
+                        var lng1 = e.latlng.lng;
+                        var lat1 = e.latlng.lat;
+                        var lng2 = (lng1 + 0.00008).toFixed(6);
+                        var lat2 = (lat1 + 0.00008).toFixed(6);
+                        var mapboxMatchUrl = 'https://api.mapbox.com/matching/v5/mapbox/driving/' + lng1.toFixed(6) + ',' + lat1.toFixed(6) + ';' + lng2 + ',' + lat2 + '?radiuses=150;150&geometries=geojson&access_token=' + mapboxToken;
+
+                        fetch(mapboxMatchUrl)
+                            .then(function(r) {
+                                if (!r.ok) throw new Error("Mapbox HTTP " + r.status);
+                                return r.json();
+                            })
+                            .then(function(data) {
+                                if (data && data.code === 'Ok' && data.tracepoints && data.tracepoints[0]) {
+                                    var tp = data.tracepoints[0];
+                                    var sLng = tp.location[0];
+                                    var sLat = tp.location[1];
+                                    var roadName = (tp.name && tp.name.trim().length > 0) ? tp.name : 'Camino detectado (Mapbox)';
+                                    showToast('🛣️ Mapbox Snap: ' + roadName);
+                                    sendLocationToBridge(sLat, sLng, roadName, false);
+                                } else {
+                                    fallbackOsrmNearest();
+                                }
+                            })
+                            .catch(function() {
+                                fallbackOsrmNearest();
+                            });
+                    } else {
+                        fallbackOsrmNearest();
+                    }
+                } else {
+                    sendLocationToBridge(e.latlng.lat, e.latlng.lng, 'Coordenada libre (Off-road)', true);
                 }
             });
         </script>
