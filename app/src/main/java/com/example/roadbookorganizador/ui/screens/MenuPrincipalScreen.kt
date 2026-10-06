@@ -9,8 +9,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.example.roadbookorganizador.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -79,15 +83,13 @@ fun MenuPrincipalScreen(
                 },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = CircleShape,
-                            color = RallyCyan.copy(alpha = 0.2f),
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Person, contentDescription = null, tint = RallyCyan, modifier = Modifier.size(20.dp))
-                            }
-                        }
+                        Image(
+                            painter = painterResource(id = R.drawable.logo_frediani_roadbook),
+                            contentDescription = "Frediani Roadbook Logo",
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
@@ -337,27 +339,79 @@ fun MenuPrincipalScreen(
                 )
             }
 
-            // FILA 3: CALIBRACIÓN 1.000M + AJUSTES DEL SISTEMA
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                BotonModuloMenu(
-                    titulo = "Calibrador 1.000m",
-                    subtitulo = "Odómetro & RaceBox 25Hz",
-                    badge = "Precisión",
-                    icono = Icons.Default.Tune,
-                    colorIcono = RallyAccentAmber,
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToCalibracion
-                )
-
-                BotonModuloMenu(
-                    titulo = "Ajustes y Sensores",
-                    subtitulo = "Servidor y preferencias",
-                    badge = "Config",
-                    icono = Icons.Default.Settings,
-                    colorIcono = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToAjustes
-                )
+            // FILA 3: AJUSTES Y SENSORES (Integra Calibrador 1.000m, RaceBox 25Hz y Servidor)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToAjustes() },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = BorderStroke(1.dp, cardBorder)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = (if (isDark) RallyCyan else FredianiCyanText).copy(alpha = 0.15f),
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Settings,
+                                    contentDescription = "Ajustes y Sensores",
+                                    tint = if (isDark) RallyCyan else FredianiCyanText,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Ajustes y Sensores",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 14.5.sp,
+                                    color = if (isDark) Color.White else Color(0xFF0F172A)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = RallyAccentAmber.copy(alpha = 0.18f)
+                                ) {
+                                    Text(
+                                        text = "CALIBRADOR & GNSS",
+                                        fontSize = 8.5.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = RallyAccentAmber,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Calibrador 1.000m • RaceBox 25Hz • Servidor Web y Mapbox",
+                                fontSize = 11.sp,
+                                color = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Ir a Ajustes y Sensores",
+                        tint = textSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
             // =========================================================================

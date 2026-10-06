@@ -16,6 +16,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import com.example.roadbookorganizador.R
 import com.example.roadbookorganizador.ui.theme.*
 import com.example.roadbookorganizador.ui.viewmodel.AuthViewModel
 
@@ -56,21 +60,14 @@ fun LoginScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // LOGO / ICONO
-                    Surface(
-                        shape = CircleShape,
-                        color = RallyCyan.copy(alpha = 0.15f),
-                        modifier = Modifier.size(68.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.SportsScore,
-                                contentDescription = null,
-                                tint = RallyCyan,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-                    }
+                    // LOGO OFICIAL FREDIANI ROADBOOK
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_frediani_roadbook),
+                        contentDescription = "Frediani Roadbook",
+                        modifier = Modifier
+                            .size(90.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                    )
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(

@@ -18,12 +18,22 @@ fun RoadbookNavGraph() {
     val authViewModel: AuthViewModel = viewModel()
     val sesion by authViewModel.sesion.collectAsState()
 
-    val startDest = if (sesion.isLoggedIn) "seleccion_rally" else "login"
-
     NavHost(
         navController = navController,
-        startDestination = startDest
+        startDestination = "splash"
     ) {
+        // Pantalla de Splash / Carga Oficial (GIF animado de Frediani Roadbook)
+        composable("splash") {
+            SplashScreen(
+                onSplashFinished = {
+                    val dest = if (sesion.isLoggedIn) "seleccion_rally" else "login"
+                    navController.navigate(dest) {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                }
+            )
+        }
+
         // Pantalla de Login / Autenticación
         composable("login") {
             LoginScreen(
