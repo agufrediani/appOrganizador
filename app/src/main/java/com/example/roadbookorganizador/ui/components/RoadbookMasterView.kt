@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -485,7 +486,7 @@ fun RoadbookMasterView(
                 ) {
                     // Cabecera N° con checkbox para seleccionar todas
                     Box(
-                        modifier = Modifier.weight(0.08f),
+                        modifier = Modifier.width(44.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
@@ -496,6 +497,8 @@ fun RoadbookMasterView(
                                 text = "N°",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 11.sp,
+                                maxLines = 1,
+                                softWrap = false,
                                 color = if (capaNumeroVisible) Color.White else Color.Gray,
                                 modifier = Modifier.clickable { capaNumeroVisible = !capaNumeroVisible }
                             )
@@ -518,11 +521,11 @@ fun RoadbookMasterView(
                             )
                         }
                     }
-                    HeaderColumnaToggle("TOTAL", capaTotalVisible, { capaTotalVisible = !capaTotalVisible }, Modifier.weight(0.08f))
-                    HeaderColumnaToggle("PARCIAL", capaParcialVisible, { capaParcialVisible = !capaParcialVisible }, Modifier.weight(0.08f))
-                    HeaderColumnaToggle("DIBUJO", capaIndicacionVisible, { capaIndicacionVisible = !capaIndicacionVisible }, Modifier.weight(0.38f))
-                    HeaderColumnaToggle("NOTAS", capaAnotacionesVisible, { capaAnotacionesVisible = !capaAnotacionesVisible }, Modifier.weight(0.30f))
-                    HeaderColumnaToggle("REG.", capaRegresivaVisible, { capaRegresivaVisible = !capaRegresivaVisible }, Modifier.weight(0.08f))
+                    HeaderColumnaToggle("TOTAL", capaTotalVisible, { capaTotalVisible = !capaTotalVisible }, Modifier.width(58.dp))
+                    HeaderColumnaToggle("PARCIAL", capaParcialVisible, { capaParcialVisible = !capaParcialVisible }, Modifier.width(54.dp))
+                    HeaderColumnaToggle("DIBUJO", capaIndicacionVisible, { capaIndicacionVisible = !capaIndicacionVisible }, Modifier.weight(0.55f))
+                    HeaderColumnaToggle("NOTAS", capaAnotacionesVisible, { capaAnotacionesVisible = !capaAnotacionesVisible }, Modifier.weight(0.45f))
+                    HeaderColumnaToggle("REG.", capaRegresivaVisible, { capaRegresivaVisible = !capaRegresivaVisible }, Modifier.width(52.dp))
                 }
             }
 
@@ -653,7 +656,7 @@ fun RoadbookMasterView(
                             detectDragGestures { change, dragAmount ->
                                 change.consume()
                                 val deltaDp = dragAmount.x / density.density
-                                sidebarWidthDp = (sidebarWidthDp - deltaDp).coerceIn(180f, 420f)
+                                sidebarWidthDp = (sidebarWidthDp - deltaDp).coerceIn(160f, 320f)
                             }
                         },
                     contentAlignment = Alignment.Center
@@ -946,7 +949,7 @@ fun FilaRoadbookInPlace(
             // 1. NÚMERO Y CASILLA DE BORRADO DEBAJO
             Box(
                 modifier = Modifier
-                    .weight(0.08f)
+                    .width(44.dp)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
@@ -958,14 +961,16 @@ fun FilaRoadbookInPlace(
                         Surface(
                             shape = CircleShape,
                             color = if (isDark) FredianiCyan else Color(0xFF0F172A),
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(30.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
                                     text = "${vineta.numero}",
                                     color = if (isDark) Color.Black else Color.White,
                                     fontWeight = FontWeight.Black,
-                                    fontSize = 13.sp
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }
@@ -979,7 +984,7 @@ fun FilaRoadbookInPlace(
                             uncheckedColor = if (isDark) Color.White.copy(alpha = 0.6f) else Color.Gray,
                             checkmarkColor = Color.White
                         ),
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -989,12 +994,15 @@ fun FilaRoadbookInPlace(
             // 2. TOTAL KM
             Box(
                 modifier = Modifier
-                    .weight(0.08f)
+                    .width(58.dp)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
                 if (capaTotalVisible) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
                         if (vineta.esReinicioCero) {
                             Surface(
                                 shape = RoundedCornerShape(3.dp),
@@ -1006,18 +1014,29 @@ fun FilaRoadbookInPlace(
                                     fontSize = 7.5.sp,
                                     fontWeight = FontWeight.Black,
                                     color = Color.White,
+                                    maxLines = 1,
+                                    softWrap = false,
                                     modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
                                 )
                             }
                         }
                         Text(
-                            text = if (vineta.distanciaOculta) "X.XX" else String.format("%.2f", vineta.distanciaTotal),
+                            text = if (vineta.distanciaOculta) "X.XX" else String.format(java.util.Locale.US, "%.2f", vineta.distanciaTotal),
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            softWrap = false,
                             color = if (vineta.distanciaOculta) Color(0xFFF59E0B) else textPrimary
                         )
-                        Text(text = "KM TOT", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = textSecondary)
+                        Text(
+                            text = "KM TOT",
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textSecondary,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
             }
@@ -1027,20 +1046,32 @@ fun FilaRoadbookInPlace(
             // 3. PARCIAL KM
             Box(
                 modifier = Modifier
-                    .weight(0.08f)
+                    .width(54.dp)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
                 if (capaParcialVisible) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
                         Text(
-                            text = String.format("%.2f", vineta.distanciaParcial),
+                            text = String.format(java.util.Locale.US, "%.2f", vineta.distanciaParcial),
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            softWrap = false,
                             color = textPrimary
                         )
-                        Text(text = "PARC", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = textSecondary)
+                        Text(
+                            text = "PARC",
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textSecondary,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
             }
@@ -1050,7 +1081,7 @@ fun FilaRoadbookInPlace(
             // 4. RECUADRO DIBUJO / DIAGRAMA CON EDICIÓN DIRECTA EN EL LUGAR
             Box(
                 modifier = Modifier
-                    .weight(0.38f)
+                    .weight(0.55f)
                     .fillMaxHeight()
                     .padding(horizontal = 3.dp)
                     .clip(RoundedCornerShape(8.dp))
@@ -1119,7 +1150,7 @@ fun FilaRoadbookInPlace(
             // 5. ANOTACIONES Y NOTAS
             Box(
                 modifier = Modifier
-                    .weight(0.30f)
+                    .weight(0.45f)
                     .fillMaxHeight()
                     .padding(horizontal = 3.dp)
                     .clip(RoundedCornerShape(8.dp))
@@ -1341,20 +1372,32 @@ fun FilaRoadbookInPlace(
             // 6. REGRESIVA
             Box(
                 modifier = Modifier
-                    .weight(0.08f)
+                    .width(52.dp)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
                 if (capaRegresivaVisible) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
                         Text(
-                            text = String.format("%.2f", distanciaRegresiva),
+                            text = String.format(java.util.Locale.US, "%.2f", distanciaRegresiva),
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace,
                             fontSize = 13.sp,
+                            maxLines = 1,
+                            softWrap = false,
                             color = if (isDark) RallyCyanLight else FredianiCyanText
                         )
-                        Text(text = "REGRESIVA", fontSize = 7.sp, fontWeight = FontWeight.Bold, color = textSecondary)
+                        Text(
+                            text = "REGRESIVA",
+                            fontSize = 7.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textSecondary,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
             }
@@ -2326,6 +2369,9 @@ fun RoadbookDrawingToolbar(
             ) {
                 // SECCIÓN IZQUIERDA: BADGE WPT + HERRAMIENTAS DE DIBUJO
                 Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -2449,11 +2495,19 @@ fun RoadbookDrawingToolbar(
                         onClick = onGuardar,
                         colors = ButtonDefaults.buttonColors(containerColor = FredianiGreen),
                         shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp)
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp),
+                        modifier = Modifier.defaultMinSize(minWidth = 78.dp)
                     ) {
                         Icon(Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
                         Spacer(modifier = Modifier.width(3.dp))
-                        Text("GUARDAR", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
+                        Text(
+                            text = "GUARDAR",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
 
                     IconButton(
@@ -3140,7 +3194,10 @@ private fun HeaderColumnaToggle(
             fontSize = 9.sp,
             fontWeight = FontWeight.Black,
             color = if (activo) (if (isDark) RallyCyan else FredianiCyanText) else (if (isDark) Color.Gray else Color.LightGray),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
