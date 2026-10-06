@@ -437,59 +437,6 @@ private fun generarHtmlMapa(
             .toast-banner.show {
                 opacity: 1;
             }
-            .streetview-thumb-container {
-                position: absolute;
-                bottom: 28px;
-                left: 10px;
-                width: 155px;
-                height: 105px;
-                z-index: 1000;
-                background: #0F172A;
-                border: 2px solid #00B4D8;
-                border-radius: 8px;
-                overflow: hidden;
-                box-shadow: 0 4px 16px rgba(0,0,0,0.85);
-                display: none;
-                cursor: pointer;
-                transition: transform 0.2s ease;
-            }
-            .streetview-thumb-container:hover {
-                transform: scale(1.05);
-            }
-            .streetview-thumb-container iframe {
-                width: 100%;
-                height: 100%;
-                border: none;
-                pointer-events: none;
-            }
-            .sv-placeholder {
-                position: absolute;
-                inset: 0;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
-                color: #E2E8F0;
-                text-align: center;
-                padding: 4px;
-                pointer-events: none;
-            }
-            .sv-overlay {
-                position: absolute;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                background: rgba(15, 23, 42, 0.92);
-                padding: 3px 6px;
-                font-size: 8.5px;
-                color: #E2E8F0;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                font-weight: 800;
-                pointer-events: none;
-            }
         </style>
     </head>
     <body>
@@ -518,20 +465,6 @@ private fun generarHtmlMapa(
         <!-- NOTIFICACIÓN TEMPORAL DE SNAP -->
         <div id="toastBanner" class="toast-banner">
             🛣️ Ajustado a la traza del camino
-        </div>
-
-        <!-- MINIATURA STREET VIEW INFERIOR IZQUIERDA (ESTILO RALLY NAVIGATOR) -->
-        <div id="streetViewThumbnail" class="streetview-thumb-container" onclick="openFullStreetView()" title="Tocar para abrir Street View 360°">
-            <iframe id="svIframe" src="" loading="lazy"></iframe>
-            <div id="svPlaceholder" class="sv-placeholder">
-                <div style="font-size:18px;">👤</div>
-                <div style="font-weight:900; font-size:9.5px; color:#00B4D8; margin-top:2px;">STREET VIEW 360°</div>
-                <div id="svCoords" style="font-size:8px; color:#94A3B8; margin-top:1px;">Tocar para explorar</div>
-            </div>
-            <div class="sv-overlay">
-                <span id="svLabel">👤 Street View</span>
-                <span style="color:#00B4D8;">⤢ ABRIR</span>
-            </div>
         </div>
 
         <script>
@@ -753,18 +686,6 @@ private fun generarHtmlMapa(
                 updateCenterButtonUi();
                 if (map) {
                     map.flyTo([lat, lng], 17, { animate: true, duration: 0.8 });
-                }
-                var thumb = document.getElementById('streetViewThumbnail');
-                var iframe = document.getElementById('svIframe');
-                var lbl = document.getElementById('svLabel');
-                var coords = document.getElementById('svCoords');
-                if (thumb) {
-                    thumb.style.display = 'block';
-                    if (lbl) lbl.innerText = '👤 WPT #' + num;
-                    if (coords) coords.innerText = lat.toFixed(5) + ', ' + lng.toFixed(5);
-                    if (iframe) {
-                        iframe.src = 'https://maps.google.com/maps?layer=c&cbll=' + lat + ',' + lng + '&cbp=11,0,0,0,0&output=svembed';
-                    }
                 }
             }
 
