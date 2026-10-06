@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -100,7 +102,9 @@ fun RoadbookMasterView(
     var vinetaParaEditarNotas by remember { mutableStateOf<VinetaEntity?>(null) }
     var mostrarDialogoVelocidadesTramo by remember { mutableStateOf(false) }
     var datosPropagacionPendiente by remember { mutableStateOf<Triple<VinetaEntity, Double, Int>?>(null) }
-    var sidebarExpanded by remember { mutableStateOf(true) }
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    var sidebarExpanded by remember(isLandscape) { mutableStateOf(isLandscape) }
     var sidebarWidthDp by remember { mutableFloatStateOf(260f) }
     val density = LocalDensity.current
 
@@ -163,21 +167,79 @@ fun RoadbookMasterView(
         }
     }
 
-    Row(modifier = modifier.fillMaxSize()) {
-        Card(
+    val insertStampAction: (String) -> Unit = { stampCode ->
+        val targetVineta = vinetas.find { it.id == vinetaEnEdicionId } ?: vinetas.firstOrNull()
+        if (targetVineta != null) {
+            if (vinetaEnEdicionId != targetVineta.id) {
+                vinetaEnEdicionId = targetVineta.id
+                onSeleccionarVineta(targetVineta)
+            }
+            if (stampCode == "FLECHA_MANIOBRA") {
+                val na = drawingDraft.arrows.toMutableList()
+                na.add(
+                    ManeuverArrow(
+                        p0 = PointData(0.5f, 0.85f),
+                        p1 = PointData(0.5f, 0.60f),
+                        p2 = PointData(0.65f, 0.40f),
+                        p3 = PointData(0.80f, 0.25f),
+                        strokeWidth = selectedStrokeWidth,
+                        colorHex = selectedStrokeColor
+                    )
+                )
+                persistDraft(drawingDraft.copy(arrows = na))
+                selectedArrowIdx = na.lastIndex
+                selectedStampIdx = null
+                activeTool = ActiveDrawTool.SELECT
+            } else if (stampCode == "RECTA") {
+                val na = drawingDraft.arrows.toMutableList()
+                na.add(
+                    ManeuverArrow(
+                        p0 = PointData(0.5f, 0.88f),
+                        p1 = PointData(0.5f, 0.65f),
+                        p2 = PointData(0.5f, 0.40f),
+                        p3 = PointData(0.5f, 0.15f),
+                        strokeWidth = selectedStrokeWidth,
+                        colorHex = selectedStrokeColor
+                    )
+                )
+                persistDraft(drawingDraft.copy(arrows = na))
+                selectedArrowIdx = na.lastIndex
+                selectedStampIdx = null
+                activeTool = ActiveDrawTool.SELECT
+            } else {
+                val nst = drawingDraft.stamps.toMutableList()
+                nst.add(
+                    StampData(
+                        type = stampCode,
+                        x = 0.5f,
+                        y = 0.5f,
+                        scale = 1.0f,
+                        rotation = 0.0f
+                    )
+                )
+                persistDraft(drawingDraft.copy(stamps = nst))
+                selectedStampIdx = nst.lastIndex
+                selectedArrowIdx = null
+                activeTool = ActiveDrawTool.SELECT
+            }
+        }
+    }
+
+    val appendNoteAction: (String) -> Unit = { noteShortcut ->
+        val targetVineta = vinetas.find { it.id == vinetaEnEdicionId } ?: vinetas.firstOrNull()
+        if (targetVineta != null) {
+            val currentText = targetVineta.informacion.trim()
+            val updatedText = if (currentText.isEmpty()) noteShortcut else "$currentText $noteShortcut"
+            onGuardarVineta(targetVineta.copy(informacion = updatedText))
+        }
+    }
+
+    val renderTableCardContent: @Composable () -> Unit = {
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = cardBg),
-            border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
-            elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+                .fillMaxSize()
+                .padding(8.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp)
-            ) {
             // 1. CABECERA TRAMO + CAPAS + BOTÓN BORRAR SELECCIONADAS
             Row(
                 modifier = Modifier
@@ -203,13 +265,15 @@ fun RoadbookMasterView(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "ROADBOOK OFICIAL • ${vinetas.size} INDICACIONES",
+                        text = if (isLandscape) "ROADBOOK OFICIAL • ${vinetas.size} INDICACIONES" else "ROADBOOK • ${vinetas.size} IND.",
                         fontWeight = FontWeight.Black,
                         fontSize = 12.sp,
-                        color = textPrimary
+                        color = textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     // Chip de Regularidad y Velocidad Máxima del Tramo
                     Surface(
@@ -225,10 +289,16 @@ fun RoadbookMasterView(
                             val velPromObj = tramo?.velocidadPromedioObjetivoKmh ?: 0.0
                             val velMaxObj = tramo?.velocidadMaximaPermitidaKmh ?: 110.0
                             Text(
-                                text = "⚡ PROM: ${if (velPromObj > 0) "${velPromObj.toInt()} km/h" else "SIN DEF."} | 🔴 TOPE: ${velMaxObj.toInt()} km/h ⚙️",
+                                text = if (isLandscape) {
+                                    "⚡ PROM: ${if (velPromObj > 0) "${velPromObj.toInt()} km/h" else "SIN DEF."} | 🔴 TOPE: ${velMaxObj.toInt()} km/h ⚙️"
+                                } else {
+                                    "⚡ ${if (velPromObj > 0) "${velPromObj.toInt()}k" else "-"} | 🔴 ${velMaxObj.toInt()}k ⚙️"
+                                },
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isDark) RallyCyan else FredianiCyanText
+                                color = if (isDark) RallyCyan else FredianiCyanText,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -268,11 +338,12 @@ fun RoadbookMasterView(
                             border = androidx.compose.foundation.BorderStroke(1.dp, FredianiCyan)
                         ) {
                             Text(
-                                text = "✏️ EDITANDO INDICACIÓN #$editandoNum",
+                                text = if (isLandscape) "✏️ EDITANDO INDICACIÓN #$editandoNum" else "✏️ #$editandoNum",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.sp,
                                 color = if (isDark) RallyCyan else FredianiCyanText,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                maxLines = 1
                             )
                         }
                     }
@@ -550,127 +621,110 @@ fun RoadbookMasterView(
         }
     }
 
-    // DIVISOR REDIMENSIONABLE / RESIZE SPLITTER
-        if (sidebarExpanded) {
-            Box(
+    if (isLandscape) {
+        Row(modifier = modifier.fillMaxSize()) {
+            Card(
                 modifier = Modifier
-                    .width(10.dp)
-                    .fillMaxHeight()
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, dragAmount ->
-                            change.consume()
-                            val deltaDp = dragAmount.x / density.density
-                            sidebarWidthDp = (sidebarWidthDp - deltaDp).coerceIn(180f, 420f)
-                        }
-                    },
-                contentAlignment = Alignment.Center
+                    .weight(1f)
+                    .fillMaxHeight(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .height(36.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
-                )
+                renderTableCardContent()
             }
 
-            // PANEL DERECHO: PALETA DE SÍMBOLOS Y NOTAS FIA
-            SidebarSymbolsPalette(
-                onInsertStamp = { stampCode ->
-                    val targetVineta = vinetas.find { it.id == vinetaEnEdicionId } ?: vinetas.firstOrNull()
-                    if (targetVineta != null) {
-                        if (vinetaEnEdicionId != targetVineta.id) {
-                            vinetaEnEdicionId = targetVineta.id
-                            onSeleccionarVineta(targetVineta)
-                        }
-                        if (stampCode == "FLECHA_MANIOBRA") {
-                            val na = drawingDraft.arrows.toMutableList()
-                            na.add(
-                                ManeuverArrow(
-                                    p0 = PointData(0.5f, 0.85f),
-                                    p1 = PointData(0.5f, 0.60f),
-                                    p2 = PointData(0.65f, 0.40f),
-                                    p3 = PointData(0.80f, 0.25f),
-                                    strokeWidth = selectedStrokeWidth,
-                                    colorHex = selectedStrokeColor
-                                )
-                            )
-                            persistDraft(drawingDraft.copy(arrows = na))
-                            selectedArrowIdx = na.lastIndex
-                            selectedStampIdx = null
-                            activeTool = ActiveDrawTool.SELECT
-                        } else if (stampCode == "RECTA") {
-                            val na = drawingDraft.arrows.toMutableList()
-                            na.add(
-                                ManeuverArrow(
-                                    p0 = PointData(0.5f, 0.88f),
-                                    p1 = PointData(0.5f, 0.65f),
-                                    p2 = PointData(0.5f, 0.40f),
-                                    p3 = PointData(0.5f, 0.15f),
-                                    strokeWidth = selectedStrokeWidth,
-                                    colorHex = selectedStrokeColor
-                                )
-                            )
-                            persistDraft(drawingDraft.copy(arrows = na))
-                            selectedArrowIdx = na.lastIndex
-                            selectedStampIdx = null
-                            activeTool = ActiveDrawTool.SELECT
-                        } else {
-                            val nst = drawingDraft.stamps.toMutableList()
-                            nst.add(
-                                StampData(
-                                    type = stampCode,
-                                    x = 0.5f,
-                                    y = 0.5f,
-                                    scale = 1.0f,
-                                    rotation = 0.0f
-                                )
-                            )
-                            persistDraft(drawingDraft.copy(stamps = nst))
-                            selectedStampIdx = nst.lastIndex
-                            selectedArrowIdx = null
-                            activeTool = ActiveDrawTool.SELECT
-                        }
-                    }
-                },
-                onAppendNoteText = { noteShortcut ->
-                    val targetVineta = vinetas.find { it.id == vinetaEnEdicionId } ?: vinetas.firstOrNull()
-                    if (targetVineta != null) {
-                        val currentText = targetVineta.informacion.trim()
-                        val updatedText = if (currentText.isEmpty()) noteShortcut else "$currentText $noteShortcut"
-                        onGuardarVineta(targetVineta.copy(informacion = updatedText))
-                    }
-                },
-                onCollapse = { sidebarExpanded = false },
-                vinetaNumeroActiva = vinetas.find { it.id == vinetaEnEdicionId }?.numero,
-                modifier = Modifier
-                    .width(sidebarWidthDp.dp)
-                    .fillMaxHeight()
-            )
-        } else {
-            // Tira compacta colapsada (~28dp) para expandir con 1 solo clic
-            Surface(
-                onClick = { sidebarExpanded = true },
-                shape = RoundedCornerShape(8.dp),
-                color = if (isDark) RallySurface else Color(0xFFF1F5F9),
-                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
-                modifier = Modifier
-                    .width(28.dp)
-                    .fillMaxHeight()
-                    .padding(vertical = 4.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+            // DIVISOR REDIMENSIONABLE / RESIZE SPLITTER
+            if (sidebarExpanded) {
+                Box(
+                    modifier = Modifier
+                        .width(10.dp)
+                        .fillMaxHeight()
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                val deltaDp = dragAmount.x / density.density
+                                sidebarWidthDp = (sidebarWidthDp - deltaDp).coerceIn(180f, 420f)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Default.ChevronLeft,
-                        contentDescription = "Expandir Paleta de Símbolos",
-                        tint = if (isDark) RallyCyan else FredianiCyanText,
-                        modifier = Modifier.size(20.dp)
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
                     )
                 }
+
+                // PANEL DERECHO: PALETA DE SÍMBOLOS Y NOTAS FIA
+                SidebarSymbolsPalette(
+                    onInsertStamp = insertStampAction,
+                    onAppendNoteText = appendNoteAction,
+                    onCollapse = { sidebarExpanded = false },
+                    vinetaNumeroActiva = vinetas.find { it.id == vinetaEnEdicionId }?.numero,
+                    modifier = Modifier
+                        .width(sidebarWidthDp.dp)
+                        .fillMaxHeight()
+                )
+            } else {
+                // Tira compacta colapsada (~28dp) para expandir con 1 solo clic
+                Surface(
+                    onClick = { sidebarExpanded = true },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isDark) RallySurface else Color(0xFFF1F5F9),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                    modifier = Modifier
+                        .width(28.dp)
+                        .fillMaxHeight()
+                        .padding(vertical = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.ChevronLeft,
+                            contentDescription = "Expandir Paleta de Símbolos",
+                            tint = if (isDark) RallyCyan else FredianiCyanText,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    } else {
+        // =========================================================================
+        // PORTRAIT: TABLA 100% ANCHO COMPLETO SIN DEFORMACIONES
+        // PALETA DE SÍMBOLOS DOCKADA ABAJO SI EL USUARIO LA ABRE
+        // =========================================================================
+        Column(modifier = modifier.fillMaxSize()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+            ) {
+                renderTableCardContent()
+            }
+
+            if (sidebarExpanded) {
+                Spacer(modifier = Modifier.height(4.dp))
+                SidebarSymbolsPalette(
+                    onInsertStamp = insertStampAction,
+                    onAppendNoteText = appendNoteAction,
+                    onCollapse = { sidebarExpanded = false },
+                    vinetaNumeroActiva = vinetas.find { it.id == vinetaEnEdicionId }?.numero,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                )
             }
         }
     }

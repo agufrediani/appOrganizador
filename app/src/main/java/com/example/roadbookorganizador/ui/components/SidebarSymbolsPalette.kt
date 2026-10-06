@@ -188,7 +188,7 @@ fun SidebarSymbolsPalette(
     }
 
     Card(
-        modifier = modifier.fillMaxHeight(),
+        modifier = modifier,
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = bg),
         border = androidx.compose.foundation.BorderStroke(1.5.dp, borderCol)
@@ -244,8 +244,8 @@ fun SidebarSymbolsPalette(
                     modifier = Modifier.size(24.dp)
                 ) {
                     Icon(
-                        Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "Minimizar panel",
+                        Icons.Default.Close,
+                        contentDescription = "Cerrar panel",
                         tint = textSecondary,
                         modifier = Modifier.size(16.dp)
                     )
@@ -316,7 +316,7 @@ fun SidebarSymbolsPalette(
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
+                        columns = GridCells.Adaptive(minSize = 64.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier.fillMaxSize()
@@ -356,7 +356,7 @@ fun SidebarSymbolsPalette(
             } else {
                 // GRILLA REGULAR DE SÍMBOLOS GRÁFICOS
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                    columns = GridCells.Adaptive(minSize = 74.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxSize()

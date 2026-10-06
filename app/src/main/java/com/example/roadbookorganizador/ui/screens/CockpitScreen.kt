@@ -6,6 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -97,7 +99,8 @@ fun CockpitScreen(
                                 fontWeight = FontWeight.Black,
                                 fontSize = 13.sp,
                                 color = if (isDark) RallyCyan else FredianiCyanText,
-                                letterSpacing = 0.8.sp
+                                letterSpacing = 0.8.sp,
+                                maxLines = 1
                             )
                             tramo?.let { t ->
                                 Text(
@@ -110,135 +113,15 @@ fun CockpitScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.width(4.dp))
-
-                        // TIRA COMPACTA DE ODÓMETRO & GNSS EN BARRA SUPERIOR
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isDark) RallySurface else Color(0xFFF1F5F9),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                // TOTAL
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "TOT ",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = textSecondary
-                                    )
-                                    Text(
-                                        text = String.format("%.3f", odoState.odometroTotalKm).replace('.', ','),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Black,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = textPrimary
-                                    )
-                                    Text(
-                                        text = " km",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = textSecondary
-                                    )
-                                }
-
-                                Text(text = "•", color = textSecondary, fontSize = 10.sp)
-
-                                // PARCIAL
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "PAR ",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = textSecondary
-                                    )
-                                    Text(
-                                        text = String.format("%.3f", odoState.odometroParcialKm).replace('.', ','),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Black,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = if (isDark) RallyAccentYellow else FredianiAmberText
-                                    )
-                                    Text(
-                                        text = " km",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = textSecondary
-                                    )
-                                }
-
-                                Text(text = "•", color = textSecondary, fontSize = 10.sp)
-
-                                // COORDENADAS
-                                Text(
-                                    text = "${String.format("%.4f", odoState.latitud)}, ${String.format("%.4f", odoState.longitud)}",
-                                    fontSize = 10.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = textSecondary
-                                )
-
-                                Text(text = "•", color = textSecondary, fontSize = 10.sp)
-
-                                // BADGE GNSS / RACEBOX
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .background(
-                                            if (odoState.raceBoxConectado) Color(0xFF065F46)
-                                            else if (odoState.satelitesConectados) Color(0xFF047857)
-                                            else RallyRed.copy(alpha = 0.2f),
-                                            RoundedCornerShape(6.dp)
-                                        )
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(7.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (odoState.raceBoxConectado) Color(0xFF34D399)
-                                                else if (odoState.satelitesConectados) FredianiGreen
-                                                else RallyRed
-                                            )
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = if (odoState.raceBoxConectado) {
-                                            val b = odoState.raceBoxBateriaPct?.let { " $it%" } ?: ""
-                                            val prec = if (odoState.precisionMetros > 0f) " ${String.format("%.1f", odoState.precisionMetros)}m" else ""
-                                            if (odoState.raceBoxTieneFix) "GPS EXTERNO 25Hz$prec$b" else "GPS EXTERNO (BUSCANDO)$b"
-                                        } else if (odoState.satelitesConectados) {
-                                            "GPS TABLET ${String.format("%.1f", odoState.precisionMetros)}m"
-                                        } else {
-                                            "BUSCANDO GPS"
-                                        },
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = if (odoState.raceBoxConectado || odoState.satelitesConectados) Color.White else RallyRed
-                                    )
-                                }
-
-                                if (odoState.modoReverso) {
-                                    Text(text = "•", color = textSecondary, fontSize = 10.sp)
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFFDC2626)
-                                    ) {
-                                        Text(
-                                            text = "◀ REVERSO (-)",
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 9.sp,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                            }
+                        if (isLandscape) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            CockpitTelemetryStrip(
+                                odoState = odoState,
+                                isDark = isDark,
+                                cardBorder = cardBorder,
+                                textPrimary = textPrimary,
+                                textSecondary = textSecondary
+                            )
                         }
                     }
                 },
@@ -570,11 +453,23 @@ fun CockpitScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    // TIRA DEDICADA DE TELEMETRÍA HORIZONTAL EN PORTRAIT (NUNCA COLAPSA NI SE DEFORMA)
+                    CockpitTelemetryStrip(
+                        odoState = odoState,
+                        isDark = isDark,
+                        cardBorder = cardBorder,
+                        textPrimary = textPrimary,
+                        textSecondary = textSecondary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 2.dp)
+                    )
+
                     if (mapExpanded) {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(0.35f),
+                                .weight(0.32f),
                             shape = RoundedCornerShape(14.dp),
                             colors = CardDefaults.cardColors(containerColor = cardBg),
                             border = androidx.compose.foundation.BorderStroke(1.5.dp, cardBorder)
@@ -614,12 +509,44 @@ fun CockpitScreen(
                                 }
                             }
                         }
+                    } else {
+                        // Tira compacta horizontal para restaurar mapa satelital en portrait
+                        Surface(
+                            onClick = { mapExpanded = true },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isDark) RallySurface else Color(0xFFF1F5F9),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(28.dp)
+                                .padding(horizontal = 2.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.ExpandMore,
+                                    contentDescription = "Mostrar Mapa Satelital",
+                                    tint = if (isDark) RallyCyan else FredianiCyanText,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "MOSTRAR MAPA SATELITAL",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = if (isDark) RallyCyan else FredianiCyanText
+                                )
+                            }
+                        }
                     }
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(if (mapExpanded) 0.65f else 1f)
+                            .weight(if (mapExpanded) 0.68f else 1f)
                     ) {
                         RoadbookMasterView(
                             tramo = tramo,
@@ -816,5 +743,169 @@ fun CockpitScreen(
                 }
             }
         )
+    }
+}
+
+/**
+ * TIRA COMPACTA Y ULTRA ROBUSTA DE TELEMETRÍA ODÓMETRO & GNSS
+ * En paisaje se inserta en el TopAppBar, en retrato como barra superior de una línea
+ * con scroll horizontal para garantizar que NUNCA desborde ni crezca verticalmente.
+ */
+@Composable
+private fun CockpitTelemetryStrip(
+    odoState: OdometerState,
+    isDark: Boolean,
+    cardBorder: Color,
+    textPrimary: Color,
+    textSecondary: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = if (isDark) RallySurface else Color(0xFFF1F5F9),
+        border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+        modifier = modifier
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            // TOTAL
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "TOT ",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textSecondary,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Text(
+                    text = String.format("%.3f", odoState.odometroTotalKm).replace('.', ','),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    color = textPrimary,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Text(
+                    text = " km",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textSecondary,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+
+            Text(text = "•", color = textSecondary, fontSize = 10.sp)
+
+            // PARCIAL
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "PAR ",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textSecondary,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Text(
+                    text = String.format("%.3f", odoState.odometroParcialKm).replace('.', ','),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    color = if (isDark) RallyAccentYellow else FredianiAmberText,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Text(
+                    text = " km",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textSecondary,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+
+            Text(text = "•", color = textSecondary, fontSize = 10.sp)
+
+            // COORDENADAS
+            Text(
+                text = "${String.format("%.4f", odoState.latitud)}, ${String.format("%.4f", odoState.longitud)}",
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
+                color = textSecondary,
+                maxLines = 1,
+                softWrap = false
+            )
+
+            Text(text = "•", color = textSecondary, fontSize = 10.sp)
+
+            // BADGE GNSS / RACEBOX
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .background(
+                        if (odoState.raceBoxConectado) Color(0xFF065F46)
+                        else if (odoState.satelitesConectados) Color(0xFF047857)
+                        else RallyRed.copy(alpha = 0.2f),
+                        RoundedCornerShape(6.dp)
+                    )
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (odoState.raceBoxConectado) Color(0xFF34D399)
+                            else if (odoState.satelitesConectados) FredianiGreen
+                            else RallyRed
+                        )
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (odoState.raceBoxConectado) {
+                        val b = odoState.raceBoxBateriaPct?.let { " $it%" } ?: ""
+                        val prec = if (odoState.precisionMetros > 0f) " ${String.format("%.1f", odoState.precisionMetros)}m" else ""
+                        if (odoState.raceBoxTieneFix) "GPS EXTERNO 25Hz$prec$b" else "GPS EXTERNO (BUSCANDO)$b"
+                    } else if (odoState.satelitesConectados) {
+                        "GPS TABLET ${String.format("%.1f", odoState.precisionMetros)}m"
+                    } else {
+                        "BUSCANDO GPS"
+                    },
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    color = if (odoState.raceBoxConectado || odoState.satelitesConectados) Color.White else RallyRed,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+
+            if (odoState.modoReverso) {
+                Text(text = "•", color = textSecondary, fontSize = 10.sp)
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFFDC2626)
+                ) {
+                    Text(
+                        text = "◀ REVERSO (-)",
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 9.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+            }
+        }
     }
 }
