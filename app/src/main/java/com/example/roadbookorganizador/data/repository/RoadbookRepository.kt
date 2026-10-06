@@ -71,6 +71,7 @@ class RoadbookRepository(private val db: AppDatabase) {
 
     // --- ACTIVAR RALLY ---
     suspend fun setRallyActivo(rallyId: Long) = db.rallyDao().setRallyActivo(rallyId)
+    suspend fun deseleccionarTodosRallies() = db.rallyDao().deseleccionarTodosRallies()
 
     // --- PUNTOS DE INTERÉS (MAPA LIBRE) ---
     fun getPuntosInteres(rallyId: Long): Flow<List<PuntoInteresEntity>> = db.puntoInteresDao().getPuntosByRally(rallyId)

@@ -18,7 +18,7 @@ fun RoadbookNavGraph() {
     val authViewModel: AuthViewModel = viewModel()
     val sesion by authViewModel.sesion.collectAsState()
 
-    val startDest = if (sesion.isLoggedIn) "menu_principal" else "login"
+    val startDest = if (sesion.isLoggedIn) "seleccion_rally" else "login"
 
     NavHost(
         navController = navController,
@@ -29,27 +29,46 @@ fun RoadbookNavGraph() {
             LoginScreen(
                 viewModel = authViewModel,
                 onLoginExitoso = {
-                    navController.navigate("menu_principal") {
+                    navController.navigate("seleccion_rally") {
                         popUpTo("login") { inclusive = true }
                     }
                 }
             )
         }
 
-        // Pantalla Menú Principal (Dashboard del Rally Activo & Módulos)
+        // Pantalla 1: Selección y Estado del Rally Asignado (Puerta de Entrada)
+        composable("seleccion_rally") {
+            val menuViewModel: MenuPrincipalViewModel = viewModel()
+            SeleccionRallyScreen(
+                viewModel = menuViewModel,
+                sesion = sesion,
+                onIngresarAlRally = { navController.navigate("menu_principal") },
+                onNavigateToAjustes = { navController.navigate("ajustes") },
+                onLogout = {
+                    authViewModel.logout {
+                        navController.navigate("login") {
+                            popUpTo("seleccion_rally") { inclusive = true }
+                        }
+                    }
+                }
+            )
+        }
+
+        // Pantalla 2: Dashboard de Operaciones del Rally Activo
         composable("menu_principal") {
             val menuViewModel: MenuPrincipalViewModel = viewModel()
             MenuPrincipalScreen(
                 viewModel = menuViewModel,
                 sesion = sesion,
+                onCambiarRally = { navController.popBackStack() },
                 onNavigateToTramos = { navController.navigate("tramos") },
-                onNavigateToRallies = { navController.navigate("rallies") },
                 onNavigateToMapaLibre = { navController.navigate("mapa_libre") },
+                onNavigateToCalibracion = { navController.navigate("calibracion") },
                 onNavigateToAjustes = { navController.navigate("ajustes") },
                 onLogout = {
                     authViewModel.logout {
                         navController.navigate("login") {
-                            popUpTo("menu_principal") { inclusive = true }
+                            popUpTo("seleccion_rally") { inclusive = true }
                         }
                     }
                 }

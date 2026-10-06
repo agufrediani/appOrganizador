@@ -27,6 +27,9 @@ interface RallyDao {
     @Query("UPDATE rallies SET esActivo = CASE WHEN id = :rallyId THEN 1 ELSE 0 END")
     suspend fun setRallyActivo(rallyId: Long)
 
+    @Query("UPDATE rallies SET esActivo = 0")
+    suspend fun deseleccionarTodosRallies()
+
     @Delete
     suspend fun deleteRally(rally: RallyEntity)
 }

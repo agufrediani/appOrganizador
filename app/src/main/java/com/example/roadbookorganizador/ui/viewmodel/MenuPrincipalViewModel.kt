@@ -17,6 +17,7 @@ data class RallyEstadisticas(
     val kmRelevados: Double = 0.0
 )
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class MenuPrincipalViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = RoadbookRepository(AppDatabase.getInstance(application))
@@ -63,10 +64,10 @@ class MenuPrincipalViewModel(application: Application) : AndroidViewModel(applic
             if (list.isEmpty()) {
                 val newRallyId = repository.insertRally(
                     RallyEntity(
-                        nombre = "Rally Frediani 2026",
-                        sede = "Villa Carlos Paz, Córdoba",
+                        nombre = "Rally de Fuentes 2026",
+                        sede = "Fuentes, Santa Fe",
                         fecha = "18-20 Septiembre 2026",
-                        campeonato = "Campeonato Argentino de Rally",
+                        campeonato = "Campeonato de Rally",
                         esActivo = true
                     )
                 )
@@ -80,6 +81,12 @@ class MenuPrincipalViewModel(application: Application) : AndroidViewModel(applic
     fun seleccionarRallyActivo(rallyId: Long) {
         viewModelScope.launch {
             repository.setRallyActivo(rallyId)
+        }
+    }
+
+    fun deseleccionarRallyActivo() {
+        viewModelScope.launch {
+            repository.deseleccionarTodosRallies()
         }
     }
 

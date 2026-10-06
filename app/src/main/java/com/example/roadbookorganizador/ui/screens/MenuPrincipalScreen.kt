@@ -1,6 +1,7 @@
 package com.example.roadbookorganizador.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.roadbookorganizador.data.local.UsuarioSesion
@@ -26,14 +29,20 @@ import com.example.roadbookorganizador.data.local.entity.RallyEntity
 import com.example.roadbookorganizador.ui.theme.*
 import com.example.roadbookorganizador.ui.viewmodel.MenuPrincipalViewModel
 
+/**
+ * PANTALLA DASHBOARD DE OPERACIONES DEL RALLY ACTIVO:
+ * Muestra el rally actual chiquito arriba, el botón cuadrado de sincronismo (ida y vuelta)
+ * y las ventanas/módulos de trabajo (Tramos, Itinerario, Mapa Libre, Calibración, Ajustes).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MenuPrincipalScreen(
     viewModel: MenuPrincipalViewModel,
     sesion: UsuarioSesion,
+    onCambiarRally: () -> Unit,
     onNavigateToTramos: () -> Unit,
-    onNavigateToRallies: () -> Unit,
     onNavigateToMapaLibre: () -> Unit,
+    onNavigateToCalibracion: () -> Unit,
     onNavigateToAjustes: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -50,32 +59,48 @@ fun MenuPrincipalScreen(
         }
     }
 
+    val isDark = ThemeManager.isDarkTheme
+    val cardBg = if (isDark) RallyCardBg else Color.White
+    val cardBorder = if (isDark) RallySurface else Color(0xFFE2E8F0)
+    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
+    val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onCambiarRally) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Cambiar Rally",
+                            tint = textPrimary
+                        )
+                    }
+                },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
                             shape = CircleShape,
                             color = RallyCyan.copy(alpha = 0.2f),
-                            modifier = Modifier.size(38.dp)
+                            modifier = Modifier.size(36.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Person, contentDescription = null, tint = RallyCyan, modifier = Modifier.size(22.dp))
+                                Icon(Icons.Default.Person, contentDescription = null, tint = RallyCyan, modifier = Modifier.size(20.dp))
                             }
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "FREDIANI ROADBOOK - Organizador",
+                                text = "FREDIANI ROADBOOK",
                                 fontWeight = FontWeight.Black,
-                                fontSize = 15.sp,
-                                color = if (ThemeManager.isDarkTheme) Color.White else Color(0xFF0F172A)
+                                fontSize = 14.sp,
+                                color = if (isDark) Color.White else Color(0xFF0F172A),
+                                letterSpacing = 0.5.sp
                             )
                             Text(
-                                text = "${sesion.nombre.ifBlank { "Organizador Oficial" }} • ${sesion.club.ifBlank { "Frediani Competición" }}",
+                                text = "${sesion.nombre.ifBlank { "Organizador" }} • ${sesion.club.ifBlank { "Frediani Competición" }}",
                                 fontSize = 11.sp,
-                                color = if (ThemeManager.isDarkTheme) RallyCyanLight else FredianiCyanText
+                                color = if (isDark) RallyCyanLight else FredianiCyanText
                             )
                         }
                     }
@@ -83,14 +108,15 @@ fun MenuPrincipalScreen(
                 actions = {
                     // Toggle Tema Claro / Oscuro
                     IconButton(onClick = { ThemeManager.toggleTheme() }) {
-                        Text(text = if (ThemeManager.isDarkTheme) "☀️" else "🌙", fontSize = 18.sp)
+                        Text(text = if (isDark) "☀️" else "🌙", fontSize = 18.sp)
                     }
-                    // Engranaje de Ajustes (AQUÍ ESTÁ EL CALIBRADOR DISCRETO)
+                    // Engranaje de Ajustes
                     IconButton(onClick = onNavigateToAjustes) {
                         Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = MaterialTheme.colorScheme.onSurface)
                     }
                     // Cerrar sesión
                     IconButton(onClick = onLogout) {
+                        @Suppress("DEPRECATION")
                         Icon(Icons.Default.Logout, contentDescription = "Cerrar Sesión", tint = Color.Gray)
                     }
                 },
@@ -105,171 +131,260 @@ fun MenuPrincipalScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            val isDark = ThemeManager.isDarkTheme
-            val cardBg = if (isDark) RallyCardBg else Color.White
-            val cardBorder = if (isDark) RallySurface else Color(0xFFE2E8F0)
-            val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
-            val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
-
-            // TARJETA RALLY ACTIVO Y DASHBOARD (TODO BLANCO EN TEMA CLARO)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = cardBg),
-                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+            // =========================================================================
+            // 1. IDENTIFICADOR DEL RALLY ARRIBA CHIQUITO (EXACTO COMO PIDIÓ EL USUARIO)
+            // =========================================================================
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = if (isDark) RallySurface else Color(0xFFF1F5F9),
+                border = BorderStroke(1.dp, if (isDark) FredianiGreen.copy(alpha = 0.4f) else Color(0xFFCBD5E1)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = RallyCyan.copy(alpha = 0.15f)
+                            shape = RoundedCornerShape(6.dp),
+                            color = FredianiGreen.copy(alpha = 0.2f),
+                            modifier = Modifier.padding(end = 8.dp)
                         ) {
                             Text(
-                                text = "RALLY ACTIVO",
+                                text = "RALLY ACTUAL",
                                 fontWeight = FontWeight.Black,
-                                fontSize = 11.sp,
-                                color = if (isDark) RallyCyan else FredianiCyanText,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                fontSize = 9.sp,
+                                color = FredianiGreen,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            OutlinedButton(
-                                onClick = { mostrarModalEditarRally = true },
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.4f) else Color(0xFFCBD5E1)),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = textPrimary)
-                            ) {
-                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Editar", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-
-                            Button(
-                                onClick = onNavigateToRallies,
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = if (isDark) RallySurface else Color(0xFFF1F5F9))
-                            ) {
-                                Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = if (isDark) RallyAccentYellow else FredianiAmberText, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Cambiar", fontSize = 12.sp, color = textPrimary, fontWeight = FontWeight.Bold)
-                            }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = activeRally?.nombre ?: "Sin Rally Asignado",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.5.sp,
+                                color = textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "${activeRally?.sede ?: "Sede no definida"} • ${activeRally?.fecha ?: "Fecha"}",
+                                fontSize = 10.5.sp,
+                                color = textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
 
-                    Text(
-                        text = activeRally?.nombre ?: "Sin Rally Seleccionado",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 20.sp,
-                        color = textPrimary
-                    )
-                    Text(
-                        text = "${activeRally?.sede ?: "Sede"} • ${activeRally?.fecha ?: "Fecha"}",
-                        fontSize = 13.sp,
-                        color = textSecondary
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(
+                            onClick = { mostrarModalEditarRally = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(15.dp), tint = textSecondary)
+                        }
 
-                    Spacer(modifier = Modifier.height(14.dp))
-                    HorizontalDivider(color = cardBorder)
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Estadísticas del Rally
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        EstadisticaItem("Tramos", "${estadisticas.totalTramos}")
-                        EstadisticaItem("Completados", "${estadisticas.tramosCompletados}")
-                        EstadisticaItem("Km Relevados", String.format("%.1f km", estadisticas.kmRelevados))
+                        OutlinedButton(
+                            onClick = onCambiarRally,
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            border = BorderStroke(1.dp, if (isDark) RallyCyan.copy(alpha = 0.5f) else FredianiCyan)
+                        ) {
+                            Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.size(13.dp), tint = if (isDark) RallyCyan else FredianiCyanText)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("Cambiar", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = if (isDark) RallyCyan else FredianiCyanText)
+                        }
                     }
                 }
             }
 
-            // BOTÓN SINCRONIZAR CON LA PLATAFORMA WEB
-            Button(
-                onClick = { viewModel.sincronizarConWeb() },
-                enabled = !isSyncing,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(58.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RallyCyan)
-            ) {
-                if (isSyncing) {
-                    CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text("SINCRONIZANDO CON LA WEB...", fontWeight = FontWeight.Black, color = Color.Black)
-                } else {
-                    Icon(Icons.Default.CloudSync, contentDescription = null, tint = Color.Black, modifier = Modifier.size(26.dp))
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "SINCRONIZAR CON PLATAFORMA WEB",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 14.sp,
-                        color = Color.Black
-                    )
-                }
-            }
-
+            // =========================================================================
+            // 2. MÓDULOS DE OPERACIÓN EN CUADRÍCULA (INCLUYE EL BOTÓN CUADRADO DE SYNC)
+            // =========================================================================
             Text(
-                text = "MÓDULOS DE OPERACIÓN",
+                text = "PANEL DE CONTROL & MÓDULOS",
                 fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                color = RallyCyan,
+                fontSize = 11.5.sp,
+                color = if (isDark) RallyCyan else FredianiCyanText,
                 letterSpacing = 1.sp
             )
 
-            // GRID DE BOTONES DE ACCESO PRINCIPAL
+            // FILA 1: BOTÓN CUADRADO DE SINCRONISMO (IDA Y VUELTA) + TRAMOS Y TRAZADO
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // BOTÓN CUADRADO DE SINCRONISMO
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(138.dp)
+                        .clickable(enabled = !isSyncing) { viewModel.sincronizarConWeb() },
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isDark) Color(0xFF0F2236) else Color(0xFFF0F9FF)
+                    ),
+                    border = BorderStroke(1.5.dp, if (isSyncing) FredianiGreen else (if (isDark) RallyCyan else Color(0xFF0284C7))),
+                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = (if (isDark) RallyCyan else Color(0xFF0284C7)).copy(alpha = 0.18f),
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (isSyncing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.5.dp,
+                                            color = if (isDark) RallyCyan else Color(0xFF0284C7)
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.CloudSync,
+                                            contentDescription = "Sincronizar",
+                                            tint = if (isDark) RallyCyan else Color(0xFF0284C7),
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isSyncing) FredianiGreen.copy(alpha = 0.2f) else (if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0))
+                            ) {
+                                Text(
+                                    text = if (isSyncing) "SINCRONIZANDO" else "IDA Y VUELTA",
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = if (isSyncing) FredianiGreen else textSecondary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        Column {
+                            Text(
+                                text = "Sincronizar Web",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.5.sp,
+                                color = if (isDark) Color.White else Color(0xFF0F172A)
+                            )
+                            Text(
+                                text = if (isSyncing) "Enviando & bajando..." else "Enviar y bajar datos nube",
+                                fontSize = 10.5.sp,
+                                color = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                // TRAMOS Y TRAZADO
                 BotonModuloMenu(
                     titulo = "Tramos y Trazado",
                     subtitulo = "Relevar PE y Enlaces",
+                    badge = "${estadisticas.totalTramos} tramos",
                     icono = Icons.Default.DirectionsCar,
-                    colorIcono = RallyCyan,
+                    colorIcono = FredianiGreen,
                     modifier = Modifier.weight(1f),
                     onClick = onNavigateToTramos
                 )
+            }
+
+            // FILA 2: ITINERARIO OFICIAL + MAPA LIBRE
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BotonModuloMenu(
-                    titulo = "Mapa Libre",
-                    subtitulo = "Explorar y POIs",
-                    icono = Icons.Default.Map,
+                    titulo = "Itinerario Oficial",
+                    subtitulo = "Cronograma y horarios",
+                    badge = "Secuencia",
+                    icono = Icons.Default.Schedule,
                     colorIcono = RallyAccentYellow,
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToTramos
+                )
+
+                BotonModuloMenu(
+                    titulo = "Mapa Libre & POIs",
+                    subtitulo = "Explorar y marcar puntos",
+                    badge = "Satélite",
+                    icono = Icons.Default.Map,
+                    colorIcono = RallyCyan,
                     modifier = Modifier.weight(1f),
                     onClick = onNavigateToMapaLibre
                 )
             }
 
+            // FILA 3: CALIBRACIÓN 1.000M + AJUSTES DEL SISTEMA
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BotonModuloMenu(
-                    titulo = "Mis Rallies",
-                    subtitulo = "Gestionar eventos",
-                    icono = Icons.Default.EmojiEvents,
-                    colorIcono = RallyGreen,
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToRallies
-                )
-                BotonModuloMenu(
-                    titulo = "Ajustes & Calibrador",
-                    subtitulo = "Odómetro y GPS",
+                    titulo = "Calibrador 1.000m",
+                    subtitulo = "Odómetro & RaceBox 25Hz",
+                    badge = "Precisión",
                     icono = Icons.Default.Tune,
                     colorIcono = RallyAccentAmber,
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToCalibracion
+                )
+
+                BotonModuloMenu(
+                    titulo = "Ajustes y Sensores",
+                    subtitulo = "Servidor y preferencias",
+                    badge = "Config",
+                    icono = Icons.Default.Settings,
+                    colorIcono = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
                     modifier = Modifier.weight(1f),
                     onClick = onNavigateToAjustes
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            // =========================================================================
+            // 3. RESUMEN DE PROGRESO DEL RALLY
+            // =========================================================================
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = BorderStroke(1.dp, cardBorder)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    EstadisticaItem("Tramos Registrados", "${estadisticas.totalTramos}")
+                    VerticalDivider(modifier = Modifier.height(30.dp), color = cardBorder)
+                    EstadisticaItem("Tramos Completados", "${estadisticas.tramosCompletados}")
+                    VerticalDivider(modifier = Modifier.height(30.dp), color = cardBorder)
+                    EstadisticaItem("Km Relevados", String.format("%.1f km", estadisticas.kmRelevados))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 
@@ -289,11 +404,11 @@ fun MenuPrincipalScreen(
 fun EstadisticaItem(titulo: String, valor: String) {
     val isDark = ThemeManager.isDarkTheme
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = titulo, fontSize = 11.sp, color = if (isDark) OdometerLabel else Color(0xFF64748B))
+        Text(text = titulo, fontSize = 10.5.sp, color = if (isDark) OdometerLabel else Color(0xFF64748B))
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = valor,
-            fontSize = 17.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Black,
             color = if (isDark) Color.White else Color(0xFF0F172A)
         )
@@ -304,6 +419,7 @@ fun EstadisticaItem(titulo: String, valor: String) {
 fun BotonModuloMenu(
     titulo: String,
     subtitulo: String,
+    badge: String? = null,
     icono: ImageVector,
     colorIcono: Color,
     modifier: Modifier = Modifier,
@@ -312,11 +428,11 @@ fun BotonModuloMenu(
     val isDark = ThemeManager.isDarkTheme
     Card(
         modifier = modifier
-            .height(130.dp)
+            .height(138.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = if (isDark) RallyCardBg else Color.White),
-        border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) RallySurface else Color(0xFFE2E8F0)),
+        border = BorderStroke(1.dp, if (isDark) RallySurface else Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
     ) {
         Column(
@@ -325,13 +441,34 @@ fun BotonModuloMenu(
                 .padding(14.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = colorIcono.copy(alpha = 0.15f),
-                modifier = Modifier.size(40.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(icono, contentDescription = null, tint = colorIcono, modifier = Modifier.size(24.dp))
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = colorIcono.copy(alpha = 0.15f),
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(icono, contentDescription = null, tint = colorIcono, modifier = Modifier.size(24.dp))
+                    }
+                }
+
+                if (badge != null) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+                    ) {
+                        Text(
+                            text = badge,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
 
@@ -339,13 +476,15 @@ fun BotonModuloMenu(
                 Text(
                     text = titulo,
                     fontWeight = FontWeight.Black,
-                    fontSize = 14.sp,
+                    fontSize = 14.5.sp,
                     color = if (isDark) Color.White else Color(0xFF0F172A)
                 )
                 Text(
                     text = subtitulo,
-                    fontSize = 11.sp,
-                    color = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF64748B)
+                    fontSize = 10.5.sp,
+                    color = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF64748B),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -371,9 +510,13 @@ fun DialogoEditarRally(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = RallyCardBg,
+        containerColor = if (ThemeManager.isDarkTheme) RallyCardBg else Color.White,
         title = {
-            Text("Editar Ficha del Rally (Oficial)", fontWeight = FontWeight.Bold, color = Color.White)
+            Text(
+                "Ficha Oficial del Rally",
+                fontWeight = FontWeight.Black,
+                color = if (ThemeManager.isDarkTheme) Color.White else Color(0xFF0F172A)
+            )
         },
         text = {
             Column(
@@ -386,35 +529,20 @@ fun DialogoEditarRally(
                     value = nombre,
                     onValueChange = { nombre = it },
                     label = { Text("Nombre Oficial del Rally") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = RallyCyan
-                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
                     value = campeonato,
                     onValueChange = { campeonato = it },
-                    label = { Text("Campeonato (ej: Rally Cordobés, Argentino)") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = RallyCyan
-                    ),
+                    label = { Text("Campeonato") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
                     value = sede,
                     onValueChange = { sede = it },
-                    label = { Text("Sede / Localidad (ej: Villa Carlos Paz)") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = RallyCyan
-                    ),
+                    label = { Text("Sede / Localidad") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -422,24 +550,13 @@ fun DialogoEditarRally(
                     OutlinedTextField(
                         value = fechaInicio,
                         onValueChange = { fechaInicio = it },
-                        label = { Text("Fecha Inicio (YYYY-MM-DD)") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = RallyCyan
-                        ),
+                        label = { Text("Fecha Inicio") },
                         modifier = Modifier.weight(1f)
                     )
-
                     OutlinedTextField(
                         value = fechaFin,
                         onValueChange = { fechaFin = it },
-                        label = { Text("Fecha Fin (YYYY-MM-DD)") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = RallyCyan
-                        ),
+                        label = { Text("Fecha Fin") },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -449,49 +566,12 @@ fun DialogoEditarRally(
                         value = club,
                         onValueChange = { club = it },
                         label = { Text("Club Organizador") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = RallyCyan
-                        ),
                         modifier = Modifier.weight(1f)
                     )
-
                     OutlinedTextField(
                         value = fiscalizador,
                         onValueChange = { fiscalizador = it },
-                        label = { Text("Fiscalizador (FRADC / CDA)") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = RallyCyan
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = estado,
-                        onValueChange = { estado = it },
-                        label = { Text("Estado (ACTIVO, PLANIFICADO)") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = RallyCyan
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    OutlinedTextField(
-                        value = areaKm2,
-                        onValueChange = { areaKm2 = it },
-                        label = { Text("Área (km²)") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = RallyCyan
-                        ),
+                        label = { Text("Fiscalizador") },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -499,12 +579,7 @@ fun DialogoEditarRally(
                 OutlinedTextField(
                     value = descripcion,
                     onValueChange = { descripcion = it },
-                    label = { Text("Descripción / Observaciones Generales") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = RallyCyan
-                    ),
+                    label = { Text("Descripción / Notas") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -515,9 +590,9 @@ fun DialogoEditarRally(
                     val area = areaKm2.toDoubleOrNull() ?: 350.0
                     onGuardar(nombre, campeonato, club, sede, fechaInicio, fechaFin, fiscalizador, estado, area, descripcion)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = RallyCyan)
+                colors = ButtonDefaults.buttonColors(containerColor = FredianiGreen)
             ) {
-                Text("GUARDAR CAMBIOS", color = Color.Black, fontWeight = FontWeight.Bold)
+                Text("GUARDAR", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
