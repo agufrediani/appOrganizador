@@ -30,9 +30,28 @@ class RoadbookRepository(private val db: AppDatabase) {
     fun getVinetasByTramo(tramoId: Long): Flow<List<VinetaEntity>> = db.vinetaDao().getVinetasByTramo(tramoId)
     suspend fun getUltimaVineta(tramoId: Long): VinetaEntity? = db.vinetaDao().getUltimaVineta(tramoId)
     suspend fun getCantidadVinetas(tramoId: Long): Int = db.vinetaDao().getCantidadVinetas(tramoId)
-    suspend fun insertVineta(vineta: VinetaEntity): Long = db.vinetaDao().insertVineta(vineta)
-    suspend fun updateVineta(vineta: VinetaEntity) = db.vinetaDao().updateVineta(vineta)
-    suspend fun deleteVineta(vineta: VinetaEntity) = db.vinetaDao().deleteVineta(vineta)
+    // Cada alta, baja o edición deja las viñetas numeradas 1, 2, 3… en orden de distancia,
+    // sin números repetidos ni huecos.
+    suspend fun insertVineta(vineta: VinetaEntity): Long {
+        val id = db.vinetaDao().insertVineta(vineta)
+        renumerarVinetas(vineta.tramoId)
+        return id
+    }
+    suspend fun updateVineta(vineta: VinetaEntity) {
+        db.vinetaDao().updateVineta(vineta)
+        renumerarVinetas(vineta.tramoId)
+    }
+    suspend fun deleteVineta(vineta: VinetaEntity) {
+        db.vinetaDao().deleteVineta(vineta)
+        renumerarVinetas(vineta.tramoId)
+    }
+
+    suspend fun renumerarVinetas(tramoId: Long) {
+        val dao = db.vinetaDao()
+        dao.getVinetasByTramoSync(tramoId).forEachIndexed { i, v ->
+            if (v.numero != i + 1) dao.setNumero(v.id, i + 1)
+        }
+    }
 
     suspend fun propagarDiferenciaKilometrica(tramoId: Long, desdeNumero: Int, deltaKm: Double) {
         val posteriores = db.vinetaDao().getVinetasPosteriores(tramoId, desdeNumero)
@@ -42,6 +61,7 @@ class RoadbookRepository(private val db: AppDatabase) {
             }
             db.vinetaDao().updateVinetas(actualizadas)
         }
+        renumerarVinetas(tramoId)
     }
 
     // --- CALIBRACIÓN ---

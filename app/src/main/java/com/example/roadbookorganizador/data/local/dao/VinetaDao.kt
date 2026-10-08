@@ -9,6 +9,12 @@ interface VinetaDao {
     @Query("SELECT * FROM vinetas WHERE tramoId = :tramoId ORDER BY distanciaTotal ASC, numero ASC")
     fun getVinetasByTramo(tramoId: Long): Flow<List<VinetaEntity>>
 
+    @Query("SELECT * FROM vinetas WHERE tramoId = :tramoId ORDER BY distanciaTotal ASC, numero ASC, id ASC")
+    suspend fun getVinetasByTramoSync(tramoId: Long): List<VinetaEntity>
+
+    @Query("UPDATE vinetas SET numero = :numero WHERE id = :id")
+    suspend fun setNumero(id: Long, numero: Int)
+
     @Query("SELECT * FROM vinetas WHERE tramoId = :tramoId ORDER BY distanciaTotal DESC, numero DESC LIMIT 1")
     suspend fun getUltimaVineta(tramoId: Long): VinetaEntity?
 

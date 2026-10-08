@@ -76,6 +76,54 @@ class RaceBoxParserTest {
         assertEquals(-0.04f, t.rotationRateZ, 0.01f)
     }
 
+    /** Paquete oficial con el byte 67 del payload reemplazado y el checksum recalculado. */
+    private fun paqueteConByte67(valor: Int): ByteArray {
+        val hex = "B562FF015000A0E70C07E607010A08330837190000002AAD4D0E0301EA0BC693E10D3B376F19618C09000F0109009C0300002C0700002300000000000000D000000088A9DD002C010059FDFF7100CE032FFF5600FCFF06DB"
+        val bytes = hexStringToByteArray(hex)
+        bytes[6 + 67] = valor.toByte()
+        var ckA = 0
+        var ckB = 0
+        for (i in 2 until 6 + 80) {
+            ckA = (ckA + (bytes[i].toInt() and 0xFF)) and 0xFF
+            ckB = (ckB + ckA) and 0xFF
+        }
+        bytes[86] = ckA.toByte()
+        bytes[87] = ckB.toByte()
+        return bytes
+    }
+
+    private fun parsear(bytes: ByteArray, esMicro: Boolean?): RaceBoxTelemetry {
+        var t: RaceBoxTelemetry? = null
+        RaceBoxPacketParser(esRaceBoxMicro = { esMicro }) { t = it }.feedBytes(bytes)
+        return t!!
+    }
+
+    @Test
+    fun microConVoltajeAltoSeLeeComoVoltaje() {
+        // 13,8 V = 138 = 0x8A: tiene el bit 7 en 1, que en un Mini significaría "cargando"
+        val t = parsear(paqueteConByte67(138), esMicro = true)
+        assertTrue(t.isMicroVoltage)
+        assertFalse(t.isCharging)
+        assertEquals(13.8f, t.inputVoltageVolts, 0.001f)
+    }
+
+    @Test
+    fun miniCargandoSeLeeComoBateria() {
+        // Mini cargando al 75 %: 0x80 | 75 = 203
+        val t = parsear(paqueteConByte67(0x80 or 75), esMicro = false)
+        assertFalse(t.isMicroVoltage)
+        assertTrue(t.isCharging)
+        assertEquals(75, t.batteryPercent)
+    }
+
+    @Test
+    fun modeloDesconocidoUsaHeuristica() {
+        // Sin saber el modelo, 121 (12,1 V) sin bit de carga solo puede ser voltaje de un Micro
+        val t = parsear(paqueteConByte67(121), esMicro = null)
+        assertTrue(t.isMicroVoltage)
+        assertEquals(12.1f, t.inputVoltageVolts, 0.001f)
+    }
+
     private fun hexStringToByteArray(s: String): ByteArray {
         val len = s.length
         val data = ByteArray(len / 2)

@@ -1,7 +1,5 @@
 package com.example.roadbookorganizador.gps.racebox
 
-import android.location.Location
-
 /**
  * Modelo de datos de telemetría de 25 Hz decodificado según el protocolo binario
  * oficial de RaceBox Mini, RaceBox Mini S y RaceBox Micro (Revisión 9).
@@ -46,18 +44,20 @@ data class RaceBoxTelemetry(
         get() = (fixStatus >= 2) && ((fixStatusFlags and 0x01) != 0)
 
     /**
-     * Convierte la telemetría binaria a un objeto Android Location estándar
-     * para inyectar directamente en el motor de odometría y mapas.
+     * Convierte la telemetría a un [GpsFix] para el motor de odometría y el track.
+     * Usa iTOW (ms de la semana GPS) como reloj del receptor.
      */
-    fun toAndroidLocation(): Location {
-        return Location("RaceBox_25Hz").apply {
-            latitude = this@RaceBoxTelemetry.latitude
-            longitude = this@RaceBoxTelemetry.longitude
-            altitude = this@RaceBoxTelemetry.mslAltitudeMeters
-            speed = this@RaceBoxTelemetry.speedKmh / 3.6f
-            bearing = this@RaceBoxTelemetry.headingDegrees
-            accuracy = this@RaceBoxTelemetry.horizontalAccuracyMeters
-            time = System.currentTimeMillis()
-        }
+    fun toGpsFix(recibidoMs: Long): com.example.roadbookorganizador.service.GpsFix {
+        return com.example.roadbookorganizador.service.GpsFix(
+            latitud = latitude,
+            longitud = longitude,
+            altitud = mslAltitudeMeters,
+            velocidadKmh = speedKmh,
+            rumbo = headingDegrees,
+            precisionMetros = horizontalAccuracyMeters,
+            timeMs = recibidoMs,
+            fuente = com.example.roadbookorganizador.service.FuenteGps.RACEBOX,
+            gpsTimeMs = iTow
+        )
     }
 }

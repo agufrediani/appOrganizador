@@ -1,0 +1,683 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 7,
+    "identityHash": "314e40d6489fd950d5ace6f7a15fdf4b",
+    "entities": [
+      {
+        "tableName": "rallies",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `webId` INTEGER, `nombre` TEXT NOT NULL, `campeonato` TEXT NOT NULL, `organizadorClub` TEXT NOT NULL, `sede` TEXT NOT NULL, `fecha` TEXT NOT NULL, `fechaFin` TEXT NOT NULL, `fiscalizador` TEXT NOT NULL, `estadoRally` TEXT NOT NULL, `areaKm2` REAL NOT NULL, `descripcion` TEXT NOT NULL, `esActivo` INTEGER NOT NULL, `sincronizado` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "webId",
+            "columnName": "webId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "nombre",
+            "columnName": "nombre",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "campeonato",
+            "columnName": "campeonato",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "organizadorClub",
+            "columnName": "organizadorClub",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sede",
+            "columnName": "sede",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fecha",
+            "columnName": "fecha",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fechaFin",
+            "columnName": "fechaFin",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fiscalizador",
+            "columnName": "fiscalizador",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estadoRally",
+            "columnName": "estadoRally",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "areaKm2",
+            "columnName": "areaKm2",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "descripcion",
+            "columnName": "descripcion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "esActivo",
+            "columnName": "esActivo",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sincronizado",
+            "columnName": "sincronizado",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "tramos",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `rallyId` INTEGER NOT NULL, `webId` INTEGER, `tipo` TEXT NOT NULL, `identificador` TEXT NOT NULL, `nombre` TEXT NOT NULL, `numeroSector` INTEGER NOT NULL, `chInicio` TEXT NOT NULL, `chFin` TEXT NOT NULL, `distanciaTotalEstimada` REAL NOT NULL, `distanciaMedidaReal` REAL NOT NULL, `velocidadPromedioObjetivoKmh` REAL NOT NULL, `velocidadMaximaPermitidaKmh` REAL NOT NULL, `tiempoOtorgado` TEXT NOT NULL, `atrasoMaximo` TEXT NOT NULL, `horaPrimerAuto` TEXT NOT NULL, `estadoTrazado` TEXT NOT NULL, `ordenSecuencia` INTEGER NOT NULL, `fechaTrazado` INTEGER, `updatedAt` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rallyId",
+            "columnName": "rallyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "webId",
+            "columnName": "webId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "tipo",
+            "columnName": "tipo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "identificador",
+            "columnName": "identificador",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nombre",
+            "columnName": "nombre",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "numeroSector",
+            "columnName": "numeroSector",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "chInicio",
+            "columnName": "chInicio",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "chFin",
+            "columnName": "chFin",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanciaTotalEstimada",
+            "columnName": "distanciaTotalEstimada",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanciaMedidaReal",
+            "columnName": "distanciaMedidaReal",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "velocidadPromedioObjetivoKmh",
+            "columnName": "velocidadPromedioObjetivoKmh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "velocidadMaximaPermitidaKmh",
+            "columnName": "velocidadMaximaPermitidaKmh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tiempoOtorgado",
+            "columnName": "tiempoOtorgado",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "atrasoMaximo",
+            "columnName": "atrasoMaximo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "horaPrimerAuto",
+            "columnName": "horaPrimerAuto",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estadoTrazado",
+            "columnName": "estadoTrazado",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ordenSecuencia",
+            "columnName": "ordenSecuencia",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fechaTrazado",
+            "columnName": "fechaTrazado",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_tramos_rallyId",
+            "unique": false,
+            "columnNames": [
+              "rallyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tramos_rallyId` ON `${TABLE_NAME}` (`rallyId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "vinetas",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `tramoId` INTEGER NOT NULL, `numero` INTEGER NOT NULL, `distanciaTotal` REAL NOT NULL, `distanciaParcial` REAL NOT NULL, `latitud` REAL NOT NULL, `longitud` REAL NOT NULL, `altitud` REAL NOT NULL, `rumbo` REAL NOT NULL, `velocidadKmh` REAL NOT NULL, `tulipTipo` TEXT NOT NULL, `tulipSvgData` TEXT NOT NULL, `notasSvgData` TEXT NOT NULL, `informacion` TEXT NOT NULL, `peligro` TEXT NOT NULL, `esOffRoad` INTEGER NOT NULL, `velocidadPromedioSectorKmh` REAL NOT NULL, `velocidadMaximaSectorKmh` REAL NOT NULL, `tiempoIdealSegundos` REAL NOT NULL, `radioCapturaMetros` INTEGER NOT NULL, `horaPasoRealMillis` INTEGER, `velocidadPasoRealKmh` REAL, `fotoUri` TEXT, `audioUri` TEXT, `esReinicioCero` INTEGER NOT NULL, `distanciaOculta` INTEGER NOT NULL, `esOcultaOrg` INTEGER NOT NULL, `mostrarWpt` INTEGER NOT NULL, `esTierra` INTEGER NOT NULL, `esPuntoControl` INTEGER NOT NULL, `tipoPuntoControl` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, FOREIGN KEY(`tramoId`) REFERENCES `tramos`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tramoId",
+            "columnName": "tramoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "numero",
+            "columnName": "numero",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanciaTotal",
+            "columnName": "distanciaTotal",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanciaParcial",
+            "columnName": "distanciaParcial",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitud",
+            "columnName": "latitud",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitud",
+            "columnName": "longitud",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "altitud",
+            "columnName": "altitud",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rumbo",
+            "columnName": "rumbo",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "velocidadKmh",
+            "columnName": "velocidadKmh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tulipTipo",
+            "columnName": "tulipTipo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tulipSvgData",
+            "columnName": "tulipSvgData",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notasSvgData",
+            "columnName": "notasSvgData",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "informacion",
+            "columnName": "informacion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "peligro",
+            "columnName": "peligro",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "esOffRoad",
+            "columnName": "esOffRoad",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "velocidadPromedioSectorKmh",
+            "columnName": "velocidadPromedioSectorKmh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "velocidadMaximaSectorKmh",
+            "columnName": "velocidadMaximaSectorKmh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tiempoIdealSegundos",
+            "columnName": "tiempoIdealSegundos",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "radioCapturaMetros",
+            "columnName": "radioCapturaMetros",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "horaPasoRealMillis",
+            "columnName": "horaPasoRealMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "velocidadPasoRealKmh",
+            "columnName": "velocidadPasoRealKmh",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "fotoUri",
+            "columnName": "fotoUri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "audioUri",
+            "columnName": "audioUri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "esReinicioCero",
+            "columnName": "esReinicioCero",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanciaOculta",
+            "columnName": "distanciaOculta",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "esOcultaOrg",
+            "columnName": "esOcultaOrg",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mostrarWpt",
+            "columnName": "mostrarWpt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "esTierra",
+            "columnName": "esTierra",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "esPuntoControl",
+            "columnName": "esPuntoControl",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tipoPuntoControl",
+            "columnName": "tipoPuntoControl",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_vinetas_tramoId",
+            "unique": false,
+            "columnNames": [
+              "tramoId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_vinetas_tramoId` ON `${TABLE_NAME}` (`tramoId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "tramos",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "tramoId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "calibraciones",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `vehiculoNombre` TEXT NOT NULL, `distanciaOficialMetros` REAL NOT NULL, `distanciaMedidaMetros` REAL NOT NULL, `factorCorreccion` REAL NOT NULL, `fecha` INTEGER NOT NULL, `activo` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vehiculoNombre",
+            "columnName": "vehiculoNombre",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanciaOficialMetros",
+            "columnName": "distanciaOficialMetros",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanciaMedidaMetros",
+            "columnName": "distanciaMedidaMetros",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "factorCorreccion",
+            "columnName": "factorCorreccion",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fecha",
+            "columnName": "fecha",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "activo",
+            "columnName": "activo",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "track_points",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `tramoId` INTEGER NOT NULL, `latitud` REAL NOT NULL, `longitud` REAL NOT NULL, `altitud` REAL NOT NULL, `velocidadKmh` REAL NOT NULL, `rumbo` REAL NOT NULL, `distanciaAcumulada` REAL NOT NULL, `timestamp` INTEGER NOT NULL, FOREIGN KEY(`tramoId`) REFERENCES `tramos`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tramoId",
+            "columnName": "tramoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitud",
+            "columnName": "latitud",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitud",
+            "columnName": "longitud",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "altitud",
+            "columnName": "altitud",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "velocidadKmh",
+            "columnName": "velocidadKmh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rumbo",
+            "columnName": "rumbo",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanciaAcumulada",
+            "columnName": "distanciaAcumulada",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_track_points_tramoId",
+            "unique": false,
+            "columnNames": [
+              "tramoId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_track_points_tramoId` ON `${TABLE_NAME}` (`tramoId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "tramos",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "tramoId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "puntos_interes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `rallyId` INTEGER NOT NULL, `nombre` TEXT NOT NULL, `tipo` TEXT NOT NULL, `latitud` REAL NOT NULL, `longitud` REAL NOT NULL, `descripcion` TEXT NOT NULL, `timestamp` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rallyId",
+            "columnName": "rallyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nombre",
+            "columnName": "nombre",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tipo",
+            "columnName": "tipo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitud",
+            "columnName": "latitud",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitud",
+            "columnName": "longitud",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "descripcion",
+            "columnName": "descripcion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '314e40d6489fd950d5ace6f7a15fdf4b')"
+    ]
+  }
+}

@@ -51,9 +51,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
+    /** Los permisos se piden una sola vez por apertura; si se rechazan, no se insiste en bucle. */
+    private var permisosYaSolicitados = false
+
+    override fun onStart() {
+        super.onStart()
         verificarPermisosEIniciar()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // App en segundo plano sin tramo en trazado: apagar GPS y servicio para no gastar batería.
+        // Con un tramo abierto el servicio sigue (trazado con pantalla apagada o en otra app).
+        if (!isChangingConfigurations && LocationTrackingService.tramoActivoId == null) {
+            LocationTrackingService.stopService(this)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,8 +74,6 @@ class MainActivity : ComponentActivity() {
 
         // Mantener la pantalla encendida en el habitáculo del auto durante el trazado
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        verificarPermisosEIniciar()
 
         setContent {
             RoadbookOrganizadorTheme {
@@ -101,10 +111,16 @@ class MainActivity : ComponentActivity() {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
 
-        if (missing.isEmpty()) {
-            iniciarServicioRastreo()
-        } else {
+        val ubicacionOk = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+
+        if (missing.isNotEmpty() && !permisosYaSolicitados) {
+            permisosYaSolicitados = true
             requestPermissionsLauncher.launch(missing.toTypedArray())
+        } else if (ubicacionOk) {
+            iniciarServicioRastreo()
         }
     }
 

@@ -10,6 +10,11 @@ import java.io.ByteArrayOutputStream
  * validación de Checksum Fletcher y decodificación de enteros Little-Endian.
  */
 class RaceBoxPacketParser(
+    /**
+     * Modelo del equipo conectado: true = RaceBox Micro, false = Mini / Mini S,
+     * null = desconocido (se usa la heurística por valor).
+     */
+    private val esRaceBoxMicro: () -> Boolean? = { null },
     private val onTelemetryParsed: (RaceBoxTelemetry) -> Unit
 ) {
 
@@ -153,13 +158,18 @@ class RaceBoxPacketParser(
         val pdopRaw = readUInt16(raw, offset + 64)
         val pdop = pdopRaw / 100.0f
 
-        // Offset 67: Battery Status or Input Voltage
+        // Offset 67: en Mini / Mini S = bit 7 "cargando" + 7 bits de batería (%).
+        //            en Micro = voltaje de entrada x10 (byte completo, ej. 138 -> 13,8 V).
         val battByte = raw[offset + 67].toInt() and 0xFF
-        val isCharging = (battByte and 0x80) != 0
-        val batteryPct = battByte and 0x7F
-        // Si el valor es superior a 100 (y no charging), suele representar voltaje de Micro x10 (ej: 0x79 = 121 -> 12.1V)
-        val isMicro = batteryPct > 100
-        val inputVoltage = if (isMicro) batteryPct / 10.0f else 0.0f
+        val isMicro = when (esRaceBoxMicro()) {
+            true -> true
+            false -> false
+            // Modelo desconocido: un valor > 100 sin el bit de carga solo puede ser voltaje
+            null -> (battByte and 0x80) == 0 && battByte > 100
+        }
+        val isCharging = !isMicro && (battByte and 0x80) != 0
+        val batteryPct = if (isMicro) 100 else (battByte and 0x7F)
+        val inputVoltage = if (isMicro) battByte / 10.0f else 0.0f
 
         // Fuerzas G (milli-g / 1000)
         val gForceX = readInt16(raw, offset + 68) / 1000.0f
@@ -197,7 +207,7 @@ class RaceBoxPacketParser(
             headingAccuracyDeg = headingAccDeg,
             pdop = pdop,
             isCharging = isCharging,
-            batteryPercent = if (isMicro) 100 else batteryPct,
+            batteryPercent = batteryPct,
             isMicroVoltage = isMicro,
             inputVoltageVolts = inputVoltage,
             gForceX = gForceX,

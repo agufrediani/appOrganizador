@@ -24,7 +24,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -35,15 +39,29 @@ class LocationTrackingService : Service() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
+    private var usandoFused = false
+    private var nativeListener: android.location.LocationListener? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
     val odometerEngine = sharedOdometerEngine
-    var currentTramoId: Long? = null
+    private lateinit var persistencia: OdometroPersistencia
+    private var ultimoTrackPointMs = 0L
+    private var ultimaNotificacionMs = 0L
 
     private val raceBoxListener: (com.example.roadbookorganizador.gps.racebox.RaceBoxTelemetry) -> Unit = { telemetry ->
-        odometerEngine.procesarTelemetriaRaceBox(telemetry)
+        if (telemetry.hasValidFix) _fixes.tryEmit(telemetry.toGpsFix(System.currentTimeMillis()))
+        val aceptado = odometerEngine.procesarTelemetriaRaceBox(telemetry)
         actualizarNotificacion()
-        guardarTrackPoint(telemetry.toAndroidLocation())
+        if (aceptado != null) guardarTrackPoint(aceptado)
+    }
+
+    /** Punto único de entrada de las posiciones de la tablet (una sola fuente activa). */
+    private fun onUbicacionTablet(location: Location) {
+        val fix = location.toGpsFix()
+        _fixes.tryEmit(fix)
+        val aceptado = odometerEngine.procesarFix(fix)
+        actualizarNotificacion()
+        if (aceptado) guardarTrackPoint(fix)
     }
 
     inner class LocalBinder : Binder() {
@@ -59,16 +77,33 @@ class LocationTrackingService : Service() {
 
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RoadbookOrganizador:TrackingWakeLock")
-        wakeLock?.acquire(12 * 60 * 60 * 1000L) // Hasta 12 horas de jornada
+
+        // Si Android cerró la app en medio de un trazado, retomar el tramo y el odómetro guardados
+        persistencia = OdometroPersistencia(this)
+        if (tramoActivoId == null && odometerEngine.state.value.odometroTotalKm == 0.0) {
+            persistencia.leer()?.let { g ->
+                if (g.tramoId > 0 && g.activo) {
+                    tramoActivoId = g.tramoId
+                    odometerEngine.restaurar(g.totalKm, g.parcialKm)
+                }
+            }
+        }
+        actualizarWakeLock()
+
+        // Guardar el odómetro del tramo activo cada 2 segundos
+        serviceScope.launch {
+            while (isActive) {
+                delay(2000L)
+                guardarEstadoOdometro()
+            }
+        }
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 for (location in result.locations) {
-                    odometerEngine.procesarNuevaUbicacion(location)
-                    actualizarNotificacion()
-                    guardarTrackPoint(location)
+                    onUbicacionTablet(location)
                 }
             }
         }
@@ -125,70 +160,74 @@ class LocationTrackingService : Service() {
         }
     }
 
+    /**
+     * Una sola fuente de ubicación de la tablet:
+     * - Google Fused Location si la tablet tiene Google Play Services.
+     * - Si no, el GPS nativo (GPS_PROVIDER). Nunca la ubicación por red (Wi-Fi / antenas),
+     *   que tiene errores de 20 a 100 m y suma distancia falsa.
+     */
     @SuppressLint("MissingPermission")
     private fun iniciarSolicitudUbicacion() {
-        // 1. Google Fused Provider
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
-            .setMinUpdateIntervalMillis(500L)
-            .setMinUpdateDistanceMeters(0.5f)
-            .setWaitForAccurateLocation(false)
-            .build()
-
-        try {
-            fusedLocationClient.requestLocationUpdates(
-                locationRequest,
-                locationCallback,
-                mainLooper
-            )
-            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                if (loc != null) odometerEngine.procesarNuevaUbicacion(loc)
-            }
+        val playServicesOk = try {
+            com.google.android.gms.common.GoogleApiAvailability.getInstance()
+                .isGooglePlayServicesAvailable(this) == com.google.android.gms.common.ConnectionResult.SUCCESS
         } catch (e: Exception) {
-            e.printStackTrace()
+            false
         }
 
-        // 2. Android Nativo Fallback (vital para tablets Wi-Fi o sin Google Services completos)
+        if (playServicesOk) {
+            val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
+                .setMinUpdateIntervalMillis(500L)
+                .setWaitForAccurateLocation(false)
+                .build()
+            try {
+                fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, mainLooper)
+                usandoFused = true
+                return
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // Fallback: GPS nativo (tablets sin Google Play Services)
         try {
             val locationManager = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
-            val nativeListener = android.location.LocationListener { loc ->
-                odometerEngine.procesarNuevaUbicacion(loc)
-                actualizarNotificacion()
-                guardarTrackPoint(loc)
-            }
-
-            if (locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)) {
-                locationManager.requestLocationUpdates(
-                    android.location.LocationManager.GPS_PROVIDER,
-                    1000L,
-                    0.5f,
-                    nativeListener,
-                    mainLooper
-                )
-            }
-
-            if (locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)) {
-                locationManager.requestLocationUpdates(
-                    android.location.LocationManager.NETWORK_PROVIDER,
-                    1000L,
-                    0.5f,
-                    nativeListener,
-                    mainLooper
-                )
-            }
-
-            val lastGps = locationManager.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-            val lastNet = locationManager.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
-            val best = lastGps ?: lastNet
-            if (best != null) {
-                odometerEngine.procesarNuevaUbicacion(best)
-            }
+            val listener = android.location.LocationListener { loc -> onUbicacionTablet(loc) }
+            locationManager.requestLocationUpdates(
+                android.location.LocationManager.GPS_PROVIDER,
+                1000L,
+                0f,
+                listener,
+                mainLooper
+            )
+            nativeListener = listener
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    private fun guardarTrackPoint(loc: Location) {
-        val tramoId = currentTramoId ?: return
+    private fun guardarEstadoOdometro() {
+        val tramoId = tramoActivoId ?: return
+        val s = odometerEngine.state.value
+        persistencia.guardar(tramoId, s.odometroTotalKm, s.odometroParcialKm)
+    }
+
+    /** El procesador se mantiene despierto solo mientras hay un tramo en trazado. */
+    @Synchronized
+    fun actualizarWakeLock() {
+        val wl = wakeLock ?: return
+        if (tramoActivoId != null) {
+            if (!wl.isHeld) wl.acquire(12 * 60 * 60 * 1000L) // Hasta 12 horas de jornada
+        } else if (wl.isHeld) {
+            wl.release()
+        }
+    }
+
+    private fun guardarTrackPoint(fix: GpsFix) {
+        val tramoId = tramoActivoId ?: return
+        // Máximo 4 puntos por segundo en la base (el RaceBox manda 25 por segundo)
+        if (fix.timeMs - ultimoTrackPointMs in 0L until 250L) return
+        ultimoTrackPointMs = fix.timeMs
         val s = odometerEngine.state.value
         serviceScope.launch {
             try {
@@ -196,12 +235,13 @@ class LocationTrackingService : Service() {
                 db.trackPointDao().insertTrackPoint(
                     TrackPointEntity(
                         tramoId = tramoId,
-                        latitud = loc.latitude,
-                        longitud = loc.longitude,
-                        altitud = loc.altitude,
-                        velocidadKmh = loc.speed * 3.6f,
-                        rumbo = if (loc.hasBearing()) loc.bearing else 0f,
-                        distanciaAcumulada = s.odometroTotalKm
+                        latitud = fix.latitud,
+                        longitud = fix.longitud,
+                        altitud = fix.altitud,
+                        velocidadKmh = s.velocidadKmh,
+                        rumbo = fix.rumbo ?: 0f,
+                        distanciaAcumulada = s.odometroTotalKm,
+                        timestamp = fix.timeMs
                     )
                 )
             } catch (e: Exception) {
@@ -244,6 +284,10 @@ class LocationTrackingService : Service() {
     }
 
     private fun actualizarNotificacion() {
+        // Una actualización por segundo alcanza (Android descarta las más frecuentes)
+        val ahora = System.currentTimeMillis()
+        if (ahora - ultimaNotificacionMs < 1000L) return
+        ultimaNotificacionMs = ahora
         val s = odometerEngine.state.value
         val texto = String.format("Total: %.3f km | Parcial: %.3f km | %.0f km/h",
             s.odometroTotalKm, s.odometroParcialKm, s.velocidadKmh)
@@ -256,7 +300,17 @@ class LocationTrackingService : Service() {
         instance = null
         com.example.roadbookorganizador.gps.racebox.RaceBoxBleManager.getInstance(applicationContext)
             .removeTelemetryListener(raceBoxListener)
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        if (usandoFused) fusedLocationClient.removeLocationUpdates(locationCallback)
+        nativeListener?.let { listener ->
+            try {
+                (getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager)
+                    .removeUpdates(listener)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        nativeListener = null
+        guardarEstadoOdometro()
         wakeLock?.let { if (it.isHeld) it.release() }
         serviceScope.cancel()
     }
@@ -266,7 +320,41 @@ class LocationTrackingService : Service() {
         const val NOTIFICATION_ID = 1001
 
         val sharedOdometerEngine = OdometerEngine()
+
+        /**
+         * Todas las posiciones crudas (RaceBox con fix válido y tablet), para otros consumidores
+         * como el calibrador o el mapa libre. Así nadie más registra listeners de GPS propios.
+         */
+        private val _fixes = MutableSharedFlow<GpsFix>(
+            extraBufferCapacity = 64,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
+        val fixes: SharedFlow<GpsFix> = _fixes.asSharedFlow()
+
+        fun Location.toGpsFix(): GpsFix = GpsFix(
+            latitud = latitude,
+            longitud = longitude,
+            altitud = altitude,
+            velocidadKmh = if (hasSpeed()) speed * 3.6f else null,
+            rumbo = if (hasBearing()) bearing else null,
+            precisionMetros = if (hasAccuracy()) accuracy else null,
+            timeMs = if (time > 0) time else System.currentTimeMillis(),
+            fuente = FuenteGps.TABLET
+        )
         var instance: LocationTrackingService? = null
+
+        /**
+         * Tramo en trazado. Mientras no sea null se graba el track, se guarda el odómetro y se
+         * mantiene el procesador despierto. No depende de que el servicio ya esté creado.
+         */
+        @Volatile
+        var tramoActivoId: Long? = null
+            private set
+
+        fun setTramoActivo(tramoId: Long?) {
+            tramoActivoId = tramoId
+            instance?.actualizarWakeLock()
+        }
 
         fun startService(context: Context) {
             val intent = Intent(context, LocationTrackingService::class.java)

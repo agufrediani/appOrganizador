@@ -11,13 +11,9 @@ import com.example.roadbookorganizador.service.OdometerState
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
+import com.example.roadbookorganizador.gps.racebox.RaceBoxBleManager
+import com.example.roadbookorganizador.gps.racebox.RaceBoxConnectionStatus
+import com.example.roadbookorganizador.service.LocationTrackingService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -44,42 +40,14 @@ class MapaLibreViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
         }
-        iniciarEscuchaGps(application)
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun iniciarEscuchaGps(context: Context) {
-        try {
-            val fused = LocationServices.getFusedLocationProviderClient(context)
-            fused.lastLocation.addOnSuccessListener { loc ->
-                if (loc != null) odoEngine.procesarNuevaUbicacion(loc)
+        // Posiciones de la única fuente que maneja LocationTrackingService (sin listeners propios)
+        viewModelScope.launch {
+            RaceBoxBleManager.getInstance(application).connectionStatus.collect { status ->
+                odoEngine.setRaceBoxBleConectado(status == RaceBoxConnectionStatus.CONNECTED)
             }
-            val request = com.google.android.gms.location.LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
-                .setMinUpdateIntervalMillis(500L)
-                .build()
-            fused.requestLocationUpdates(request, object : com.google.android.gms.location.LocationCallback() {
-                override fun onLocationResult(res: com.google.android.gms.location.LocationResult) {
-                    for (l in res.locations) odoEngine.procesarNuevaUbicacion(l)
-                }
-            }, context.mainLooper)
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
-
-        try {
-            val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            val listener = LocationListener { loc -> odoEngine.procesarNuevaUbicacion(loc) }
-            if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0.5f, listener)
-            }
-            if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000L, 0.5f, listener)
-            }
-            val best = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-            if (best != null) odoEngine.procesarNuevaUbicacion(best)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        viewModelScope.launch {
+            LocationTrackingService.fixes.collect { fix -> odoEngine.procesarFix(fix) }
         }
     }
 

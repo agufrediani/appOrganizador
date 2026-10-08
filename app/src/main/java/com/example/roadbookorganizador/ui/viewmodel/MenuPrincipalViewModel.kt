@@ -62,12 +62,11 @@ class MenuPrincipalViewModel(application: Application) : AndroidViewModel(applic
 
             val list = repository.getAllRallies().first()
             if (list.isEmpty()) {
+                // Base vacía: un rally en blanco para poder empezar (se edita o se reemplaza
+                // al sincronizar con la web). Sin sede, fecha ni campeonato inventados.
                 val newRallyId = repository.insertRally(
                     RallyEntity(
-                        nombre = "Rally de Fuentes 2026",
-                        sede = "Fuentes, Santa Fe",
-                        fecha = "18-20 Septiembre 2026",
-                        campeonato = "Campeonato de Rally",
+                        nombre = "Rally nuevo",
                         esActivo = true
                     )
                 )

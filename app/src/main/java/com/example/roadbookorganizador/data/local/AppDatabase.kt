@@ -17,7 +17,7 @@ import com.example.roadbookorganizador.data.local.entity.*
         PuntoInteresEntity::class
     ],
     version = 7,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun rallyDao(): RallyDao
@@ -38,7 +38,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "roadbook_organizador.db"
                 )
-                .fallbackToDestructiveMigration()
+                // Nunca borrar los datos al actualizar la app: cada cambio de versión de la base
+                // necesita su Migration (ver app/schemas). Solo las versiones de desarrollo
+                // anteriores a la 7 se descartan, porque no tienen esquema exportado.
+                .fallbackToDestructiveMigrationFrom(true, 1, 2, 3, 4, 5, 6)
                 .build()
                 INSTANCE = instance
                 instance

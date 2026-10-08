@@ -146,10 +146,9 @@ class RaceBoxBleManager(private val context: Context) {
                 )
 
                 _latestTelemetry.value = telemetry
-                synchronized(telemetryListeners) {
-                    telemetryListeners.forEach { listener ->
-                        try { listener(telemetry) } catch (_: Exception) {}
-                    }
+                val listeners = synchronized(telemetryListeners) { telemetryListeners.toList() }
+                listeners.forEach { listener ->
+                    try { listener(telemetry) } catch (_: Exception) {}
                 }
             }
         }
@@ -166,10 +165,26 @@ class RaceBoxBleManager(private val context: Context) {
         }
     }
 
-    private val parser = RaceBoxPacketParser { telemetry ->
+    /** Nombre real anunciado por cada equipo (ej. "RaceBox Micro 1234"), por dirección MAC. */
+    private val nombresReales = mutableMapOf<String, String>()
+
+    /** true = Micro, false = Mini / Mini S, null = no se sabe. */
+    @Volatile
+    private var modeloEsMicro: Boolean? = null
+
+    private fun detectarModeloMicro(nombreReal: String?): Boolean? {
+        if (nombreReal.isNullOrBlank()) return null
+        if (nombreReal.contains("Micro", ignoreCase = true)) return true
+        if (nombreReal.contains("Mini", ignoreCase = true)) return false
+        return null
+    }
+
+    private val parser = RaceBoxPacketParser(esRaceBoxMicro = { modeloEsMicro }) { telemetry ->
         _latestTelemetry.value = telemetry
-        // Notificar a listeners registrados (ej. OdometerEngine)
-        telemetryListeners.forEach { listener ->
+        // Notificar a listeners registrados (ej. OdometerEngine). Copia bajo lock para que
+        // agregar/quitar un listener desde otro hilo no rompa la iteración.
+        val listeners = synchronized(telemetryListeners) { telemetryListeners.toList() }
+        listeners.forEach { listener ->
             try {
                 listener(telemetry)
             } catch (e: Exception) {
@@ -205,6 +220,7 @@ class RaceBoxBleManager(private val context: Context) {
                             hasUart
 
             if (isRaceBox) {
+                if (name.isNotBlank()) synchronized(nombresReales) { nombresReales[device.address] = name }
                 val displayName = "GPS Externo"
                 val currentList = _discoveredDevices.value.toMutableList()
                 val existingIndex = currentList.indexOfFirst { it.address == device.address }
@@ -247,6 +263,7 @@ class RaceBoxBleManager(private val context: Context) {
             paired?.forEach { dev ->
                 val dName = dev.name ?: ""
                 if (dName.contains("RaceBox", ignoreCase = true) || dName.startsWith("RB", ignoreCase = true)) {
+                    synchronized(nombresReales) { nombresReales[dev.address] = dName }
                     initialList.add(DiscoveredRaceBox("GPS Externo", dev.address, -45))
                 }
             }
@@ -299,6 +316,10 @@ class RaceBoxBleManager(private val context: Context) {
         }
 
         lastConnectedAddress = address
+        val nombreReal = synchronized(nombresReales) { nombresReales[address] }
+            ?: prefs.getString("real_name_$address", null)
+        modeloEsMicro = detectarModeloMicro(nombreReal)
+        if (nombreReal != null) prefs.edit().putString("real_name_$address", nombreReal).apply()
         _connectedDeviceName.value = "GPS Externo"
         _connectionStatus.value = RaceBoxConnectionStatus.CONNECTING
         parser.reset()

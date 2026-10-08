@@ -18,11 +18,12 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.roadbookorganizador"
+        // Identidad definitiva de la app (el namespace del código sigue siendo com.example...)
+        applicationId = "com.frediani.roadbookorganizador"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -45,6 +46,11 @@ android {
 
 kotlin {
     jvmToolchain(17)
+}
+
+// Room exporta el esquema de cada versión de la base a app/schemas para escribir migraciones
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {

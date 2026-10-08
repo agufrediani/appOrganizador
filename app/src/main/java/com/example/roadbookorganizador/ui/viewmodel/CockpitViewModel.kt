@@ -1,10 +1,6 @@
 package com.example.roadbookorganizador.ui.viewmodel
 
-import android.annotation.SuppressLint
 import android.app.Application
-import android.content.Context
-import android.location.LocationListener
-import android.location.LocationManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.roadbookorganizador.data.local.AppDatabase
@@ -18,8 +14,6 @@ import com.example.roadbookorganizador.service.OdometerEngine
 import com.example.roadbookorganizador.service.OdometerState
 import com.example.roadbookorganizador.service.RoadSnappingService
 import com.example.roadbookorganizador.util.GpxKmzExporter
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -64,6 +58,11 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
     private val roadSnappingService = RoadSnappingService()
     private val sessionManager = SessionManager(application)
     val odometerEngine = com.example.roadbookorganizador.service.LocationTrackingService.sharedOdometerEngine
+    private val persistencia = com.example.roadbookorganizador.service.OdometroPersistencia(application)
+    private var autoPcCallback: ((Double, Double, Double, String) -> Unit)? = null
+
+    /** true solo en el ViewModel que abrió el tramo (no en el de la pantalla Exportar). */
+    private var abrioTramo = false
 
     private val _tramoActivo = MutableStateFlow<TramoEntity?>(null)
     val tramoActivo: StateFlow<TramoEntity?> = _tramoActivo.asStateFlow()
@@ -91,14 +90,9 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
             val factor = repository.getFactorCalibracionActivo()
             odometerEngine.setFactorCalibracion(factor)
         }
-        viewModelScope.launch {
-            val bleManager = com.example.roadbookorganizador.gps.racebox.RaceBoxBleManager.getInstance(application)
-            bleManager.connectionStatus.collect { status ->
-                val conectado = (status == com.example.roadbookorganizador.gps.racebox.RaceBoxConnectionStatus.CONNECTED)
-                odometerEngine.setRaceBoxBleConectado(conectado)
-            }
-        }
-        odometerEngine.onAutoPcTriggered = { kmTotal, lat, lon, tipoPc ->
+        // El estado del RaceBox y las posiciones GPS los maneja LocationTrackingService
+        // (una sola fuente). Este ViewModel ya no registra listeners propios.
+        autoPcCallback = { kmTotal, lat, lon, tipoPc ->
             val tId = _tramoActivo.value?.id
             if (tId != null) {
                 viewModelScope.launch {
@@ -125,43 +119,19 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
         }
-        iniciarEscuchaGps(application)
     }
 
-    @SuppressLint("MissingPermission")
-    private fun iniciarEscuchaGps(context: Context) {
-        try {
-            val fused = LocationServices.getFusedLocationProviderClient(context)
-            fused.lastLocation.addOnSuccessListener { loc ->
-                if (loc != null) odometerEngine.procesarNuevaUbicacion(loc)
-            }
-            val request = com.google.android.gms.location.LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
-                .setMinUpdateIntervalMillis(500L)
-                .build()
-            fused.requestLocationUpdates(request, object : com.google.android.gms.location.LocationCallback() {
-                override fun onLocationResult(res: com.google.android.gms.location.LocationResult) {
-                    for (l in res.locations) odometerEngine.procesarNuevaUbicacion(l)
-                }
-            }, context.mainLooper)
-        } catch (e: Exception) {
-            e.printStackTrace()
+    override fun onCleared() {
+        // Se salió del cockpit: dejar de grabar el track de este tramo y soltar el callback
+        if (odometerEngine.onAutoPcTriggered === autoPcCallback) odometerEngine.onAutoPcTriggered = null
+        if (abrioTramo) {
+            val tId = _tramoActivo.value?.id
+            val s = odometerEngine.state.value
+            if (tId != null) persistencia.guardar(tId, s.odometroTotalKm, s.odometroParcialKm)
+            persistencia.marcarInactivo()
+            com.example.roadbookorganizador.service.LocationTrackingService.setTramoActivo(null)
         }
-
-        try {
-            val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            val listener = LocationListener { loc -> odometerEngine.procesarNuevaUbicacion(loc) }
-            if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0.5f, listener)
-            }
-            if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000L, 0.5f, listener)
-            }
-            val best = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-            if (best != null) odometerEngine.procesarNuevaUbicacion(best)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        super.onCleared()
     }
 
     fun toggleSimulacion(velocidadKmh: Float = 60f) {
@@ -182,18 +152,29 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun cargarTramo(tramoId: Long) {
-        com.example.roadbookorganizador.service.LocationTrackingService.instance?.currentTramoId = tramoId
+        val servicio = com.example.roadbookorganizador.service.LocationTrackingService
+        // Si este tramo ya está en trazado (volviendo de Calibración, o la app se reinició
+        // y el servicio lo retomó), el odómetro sigue como está.
+        val yaActivo = servicio.tramoActivoId == tramoId
+        servicio.setTramoActivo(tramoId)
+        abrioTramo = true
+        // Los PCs automáticos los guarda solo el ViewModel del cockpit (no el de Exportar)
+        odometerEngine.onAutoPcTriggered = autoPcCallback
         viewModelScope.launch {
             val tramo = repository.getTramoById(tramoId)
             _tramoActivo.value = tramo
 
             if (tramo != null) {
-                // Si el tramo ya tiene viñetas, reanudar odómetro desde la última distancia
-                val ultima = repository.getUltimaVineta(tramoId)
-                if (ultima != null) {
-                    odometerEngine.resetTotalYParcial(ultima.distanciaTotal)
-                } else {
-                    odometerEngine.resetTotalYParcial(0.0)
+                if (!yaActivo) {
+                    val guardado = persistencia.leer()
+                    if (guardado != null && guardado.tramoId == tramoId) {
+                        // Retomar donde quedó el odómetro la última vez que se salió del tramo
+                        odometerEngine.restaurar(guardado.totalKm, guardado.parcialKm)
+                    } else {
+                        // Primera vez: arrancar desde la última viñeta (o desde cero)
+                        val ultima = repository.getUltimaVineta(tramoId)
+                        odometerEngine.resetTotalYParcial(ultima?.distanciaTotal ?: 0.0)
+                    }
                 }
                 repository.updateDistanciaYEstado(tramoId, tramo.distanciaMedidaReal, "EN_TRAZADO")
             }

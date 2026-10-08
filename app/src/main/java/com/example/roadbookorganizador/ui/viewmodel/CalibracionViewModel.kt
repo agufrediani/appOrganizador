@@ -4,8 +4,10 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.roadbookorganizador.data.local.AppDatabase
-import com.example.roadbookorganizador.data.local.entity.CalibracionEntity
 import com.example.roadbookorganizador.data.repository.RoadbookRepository
+import com.example.roadbookorganizador.gps.racebox.RaceBoxBleManager
+import com.example.roadbookorganizador.gps.racebox.RaceBoxConnectionStatus
+import com.example.roadbookorganizador.service.LocationTrackingService
 import com.example.roadbookorganizador.service.OdometerEngine
 import com.example.roadbookorganizador.service.OdometerState
 import kotlinx.coroutines.flow.*
@@ -20,6 +22,11 @@ enum class CalibracionPaso {
 class CalibracionViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = RoadbookRepository(AppDatabase.getInstance(application))
+
+    /**
+     * Motor propio del calibrador: recibe las mismas posiciones que el odómetro del tramo
+     * (misma fuente, mismos filtros) pero con factor 1.0 y sin tocar el odómetro del tramo.
+     */
     val odoEngine = OdometerEngine()
 
     val odoState: StateFlow<OdometerState> = odoEngine.state
@@ -38,6 +45,15 @@ class CalibracionViewModel(application: Application) : AndroidViewModel(applicat
     init {
         // En calibración el factor base debe ser 1.0 para medir metros satelitales puros
         odoEngine.setFactorCalibracion(1.0)
+
+        viewModelScope.launch {
+            RaceBoxBleManager.getInstance(application).connectionStatus.collect { status ->
+                odoEngine.setRaceBoxBleConectado(status == RaceBoxConnectionStatus.CONNECTED)
+            }
+        }
+        viewModelScope.launch {
+            LocationTrackingService.fixes.collect { fix -> odoEngine.procesarFix(fix) }
+        }
     }
 
     fun iniciarRecorridoCalibracion() {
@@ -54,8 +70,12 @@ class CalibracionViewModel(application: Application) : AndroidViewModel(applicat
         _factorCalculado.value = factor
         _paso.value = CalibracionPaso.FINALIZADO
 
+        if (metrosMedidos <= 10.0) return // medición inválida: no se guarda ni se aplica
+
         viewModelScope.launch {
             repository.guardarCalibracion(vehiculoNombre, metrosMedidos, distanciaOficialMetros)
+            // Aplicar el nuevo factor al odómetro del tramo sin reiniciar la app
+            LocationTrackingService.sharedOdometerEngine.setFactorCalibracion(factor)
         }
     }
 
