@@ -24,22 +24,22 @@ fun DialogoMarcadoRapido(
     state: DialogoMarcadoState,
     onDiagramaSeleccionada: (String) -> Unit,
     onNotaCambio: (String) -> Unit,
-    onPeligroCambio: (String) -> Unit,
     onGuardar: () -> Unit,
     onCancelar: () -> Unit
 ) {
     val isDark = ThemeManager.isDarkTheme
+    // Flechas armadas de la especificación (flechas_armadas.json). El peligro no se elige acá:
+    // se marca dibujando los símbolos EXCL / PELIGRO en el editor del roadbook.
     val maniobras = listOf(
-        "RECTA" to "⬆ Recta",
-        "DER_90" to "➡ Der 90°",
-        "IZQ_90" to "⬅ Izq 90°",
-        "DER_45" to "↗ Der 45°",
-        "IZQ_45" to "↖ Izq 45°",
-        "HORQUILLA_DER" to "↩ Horq D",
-        "HORQUILLA_IZQ" to "↪ Horq I",
-        "PELIGRO" to "⚠ Peligro"
+        "recta" to "⬆ Recta",
+        "der_45" to "↗ Der 45°",
+        "der_90" to "➡ Der 90°",
+        "der_vuelta" to "↩ Vuelta D",
+        "BLANCO" to "Sin dibujo",
+        "izq_45" to "↖ Izq 45°",
+        "izq_90" to "⬅ Izq 90°",
+        "izq_vuelta" to "↪ Vuelta I"
     )
-    val peligros = listOf("" to "Sin peligro", "!" to "!", "!!" to "!!", "!!!" to "!!!")
 
     AlertDialog(
         onDismissRequest = onCancelar,
@@ -138,42 +138,6 @@ fun DialogoMarcadoRapido(
                                 color = if (sel) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)),
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
-                    }
-                }
-
-                // GRADO DE PELIGRO
-                Text(
-                    text = "NIVEL DE PELIGRO",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Black,
-                    color = if (isDark) OdometerLabel else Color(0xFF64748B)
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    peligros.forEach { (pel, label) ->
-                        val sel = state.peligro == pel
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (sel) {
-                                if (pel.isEmpty()) FredianiCyanText else RallyRed
-                            } else {
-                                if (isDark) RallySurface else Color(0xFFF1F5F9)
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onPeligroCambio(pel) }
-                        ) {
-                            Text(
-                                text = label,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = if (sel) Color.White else (if (isDark) Color.White else Color(0xFF0F172A)),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 6.dp)
                             )
                         }
                     }

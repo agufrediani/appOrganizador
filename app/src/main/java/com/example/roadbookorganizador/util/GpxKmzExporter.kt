@@ -96,7 +96,6 @@ object GpxKmzExporter {
                     "latitud" to v.latitud,
                     "longitud" to v.longitud,
                     "altitud" to v.altitud,
-                    "rumbo" to v.rumbo,
                     "tulip_tipo" to v.tulipTipo,
                     "tulip_svg_data" to v.tulipSvgData,
                     "notas_svg_data" to v.notasSvgData,
@@ -162,7 +161,6 @@ object GpxKmzExporter {
             sb.appendLine("""          <h3>Viñeta #${v.numero}</h3>""")
             sb.appendLine("""          <p><b>Odómetro Total:</b> ${String.format(Locale.US, "%.3f", v.distanciaTotal)} km<br/>""")
             sb.appendLine("""          <b>Parcial:</b> ${String.format(Locale.US, "%.3f", v.distanciaParcial)} km<br/>""")
-            sb.appendLine("""          <b>Rumbo (CAP):</b> ${String.format(Locale.US, "%.0f°", v.rumbo)}<br/>""")
             sb.appendLine("""          <b>Maniobra:</b> ${v.tulipTipo}$offKml$regKml$maxKml<br/>""")
             if (v.peligro.isNotBlank()) sb.appendLine("""          <b>Alerta:</b> <font color="red">${v.peligro}</font><br/>""")
             if (v.informacion.isNotBlank()) sb.appendLine("""          <b>Notas:</b> ${v.informacion}<br/>""")

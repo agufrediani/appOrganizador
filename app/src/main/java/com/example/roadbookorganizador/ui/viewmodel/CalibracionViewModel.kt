@@ -10,6 +10,7 @@ import com.example.roadbookorganizador.gps.racebox.RaceBoxConnectionStatus
 import com.example.roadbookorganizador.service.LocationTrackingService
 import com.example.roadbookorganizador.service.OdometerEngine
 import com.example.roadbookorganizador.service.OdometerState
+import com.example.roadbookorganizador.util.paraPantalla
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -29,7 +30,7 @@ class CalibracionViewModel(application: Application) : AndroidViewModel(applicat
      */
     val odoEngine = OdometerEngine()
 
-    val odoState: StateFlow<OdometerState> = odoEngine.state
+    val odoState: StateFlow<OdometerState> = odoEngine.state.paraPantalla(viewModelScope)
     val calibracionActiva = repository.getCalibracionActiva()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 

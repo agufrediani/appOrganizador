@@ -1,0 +1,662 @@
+{
+  "formato": "frediani-simbolos",
+  "version": 1,
+  "descripcion": "Biblioteca oficial de símbolos del roadbook. Cada símbolo es un SVG de 100 x 100 unidades. Ver ESPECIFICACION_VINETA.md.",
+  "categorias": [
+    {
+      "codigo": "ROAD_RALLY",
+      "nombre": "Pistas"
+    },
+    {
+      "codigo": "LANDMARKS",
+      "nombre": "Puntos notables"
+    },
+    {
+      "codigo": "TERRAIN",
+      "nombre": "Terreno"
+    },
+    {
+      "codigo": "SIGNS",
+      "nombre": "Señales"
+    },
+    {
+      "codigo": "SPEED",
+      "nombre": "Velocidad"
+    }
+  ],
+  "simbolos": [
+    {
+      "codigo": "EXCL_1",
+      "nombre": "! Atención",
+      "categoria": "SIGNS",
+      "color": "#000000",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"45\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"45\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "EXCL_2",
+      "nombre": "!! Atención",
+      "categoria": "SIGNS",
+      "color": "#000000",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"35\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"35\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/><rect x=\"55\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"55\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "EXCL_3",
+      "nombre": "!!! Atención",
+      "categoria": "SIGNS",
+      "color": "#000000",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"23\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"23\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/><rect x=\"45\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"45\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/><rect x=\"67\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"67\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "PELIGRO_1",
+      "nombre": "! Peligro 1",
+      "categoria": "SIGNS",
+      "color": "#eab308",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"#fef08a\" stroke=\"#ca8a04\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"50\" y1=\"36\" x2=\"50\" y2=\"60\" stroke=\"#000000\" stroke-width=\"9\" stroke-linecap=\"round\"/><circle cx=\"50\" cy=\"74\" r=\"5\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "PELIGRO_2",
+      "nombre": "!! Peligro 2",
+      "categoria": "SIGNS",
+      "color": "#f97316",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"#fed7aa\" stroke=\"#ea580c\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"42\" y1=\"36\" x2=\"42\" y2=\"60\" stroke=\"#000000\" stroke-width=\"7\" stroke-linecap=\"round\"/><circle cx=\"42\" cy=\"74\" r=\"4.5\" fill=\"#000000\"/><line x1=\"58\" y1=\"36\" x2=\"58\" y2=\"60\" stroke=\"#000000\" stroke-width=\"7\" stroke-linecap=\"round\"/><circle cx=\"58\" cy=\"74\" r=\"4.5\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "PELIGRO_3",
+      "nombre": "!!! Peligro 3",
+      "categoria": "SIGNS",
+      "color": "#ef4444",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"#fecaca\" stroke=\"#dc2626\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"36\" y1=\"36\" x2=\"36\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"36\" cy=\"74\" r=\"4\" fill=\"#000000\"/><line x1=\"50\" y1=\"36\" x2=\"50\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"50\" cy=\"74\" r=\"4\" fill=\"#000000\"/><line x1=\"64\" y1=\"36\" x2=\"64\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"64\" cy=\"74\" r=\"4\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "STOP",
+      "nombre": "Control Stop",
+      "categoria": "SIGNS",
+      "color": "#dc2626",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"30,15 70,15 85,30 85,70 70,85 30,85 15,70 15,30\" fill=\"#dc2626\" stroke=\"#ffffff\" stroke-width=\"4\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#ffffff\" font-size=\"20\" font-weight=\"900\" font-family=\"sans-serif\">STOP</text></svg>"
+    },
+    {
+      "codigo": "CARTEL_IZQ",
+      "nombre": "Cartel Izquierda",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"20,40 40,25 80,25 80,55 40,55\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"55\" y1=\"55\" x2=\"55\" y2=\"85\" stroke=\"#000000\" stroke-width=\"6\"/></svg>"
+    },
+    {
+      "codigo": "CARTEL_DER",
+      "nombre": "Cartel Derecha",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"20,25 60,25 80,40 60,55 20,55\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"45\" y1=\"55\" x2=\"45\" y2=\"85\" stroke=\"#000000\" stroke-width=\"6\"/></svg>"
+    },
+    {
+      "codigo": "CARTEL_CIRCULAR",
+      "nombre": "Señal Circular",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"40\" r=\"24\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"50\" y1=\"64\" x2=\"50\" y2=\"88\" stroke=\"#000000\" stroke-width=\"6\"/></svg>"
+    },
+    {
+      "codigo": "CARTEL_PUBLICITARIO",
+      "nombre": "Valla / Cartel",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"18\" y=\"25\" width=\"64\" height=\"35\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"30\" y1=\"60\" x2=\"30\" y2=\"85\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"70\" y1=\"60\" x2=\"70\" y2=\"85\" stroke=\"#000000\" stroke-width=\"5\"/></svg>"
+    },
+    {
+      "codigo": "ZANJA",
+      "nombre": "Zanja",
+      "categoria": "TERRAIN",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 15 50 L 35 75 L 65 75 L 85 50\" stroke=\"#000000\" stroke-width=\"7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><line x1=\"25\" y1=\"62\" x2=\"75\" y2=\"62\" stroke=\"#ef4444\" stroke-width=\"4\" stroke-dasharray=\"5,5\"/></svg>"
+    },
+    {
+      "codigo": "POZO",
+      "nombre": "Pozo",
+      "categoria": "TERRAIN",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><ellipse cx=\"50\" cy=\"50\" rx=\"35\" ry=\"25\" fill=\"#f1f5f9\" stroke=\"#000000\" stroke-width=\"6\"/><path d=\"M 25 50 Q 50 68 75 50\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "PIEDRAS",
+      "nombre": "Piedras Cortantes",
+      "categoria": "TERRAIN",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"25,75 35,40 50,75\" fill=\"#cbd5e1\" stroke=\"#000000\" stroke-width=\"5\"/><polygon points=\"45,75 60,30 80,75\" fill=\"#94a3b8\" stroke=\"#000000\" stroke-width=\"5\"/></svg>"
+    },
+    {
+      "codigo": "VADO",
+      "nombre": "Vado / Agua",
+      "categoria": "TERRAIN",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 15 45 Q 32 30 50 45 T 85 45\" stroke=\"#0284c7\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M 15 65 Q 32 50 50 65 T 85 65\" stroke=\"#0284c7\" stroke-width=\"7\" stroke-linecap=\"round\"/></svg>"
+    },
+    {
+      "codigo": "BADEN",
+      "nombre": "Badén / Salto",
+      "categoria": "TERRAIN",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 15 65 Q 50 25 85 65\" stroke=\"#000000\" stroke-width=\"7\" fill=\"none\" stroke-linecap=\"round\"/><polygon points=\"50,15 42,28 58,28\" fill=\"#ef4444\"/></svg>"
+    },
+    {
+      "codigo": "ARENA",
+      "nombre": "Arena",
+      "categoria": "TERRAIN",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"30\" cy=\"40\" r=\"3\" fill=\"#ca8a04\"/><circle cx=\"50\" cy=\"35\" r=\"3\" fill=\"#ca8a04\"/><circle cx=\"70\" cy=\"42\" r=\"3\" fill=\"#ca8a04\"/><circle cx=\"40\" cy=\"65\" r=\"3\" fill=\"#ca8a04\"/><circle cx=\"60\" cy=\"60\" r=\"3\" fill=\"#ca8a04\"/><path d=\"M 20 75 Q 50 65 80 75\" stroke=\"#ca8a04\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "DUNAS",
+      "nombre": "Dunas",
+      "categoria": "TERRAIN",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 10 70 Q 30 35 55 60 Q 75 40 90 70\" fill=\"none\" stroke=\"#d97706\" stroke-width=\"6\" stroke-linecap=\"round\"/></svg>"
+    },
+    {
+      "codigo": "RIO",
+      "nombre": "Río Seco",
+      "categoria": "TERRAIN",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"20\" y1=\"30\" x2=\"80\" y2=\"30\" stroke=\"#0284c7\" stroke-width=\"5\" stroke-dasharray=\"6,4\"/><line x1=\"15\" y1=\"50\" x2=\"85\" y2=\"50\" stroke=\"#0284c7\" stroke-width=\"5\"/><line x1=\"20\" y1=\"70\" x2=\"80\" y2=\"70\" stroke=\"#0284c7\" stroke-width=\"5\" stroke-dasharray=\"6,4\"/></svg>"
+    },
+    {
+      "codigo": "BARRO",
+      "nombre": "Barro / Huella Honda",
+      "categoria": "TERRAIN",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 20 40 Q 50 30 80 40 Q 50 50 20 40\" fill=\"#78350f\" opacity=\"0.6\"/><path d=\"M 20 65 Q 50 55 80 65 Q 50 75 20 65\" fill=\"#78350f\" opacity=\"0.8\"/></svg>"
+    },
+    {
+      "codigo": "CRUCE",
+      "nombre": "Cruce en Cruz",
+      "categoria": "ROAD_RALLY",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"50\" y1=\"15\" x2=\"50\" y2=\"85\" stroke=\"#94a3b8\" stroke-width=\"5\" stroke-dasharray=\"6,4\"/><line x1=\"15\" y1=\"50\" x2=\"85\" y2=\"50\" stroke=\"#94a3b8\" stroke-width=\"5\" stroke-dasharray=\"6,4\"/></svg>"
+    },
+    {
+      "codigo": "ROTONDA",
+      "nombre": "Rotonda",
+      "categoria": "ROAD_RALLY",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"28\" stroke=\"#000000\" stroke-width=\"6\" fill=\"#f8fafc\"/><circle cx=\"50\" cy=\"50\" r=\"10\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "CRUCE_T",
+      "nombre": "Cruce en T",
+      "categoria": "ROAD_RALLY",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"15\" y1=\"35\" x2=\"85\" y2=\"35\" stroke=\"#000000\" stroke-width=\"6\"/><line x1=\"50\" y1=\"35\" x2=\"50\" y2=\"85\" stroke=\"#000000\" stroke-width=\"6\"/></svg>"
+    },
+    {
+      "codigo": "CRUCE_Y",
+      "nombre": "Bifurcación en Y",
+      "categoria": "ROAD_RALLY",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"50\" y1=\"85\" x2=\"50\" y2=\"55\" stroke=\"#000000\" stroke-width=\"6\"/><line x1=\"50\" y1=\"55\" x2=\"25\" y2=\"25\" stroke=\"#000000\" stroke-width=\"6\"/><line x1=\"50\" y1=\"55\" x2=\"75\" y2=\"25\" stroke=\"#000000\" stroke-width=\"6\"/></svg>"
+    },
+    {
+      "codigo": "PISTAS_PARALELAS",
+      "nombre": "Pistas Paralelas",
+      "categoria": "ROAD_RALLY",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"30\" y1=\"15\" x2=\"30\" y2=\"85\" stroke=\"#000000\" stroke-width=\"5\" stroke-dasharray=\"6,4\"/><line x1=\"50\" y1=\"15\" x2=\"50\" y2=\"85\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"70\" y1=\"15\" x2=\"70\" y2=\"85\" stroke=\"#000000\" stroke-width=\"5\" stroke-dasharray=\"6,4\"/></svg>"
+    },
+    {
+      "codigo": "ASFALTO",
+      "nombre": "Fin Ripio / Asfalto",
+      "categoria": "ROAD_RALLY",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"25\" y=\"25\" width=\"50\" height=\"50\" fill=\"#1e293b\" rx=\"6\"/><line x1=\"50\" y1=\"32\" x2=\"50\" y2=\"68\" stroke=\"#ffffff\" stroke-width=\"4\" stroke-dasharray=\"6,4\"/></svg>"
+    },
+    {
+      "codigo": "PUENTE_ANGOSTO",
+      "nombre": "Puente Angosto",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 22 25 C 22 45 35 50 35 75\" stroke=\"#000000\" stroke-width=\"6\"/><path d=\"M 78 25 C 78 45 65 50 65 75\" stroke=\"#000000\" stroke-width=\"6\"/><line x1=\"35\" y1=\"50\" x2=\"65\" y2=\"50\" stroke=\"#ca8a04\" stroke-width=\"4\" stroke-dasharray=\"4,4\"/></svg>"
+    },
+    {
+      "codigo": "PUENTE_CARRETERO",
+      "nombre": "Puente Carretero",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"20\" y1=\"35\" x2=\"80\" y2=\"35\" stroke=\"#000000\" stroke-width=\"6\"/><line x1=\"20\" y1=\"65\" x2=\"80\" y2=\"65\" stroke=\"#000000\" stroke-width=\"6\"/><path d=\"M 35 35 Q 50 50 35 65\" stroke=\"#000000\" stroke-width=\"4\"/><path d=\"M 65 35 Q 50 50 65 65\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "TUNEL",
+      "nombre": "Túnel / Alcantarilla",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 25 75 L 25 45 C 25 25 75 25 75 45 L 75 75\" fill=\"#cbd5e1\" stroke=\"#000000\" stroke-width=\"5\"/><ellipse cx=\"50\" cy=\"55\" rx=\"18\" ry=\"20\" fill=\"#0f172a\"/></svg>"
+    },
+    {
+      "codigo": "ROCA_SOLA",
+      "nombre": "Roca Grande",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 25 75 Q 20 50 45 35 Q 75 30 80 60 Q 82 75 25 75 Z\" fill=\"#94a3b8\" stroke=\"#000000\" stroke-width=\"5\"/></svg>"
+    },
+    {
+      "codigo": "GRUPO_ROCAS",
+      "nombre": "Pedregal / Rocas",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 15 75 Q 12 55 35 45 Q 50 45 55 75 Z\" fill=\"#64748b\" stroke=\"#000000\" stroke-width=\"4\"/><path d=\"M 45 75 Q 50 35 75 35 Q 90 45 85 75 Z\" fill=\"#94a3b8\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "CERRO_PICO",
+      "nombre": "Pico Rocoso",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,20 15,80 85,80\" fill=\"#64748b\" stroke=\"#000000\" stroke-width=\"5\"/><polygon points=\"50,20 40,40 50,45 60,35\" fill=\"#f8fafc\"/></svg>"
+    },
+    {
+      "codigo": "CERRO_TESTIGO",
+      "nombre": "Cerro Testigo / Loma",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 15 80 Q 50 25 85 80 Z\" fill=\"#94a3b8\" stroke=\"#000000\" stroke-width=\"5\"/></svg>"
+    },
+    {
+      "codigo": "CORDILLERA",
+      "nombre": "Cordillera / Sierras",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"30,30 5,80 55,80\" fill=\"#64748b\" stroke=\"#000000\" stroke-width=\"4\"/><polygon points=\"68,20 40,80 95,80\" fill=\"#475569\" stroke=\"#000000\" stroke-width=\"4\"/><polygon points=\"68,20 60,40 68,45 78,35\" fill=\"#ffffff\"/></svg>"
+    },
+    {
+      "codigo": "ARBOL_SECO",
+      "nombre": "Árbol Seco",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"50\" y1=\"85\" x2=\"50\" y2=\"45\" stroke=\"#451a03\" stroke-width=\"6\"/><path d=\"M 50 55 L 30 35 M 50 45 L 70 25 M 35 40 L 25 25 M 65 35 L 75 45\" stroke=\"#451a03\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>"
+    },
+    {
+      "codigo": "ARBOL_VERDE",
+      "nombre": "Árbol Frondoso",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"50\" y1=\"85\" x2=\"50\" y2=\"55\" stroke=\"#451a03\" stroke-width=\"7\"/><circle cx=\"50\" cy=\"40\" r=\"24\" fill=\"#22c55e\" stroke=\"#15803d\" stroke-width=\"5\"/></svg>"
+    },
+    {
+      "codigo": "ACACIA",
+      "nombre": "Acacia",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"50\" y1=\"85\" x2=\"50\" y2=\"50\" stroke=\"#000000\" stroke-width=\"6\"/><ellipse cx=\"50\" cy=\"40\" rx=\"36\" ry=\"12\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "PINO",
+      "nombre": "Pino / Conífera",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,15 35,45 65,45\" fill=\"#15803d\" stroke=\"#052e16\" stroke-width=\"3\"/><polygon points=\"50,35 28,65 72,65\" fill=\"#15803d\" stroke=\"#052e16\" stroke-width=\"3\"/><rect x=\"46\" y=\"65\" width=\"8\" height=\"18\" fill=\"#451a03\"/></svg>"
+    },
+    {
+      "codigo": "CACTUS",
+      "nombre": "Cactus / Cardón",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"44\" y=\"20\" width=\"12\" height=\"65\" rx=\"6\" fill=\"#16a34a\" stroke=\"#14532d\" stroke-width=\"3\"/><path d=\"M 44 48 L 26 48 L 26 35\" fill=\"none\" stroke=\"#16a34a\" stroke-width=\"8\" stroke-linecap=\"round\"/><path d=\"M 56 55 L 74 55 L 74 42\" fill=\"none\" stroke=\"#16a34a\" stroke-width=\"8\" stroke-linecap=\"round\"/></svg>"
+    },
+    {
+      "codigo": "PALMERA",
+      "nombre": "Palmera",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 50 85 Q 46 55 52 35\" stroke=\"#78350f\" stroke-width=\"6\" fill=\"none\"/><path d=\"M 52 35 Q 30 25 15 45 M 52 35 Q 40 10 30 20 M 52 35 Q 70 20 85 40 M 52 35 Q 65 10 75 15\" stroke=\"#16a34a\" stroke-width=\"4\" stroke-linecap=\"round\" fill=\"none\"/></svg>"
+    },
+    {
+      "codigo": "PAJONAL",
+      "nombre": "Pajonal / Cortadera",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 25 80 Q 30 40 20 30 M 35 80 Q 45 35 40 20 M 50 80 Q 50 30 50 15 M 65 80 Q 55 35 60 20 M 75 80 Q 70 40 80 30\" stroke=\"#ca8a04\" stroke-width=\"4\" stroke-linecap=\"round\" fill=\"none\"/></svg>"
+    },
+    {
+      "codigo": "CASA_RURAL",
+      "nombre": "Casa de Campo",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,22 18,48 82,48\" fill=\"#e2e8f0\" stroke=\"#000000\" stroke-width=\"5\"/><rect x=\"25\" y=\"48\" width=\"50\" height=\"35\" fill=\"#f8fafc\" stroke=\"#000000\" stroke-width=\"5\"/><rect x=\"42\" y=\"60\" width=\"16\" height=\"23\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "CASA_CHIMENEA",
+      "nombre": "Casa c/ Chimenea",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"62\" y=\"18\" width=\"8\" height=\"22\" fill=\"#000000\"/><polygon points=\"50,26 15,50 85,50\" fill=\"#e2e8f0\" stroke=\"#000000\" stroke-width=\"5\"/><rect x=\"25\" y=\"50\" width=\"50\" height=\"35\" fill=\"#f8fafc\" stroke=\"#000000\" stroke-width=\"5\"/></svg>"
+    },
+    {
+      "codigo": "EDIFICIO_ADOBE",
+      "nombre": "Puesto Adobe / Escalonado",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"18\" y=\"52\" width=\"28\" height=\"30\" fill=\"#94a3b8\" stroke=\"#000000\" stroke-width=\"4\"/><rect x=\"46\" y=\"32\" width=\"36\" height=\"50\" fill=\"#cbd5e1\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "RUINAS",
+      "nombre": "Ruinas / Puesto",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 20 80 L 20 45 L 35 45 L 35 55 L 50 55 L 50 35 L 65 35 L 65 50 L 80 50 L 80 80 Z\" fill=\"#94a3b8\" stroke=\"#000000\" stroke-width=\"5\"/></svg>"
+    },
+    {
+      "codigo": "IGLESIA",
+      "nombre": "Iglesia c/ Cruz",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"50\" y1=\"12\" x2=\"50\" y2=\"28\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"43\" y1=\"18\" x2=\"57\" y2=\"18\" stroke=\"#000000\" stroke-width=\"4\"/><polygon points=\"50,28 32,48 68,48\" fill=\"#000000\"/><rect x=\"35\" y=\"48\" width=\"30\" height=\"36\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"4\"/><path d=\"M 45 84 L 45 68 C 45 62 55 62 55 68 L 55 84 Z\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "ESCUELA_RELOJ",
+      "nombre": "Edificio c/ Reloj",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"42\" y=\"25\" width=\"16\" height=\"25\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"4\"/><circle cx=\"50\" cy=\"36\" r=\"5\" fill=\"#000000\"/><polygon points=\"50,15 40,25 60,25\" fill=\"#000000\"/><rect x=\"22\" y=\"50\" width=\"56\" height=\"34\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "CIUDAD_SKYLINE",
+      "nombre": "Pueblo / Silueta Urbana",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"15\" y=\"45\" width=\"20\" height=\"40\" fill=\"#000000\"/><rect x=\"38\" y=\"25\" width=\"24\" height=\"60\" fill=\"#000000\"/><rect x=\"65\" y=\"40\" width=\"22\" height=\"45\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "FABRICA",
+      "nombre": "Fábrica / Galpón",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 18 80 L 18 55 L 35 40 L 35 55 L 55 40 L 55 55 L 75 40 L 75 80 Z\" fill=\"#000000\"/><rect x=\"78\" y=\"30\" width=\"8\" height=\"50\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "POSTE_LUZ",
+      "nombre": "Poste Telégrafo / Luz",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"50\" y1=\"18\" x2=\"50\" y2=\"85\" stroke=\"#000000\" stroke-width=\"6\"/><line x1=\"28\" y1=\"32\" x2=\"72\" y2=\"32\" stroke=\"#000000\" stroke-width=\"6\"/><circle cx=\"32\" cy=\"32\" r=\"3\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"2\"/><circle cx=\"68\" cy=\"32\" r=\"3\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"2\"/></svg>"
+    },
+    {
+      "codigo": "ALAMBRADO_POSTES",
+      "nombre": "Alambrado de Campo",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"15\" y1=\"40\" x2=\"85\" y2=\"40\" stroke=\"#000000\" stroke-width=\"3\"/><line x1=\"15\" y1=\"60\" x2=\"85\" y2=\"60\" stroke=\"#000000\" stroke-width=\"3\"/><line x1=\"25\" y1=\"28\" x2=\"25\" y2=\"75\" stroke=\"#78350f\" stroke-width=\"5\"/><line x1=\"50\" y1=\"28\" x2=\"50\" y2=\"75\" stroke=\"#78350f\" stroke-width=\"5\"/><line x1=\"75\" y1=\"28\" x2=\"75\" y2=\"75\" stroke=\"#78350f\" stroke-width=\"5\"/></svg>"
+    },
+    {
+      "codigo": "TORRE_ALTA_TENSION",
+      "nombre": "Torre Alta Tensión",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,15 25,85 75,85\" stroke=\"#000000\" stroke-width=\"4\" fill=\"none\"/><line x1=\"15\" y1=\"35\" x2=\"85\" y2=\"35\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"20\" y1=\"52\" x2=\"80\" y2=\"52\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"32\" y1=\"52\" x2=\"68\" y2=\"85\" stroke=\"#000000\" stroke-width=\"3\"/><line x1=\"68\" y1=\"52\" x2=\"32\" y2=\"85\" stroke=\"#000000\" stroke-width=\"3\"/></svg>"
+    },
+    {
+      "codigo": "CABLES_COLGANTES",
+      "nombre": "Cables Aéreos",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 15 35 Q 50 65 85 35\" stroke=\"#000000\" stroke-width=\"4\" fill=\"none\"/><path d=\"M 15 50 Q 50 80 85 50\" stroke=\"#000000\" stroke-width=\"4\" fill=\"none\"/></svg>"
+    },
+    {
+      "codigo": "VIA_TREN",
+      "nombre": "Vía Férrea / Tren",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"15\" y1=\"50\" x2=\"85\" y2=\"50\" stroke=\"#000000\" stroke-width=\"6\"/><line x1=\"28\" y1=\"35\" x2=\"28\" y2=\"65\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"42\" y1=\"35\" x2=\"42\" y2=\"65\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"58\" y1=\"35\" x2=\"58\" y2=\"65\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"72\" y1=\"35\" x2=\"72\" y2=\"65\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "GUARDAGANADO",
+      "nombre": "Guardaganado",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"20\" y=\"32\" width=\"60\" height=\"36\" fill=\"#cbd5e1\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"32\" y1=\"32\" x2=\"32\" y2=\"68\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"44\" y1=\"32\" x2=\"44\" y2=\"68\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"56\" y1=\"32\" x2=\"56\" y2=\"68\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"68\" y1=\"32\" x2=\"68\" y2=\"68\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "VACA",
+      "nombre": "Ganado / Vaca",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><ellipse cx=\"50\" cy=\"50\" rx=\"25\" ry=\"18\" fill=\"#000000\"/><circle cx=\"75\" cy=\"40\" r=\"10\" fill=\"#000000\"/><line x1=\"35\" y1=\"65\" x2=\"35\" y2=\"85\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><line x1=\"45\" y1=\"65\" x2=\"45\" y2=\"85\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><line x1=\"58\" y1=\"65\" x2=\"58\" y2=\"85\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><line x1=\"68\" y1=\"65\" x2=\"68\" y2=\"85\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/></svg>"
+    },
+    {
+      "codigo": "CAMELLO",
+      "nombre": "Camello / Fauna",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 25 80 L 25 60 C 25 50 35 40 45 40 C 48 30 58 30 60 40 C 65 30 75 30 78 45 L 82 25 L 88 28 L 82 55 L 75 80\" stroke=\"#000000\" stroke-width=\"5\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "CORRAL",
+      "nombre": "Corral / Manga",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"30\" stroke=\"#78350f\" stroke-width=\"5\" stroke-dasharray=\"8,6\" fill=\"none\"/></svg>"
+    },
+    {
+      "codigo": "CAMPING",
+      "nombre": "Camping / Vivac",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,20 18,75 82,75\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"50\" y1=\"20\" x2=\"50\" y2=\"75\" stroke=\"#000000\" stroke-width=\"4\"/><text x=\"50\" y=\"62\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"12\" font-weight=\"900\" font-family=\"sans-serif\">CAMP</text></svg>"
+    },
+    {
+      "codigo": "ESTACION_SERVICIO",
+      "nombre": "Surtidor / Gasolinera",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"22\" y=\"25\" width=\"38\" height=\"58\" rx=\"4\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"3\"/><rect x=\"28\" y=\"32\" width=\"26\" height=\"18\" fill=\"#ffffff\"/><path d=\"M 60 40 L 72 40 L 72 70 L 68 70\" stroke=\"#000000\" stroke-width=\"4\" fill=\"none\"/></svg>"
+    },
+    {
+      "codigo": "PILA_NEUMATICOS",
+      "nombre": "Pila de Neumáticos",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><ellipse cx=\"50\" cy=\"35\" rx=\"30\" ry=\"12\" fill=\"#334155\" stroke=\"#000000\" stroke-width=\"4\"/><ellipse cx=\"50\" cy=\"52\" rx=\"30\" ry=\"12\" fill=\"#1e293b\" stroke=\"#000000\" stroke-width=\"4\"/><ellipse cx=\"50\" cy=\"70\" rx=\"30\" ry=\"12\" fill=\"#0f172a\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "TAMBOR_PETROLEO",
+      "nombre": "Barril / Tambor",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"30\" y=\"30\" width=\"40\" height=\"50\" rx=\"6\" fill=\"#cbd5e1\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"30\" y1=\"46\" x2=\"70\" y2=\"46\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"30\" y1=\"64\" x2=\"70\" y2=\"64\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "TANQUE_HORIZONTAL",
+      "nombre": "Tanque Gas Horizontal",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"18\" y=\"35\" width=\"64\" height=\"30\" rx=\"14\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"30\" y1=\"65\" x2=\"25\" y2=\"80\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"70\" y1=\"65\" x2=\"75\" y2=\"80\" stroke=\"#000000\" stroke-width=\"5\"/></svg>"
+    },
+    {
+      "codigo": "TANQUE_ELEVADO",
+      "nombre": "Tanque de Agua Elevado",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"30\" y=\"20\" width=\"40\" height=\"26\" fill=\"#cbd5e1\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"32\" y1=\"46\" x2=\"22\" y2=\"85\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"68\" y1=\"46\" x2=\"78\" y2=\"85\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"26\" y1=\"65\" x2=\"74\" y2=\"65\" stroke=\"#000000\" stroke-width=\"3\"/></svg>"
+    },
+    {
+      "codigo": "CONO_VIAL",
+      "nombre": "Cono de Tránsito",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,18 28,78 72,78\" fill=\"#ea580c\" stroke=\"#9a3412\" stroke-width=\"4\"/><polygon points=\"43,38 35,60 65,60 57,38\" fill=\"#ffffff\"/><rect x=\"20\" y=\"78\" width=\"60\" height=\"8\" rx=\"2\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "PILA_TRONCOS",
+      "nombre": "Pila de Leña / Troncos",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"36\" cy=\"65\" r=\"14\" fill=\"#78350f\" stroke=\"#000000\" stroke-width=\"3\"/><circle cx=\"64\" cy=\"65\" r=\"14\" fill=\"#78350f\" stroke=\"#000000\" stroke-width=\"3\"/><circle cx=\"50\" cy=\"42\" r=\"14\" fill=\"#78350f\" stroke=\"#000000\" stroke-width=\"3\"/></svg>"
+    },
+    {
+      "codigo": "CEMENTERIO",
+      "nombre": "Cementerio / Cruces",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"30\" y1=\"40\" x2=\"30\" y2=\"78\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"22\" y1=\"52\" x2=\"38\" y2=\"52\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"52\" y1=\"28\" x2=\"52\" y2=\"78\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"42\" y1=\"42\" x2=\"62\" y2=\"42\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"74\" y1=\"45\" x2=\"74\" y2=\"78\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"68\" y1=\"55\" x2=\"80\" y2=\"55\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "ESTATUA_CABALLO",
+      "nombre": "Monumento Ecuestre",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"25\" y=\"68\" width=\"50\" height=\"16\" fill=\"#64748b\" stroke=\"#000000\" stroke-width=\"4\"/><circle cx=\"58\" cy=\"28\" r=\"6\" fill=\"#000000\"/><path d=\"M 35 60 C 40 45 60 45 68 55 L 75 40 L 60 68 Z\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "MOLINO_VIENTO",
+      "nombre": "Molino de Viento",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,35 32,85 68,85\" stroke=\"#000000\" stroke-width=\"4\" fill=\"none\"/><line x1=\"50\" y1=\"35\" x2=\"50\" y2=\"12\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"50\" y1=\"35\" x2=\"72\" y2=\"22\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"50\" y1=\"35\" x2=\"65\" y2=\"52\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"50\" y1=\"35\" x2=\"35\" y2=\"52\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"50\" y1=\"35\" x2=\"28\" y2=\"22\" stroke=\"#000000\" stroke-width=\"4\"/><circle cx=\"50\" cy=\"35\" r=\"5\" fill=\"#ef4444\"/></svg>"
+    },
+    {
+      "codigo": "FARO",
+      "nombre": "Faro / Torre",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"42,30 32,85 68,85 58,30\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"4\"/><rect x=\"40\" y=\"18\" width=\"20\" height=\"12\" fill=\"#fef08a\" stroke=\"#000000\" stroke-width=\"3\"/><line x1=\"36\" y1=\"50\" x2=\"64\" y2=\"50\" stroke=\"#ef4444\" stroke-width=\"6\"/><line x1=\"34\" y1=\"68\" x2=\"66\" y2=\"68\" stroke=\"#ef4444\" stroke-width=\"6\"/></svg>"
+    },
+    {
+      "codigo": "SPEED_DZ",
+      "nombre": "Inicio DZ Radar",
+      "categoria": "SPEED",
+      "color": "#ea580c",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"44\" fill=\"#fef08a\" stroke=\"#dc2626\" stroke-width=\"9\"/><text x=\"50\" y=\"60\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"34\" font-weight=\"900\" font-family=\"sans-serif\">DZ</text></svg>"
+    },
+    {
+      "codigo": "SPEED_FZ",
+      "nombre": "Fin FZ Radar",
+      "categoria": "SPEED",
+      "color": "#16a34a",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"44\" fill=\"#dcfce7\" stroke=\"#16a34a\" stroke-width=\"9\"/><text x=\"50\" y=\"60\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"34\" font-weight=\"900\" font-family=\"sans-serif\">FZ</text></svg>"
+    },
+    {
+      "codigo": "SPEED_30",
+      "nombre": "30 km/h",
+      "categoria": "SPEED",
+      "color": "#ef4444",
+      "velocidadKmh": 30,
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"44\" fill=\"#ffffff\" stroke=\"#ef4444\" stroke-width=\"9\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"36\" font-weight=\"900\" font-family=\"monospace\">30</text></svg>"
+    },
+    {
+      "codigo": "SPEED_50",
+      "nombre": "50 km/h",
+      "categoria": "SPEED",
+      "color": "#ef4444",
+      "velocidadKmh": 50,
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"44\" fill=\"#ffffff\" stroke=\"#ef4444\" stroke-width=\"9\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"36\" font-weight=\"900\" font-family=\"monospace\">50</text></svg>"
+    },
+    {
+      "codigo": "SPEED_60",
+      "nombre": "60 km/h",
+      "categoria": "SPEED",
+      "color": "#ef4444",
+      "velocidadKmh": 60,
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"44\" fill=\"#ffffff\" stroke=\"#ef4444\" stroke-width=\"9\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"36\" font-weight=\"900\" font-family=\"monospace\">60</text></svg>"
+    },
+    {
+      "codigo": "SPEED_70",
+      "nombre": "70 km/h",
+      "categoria": "SPEED",
+      "color": "#ef4444",
+      "velocidadKmh": 70,
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"44\" fill=\"#ffffff\" stroke=\"#ef4444\" stroke-width=\"9\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"36\" font-weight=\"900\" font-family=\"monospace\">70</text></svg>"
+    },
+    {
+      "codigo": "SPEED_80",
+      "nombre": "80 km/h",
+      "categoria": "SPEED",
+      "color": "#ef4444",
+      "velocidadKmh": 80,
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"44\" fill=\"#ffffff\" stroke=\"#ef4444\" stroke-width=\"9\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"36\" font-weight=\"900\" font-family=\"monospace\">80</text></svg>"
+    },
+    {
+      "codigo": "SPEED_90",
+      "nombre": "90 km/h",
+      "categoria": "SPEED",
+      "color": "#ef4444",
+      "velocidadKmh": 90,
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"44\" fill=\"#ffffff\" stroke=\"#ef4444\" stroke-width=\"9\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"36\" font-weight=\"900\" font-family=\"monospace\">90</text></svg>"
+    },
+    {
+      "codigo": "SPEED_100",
+      "nombre": "100 km/h",
+      "categoria": "SPEED",
+      "color": "#ef4444",
+      "velocidadKmh": 100,
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"44\" fill=\"#ffffff\" stroke=\"#ef4444\" stroke-width=\"9\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"30\" font-weight=\"900\" font-family=\"monospace\">100</text></svg>"
+    },
+    {
+      "codigo": "SPEED_110",
+      "nombre": "110 km/h",
+      "categoria": "SPEED",
+      "color": "#ef4444",
+      "velocidadKmh": 110,
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"44\" fill=\"#ffffff\" stroke=\"#ef4444\" stroke-width=\"9\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"30\" font-weight=\"900\" font-family=\"monospace\">110</text></svg>"
+    },
+    {
+      "codigo": "SPEED_120",
+      "nombre": "120 km/h",
+      "categoria": "SPEED",
+      "color": "#ef4444",
+      "velocidadKmh": 120,
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"44\" fill=\"#ffffff\" stroke=\"#ef4444\" stroke-width=\"9\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"30\" font-weight=\"900\" font-family=\"monospace\">120</text></svg>"
+    },
+    {
+      "codigo": "FIA_WPV",
+      "nombre": "WPV - Waypoint Visible",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"38\" fill=\"#38bdf8\" stroke=\"#000000\" stroke-width=\"6\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"22\" font-weight=\"900\" font-family=\"sans-serif\">WPV</text></svg>"
+    },
+    {
+      "codigo": "FIA_WPM",
+      "nombre": "WPM - Waypoint Enmascarado",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"38\" fill=\"#facc15\" stroke=\"#000000\" stroke-width=\"6\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"22\" font-weight=\"900\" font-family=\"sans-serif\">WPM</text></svg>"
+    },
+    {
+      "codigo": "FIA_WPS",
+      "nombre": "WPS - Waypoint Seguridad",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"38\" fill=\"#ef4444\" stroke=\"#000000\" stroke-width=\"6\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#ffffff\" font-size=\"22\" font-weight=\"900\" font-family=\"sans-serif\">WPS</text></svg>"
+    },
+    {
+      "codigo": "FIA_WPE",
+      "nombre": "WPE - Waypoint Eclipse",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"38\" fill=\"#a855f7\" stroke=\"#000000\" stroke-width=\"6\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#ffffff\" font-size=\"22\" font-weight=\"900\" font-family=\"sans-serif\">WPE</text></svg>"
+    },
+    {
+      "codigo": "FIA_DZ",
+      "nombre": "DZ - Inicio Zona Velocidad",
+      "categoria": "SPEED",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,12 88,84 12,84\" fill=\"#f97316\" stroke=\"#000000\" stroke-width=\"6\" stroke-linejoin=\"round\"/><text x=\"50\" y=\"66\" text-anchor=\"middle\" fill=\"#ffffff\" font-size=\"26\" font-weight=\"900\" font-family=\"sans-serif\">DZ</text></svg>"
+    },
+    {
+      "codigo": "FIA_FZ",
+      "nombre": "FZ - Fin Zona Velocidad",
+      "categoria": "SPEED",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,88 88,16 12,16\" fill=\"#10b981\" stroke=\"#000000\" stroke-width=\"6\" stroke-linejoin=\"round\"/><text x=\"50\" y=\"52\" text-anchor=\"middle\" fill=\"#ffffff\" font-size=\"26\" font-weight=\"900\" font-family=\"sans-serif\">FZ</text></svg>"
+    },
+    {
+      "codigo": "FIA_DSS",
+      "nombre": "DSS - Largada Tramo",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"14\" y=\"24\" width=\"72\" height=\"52\" rx=\"10\" fill=\"#10b981\" stroke=\"#000000\" stroke-width=\"6\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#ffffff\" font-size=\"22\" font-weight=\"900\" font-family=\"sans-serif\">DSS</text></svg>"
+    },
+    {
+      "codigo": "FIA_ASS",
+      "nombre": "ASS - Llegada Tramo",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"14\" y=\"24\" width=\"72\" height=\"52\" rx=\"10\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"4\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#ffffff\" font-size=\"22\" font-weight=\"900\" font-family=\"sans-serif\">ASS</text></svg>"
+    },
+    {
+      "codigo": "FIA_CH",
+      "nombre": "CH - Control Horario",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"38\" fill=\"#facc15\" stroke=\"#000000\" stroke-width=\"6\"/><text x=\"50\" y=\"60\" text-anchor=\"middle\" fill=\"#000000\" font-size=\"28\" font-weight=\"900\" font-family=\"sans-serif\">CH</text></svg>"
+    },
+    {
+      "codigo": "FIA_CP",
+      "nombre": "CP - Control de Paso",
+      "categoria": "SIGNS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"15\" y=\"15\" width=\"70\" height=\"70\" rx=\"8\" fill=\"#ec4899\" stroke=\"#000000\" stroke-width=\"6\"/><text x=\"50\" y=\"60\" text-anchor=\"middle\" fill=\"#ffffff\" font-size=\"28\" font-weight=\"900\" font-family=\"sans-serif\">CP</text></svg>"
+    },
+    {
+      "codigo": "FIA_RADAR",
+      "nombre": "Control Radar",
+      "categoria": "SPEED",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"40\" fill=\"#ef4444\" stroke=\"#000000\" stroke-width=\"5\"/><path d=\"M 32 60 A 24 24 0 0 1 68 60\" stroke=\"#ffffff\" stroke-width=\"6\" fill=\"none\" stroke-linecap=\"round\"/><path d=\"M 40 60 A 14 14 0 0 1 60 60\" stroke=\"#ffffff\" stroke-width=\"6\" fill=\"none\" stroke-linecap=\"round\"/><circle cx=\"50\" cy=\"60\" r=\"4\" fill=\"#ffffff\"/></svg>"
+    },
+    {
+      "codigo": "FIA_ALAMBRADO",
+      "nombre": "Alambrado / Fence",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"10\" y1=\"50\" x2=\"90\" y2=\"50\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"25\" y1=\"35\" x2=\"25\" y2=\"65\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"50\" y1=\"35\" x2=\"50\" y2=\"65\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"75\" y1=\"35\" x2=\"75\" y2=\"65\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"20\" y1=\"45\" x2=\"30\" y2=\"55\" stroke=\"#000000\" stroke-width=\"3\"/><line x1=\"45\" y1=\"45\" x2=\"55\" y2=\"55\" stroke=\"#000000\" stroke-width=\"3\"/><line x1=\"70\" y1=\"45\" x2=\"80\" y2=\"55\" stroke=\"#000000\" stroke-width=\"3\"/></svg>"
+    },
+    {
+      "codigo": "FIA_TRANQUERA",
+      "nombre": "Tranquera / Gate",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"20\" y1=\"30\" x2=\"20\" y2=\"75\" stroke=\"#000000\" stroke-width=\"7\"/><line x1=\"80\" y1=\"30\" x2=\"80\" y2=\"75\" stroke=\"#000000\" stroke-width=\"7\"/><line x1=\"20\" y1=\"38\" x2=\"80\" y2=\"38\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"20\" y1=\"52\" x2=\"80\" y2=\"52\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"20\" y1=\"66\" x2=\"80\" y2=\"66\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"20\" y1=\"38\" x2=\"80\" y2=\"66\" stroke=\"#000000\" stroke-width=\"3.5\"/></svg>"
+    },
+    {
+      "codigo": "FIA_VIA_TREN",
+      "nombre": "Vía de Ferrocarril",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"12\" y1=\"42\" x2=\"88\" y2=\"42\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"12\" y1=\"58\" x2=\"88\" y2=\"58\" stroke=\"#000000\" stroke-width=\"5\"/><line x1=\"25\" y1=\"34\" x2=\"25\" y2=\"66\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"42\" y1=\"34\" x2=\"42\" y2=\"66\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"58\" y1=\"34\" x2=\"58\" y2=\"66\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"75\" y1=\"34\" x2=\"75\" y2=\"66\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "FIA_PUENTE",
+      "nombre": "Puente / Bridge",
+      "categoria": "LANDMARKS",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 15 65 L 15 45 Q 50 30 85 45 L 85 65\" stroke=\"#000000\" stroke-width=\"6\" fill=\"none\"/><line x1=\"15\" y1=\"45\" x2=\"85\" y2=\"45\" stroke=\"#000000\" stroke-width=\"6\"/><line x1=\"35\" y1=\"45\" x2=\"35\" y2=\"68\" stroke=\"#000000\" stroke-width=\"4\"/><line x1=\"65\" y1=\"45\" x2=\"65\" y2=\"68\" stroke=\"#000000\" stroke-width=\"4\"/></svg>"
+    },
+    {
+      "codigo": "FIA_LOMO",
+      "nombre": "Lomo / Cresta",
+      "categoria": "TERRAIN",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 15 70 Q 50 25 85 70\" stroke=\"#000000\" stroke-width=\"7\" fill=\"none\" stroke-linecap=\"round\"/><line x1=\"50\" y1=\"25\" x2=\"50\" y2=\"45\" stroke=\"#ef4444\" stroke-width=\"5\" stroke-linecap=\"round\"/></svg>"
+    },
+    {
+      "codigo": "FIA_SALTO",
+      "nombre": "Salto / Jump",
+      "categoria": "TERRAIN",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M 15 72 L 45 42 L 52 50 L 85 72\" stroke=\"#000000\" stroke-width=\"7\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><polygon points=\"50,22 43,36 57,36\" fill=\"#ef4444\"/></svg>"
+    },
+    {
+      "codigo": "FIA_HUELLA",
+      "nombre": "Huella / Pista Difusa",
+      "categoria": "ROAD_RALLY",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><line x1=\"38\" y1=\"15\" x2=\"38\" y2=\"85\" stroke=\"#000000\" stroke-width=\"5\" stroke-dasharray=\"8,6\"/><line x1=\"62\" y1=\"15\" x2=\"62\" y2=\"85\" stroke=\"#000000\" stroke-width=\"5\" stroke-dasharray=\"8,6\"/></svg>"
+    },
+    {
+      "codigo": "FIA_OFF_PISTE",
+      "nombre": "Fuera de Pista / HP",
+      "categoria": "ROAD_RALLY",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"20\" y=\"25\" width=\"60\" height=\"50\" rx=\"8\" fill=\"#000000\"/><text x=\"50\" y=\"58\" text-anchor=\"middle\" fill=\"#ffffff\" font-size=\"26\" font-weight=\"900\" font-family=\"sans-serif\">HP</text></svg>"
+    },
+    {
+      "codigo": "FIA_CAP",
+      "nombre": "Rumbo CAP",
+      "categoria": "ROAD_RALLY",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,15 85,75 50,62 15,75\" fill=\"#facc15\" stroke=\"#000000\" stroke-width=\"5\" stroke-linejoin=\"round\"/><circle cx=\"50\" cy=\"55\" r=\"5\" fill=\"#000000\"/></svg>"
+    }
+  ]
+}

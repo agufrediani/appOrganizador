@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.roadbookorganizador.util.muestrearParaPantalla
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,7 +61,10 @@ fun AjustesScreen(
     val raceBoxManager = remember { RaceBoxBleManager.getInstance(context) }
     val rbStatus by raceBoxManager.connectionStatus.collectAsState()
     val rbConnectedName by raceBoxManager.connectedDeviceName.collectAsState()
-    val rbTelemetry by raceBoxManager.latestTelemetry.collectAsState()
+    // Telemetría del RaceBox en pantalla: máximo 5 refrescos por segundo
+    val rbTelemetry by remember(raceBoxManager) {
+        raceBoxManager.latestTelemetry.muestrearParaPantalla()
+    }.collectAsState(initial = raceBoxManager.latestTelemetry.value)
     val rbDiscovered by raceBoxManager.discoveredDevices.collectAsState()
     val isSimulating by raceBoxManager.isSimulating.collectAsState()
 

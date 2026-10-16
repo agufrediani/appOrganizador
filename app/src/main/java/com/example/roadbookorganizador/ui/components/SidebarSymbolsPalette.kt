@@ -1,15 +1,16 @@
 package com.example.roadbookorganizador.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,37 +18,59 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.roadbookorganizador.ui.theme.*
+import com.example.roadbookorganizador.ui.vineta.ArrastreSimbolo
+import com.example.roadbookorganizador.ui.vineta.BibliotecaVineta
+import com.example.roadbookorganizador.ui.vineta.DibujanteSvg
+import com.example.roadbookorganizador.ui.vineta.DibujanteVineta
+import com.example.roadbookorganizador.ui.vineta.ItemPaleta
+import com.example.roadbookorganizador.vineta.ALTO_DIBUJO
+import com.example.roadbookorganizador.vineta.Biblioteca
+import com.example.roadbookorganizador.vineta.Capa
 
-enum class SidebarTab(val titulo: String, val icono: androidx.compose.ui.graphics.vector.ImageVector) {
-    CROSS_COUNTRY("PISTAS", Icons.Default.CallSplit),
-    SIGNS("PELIGROS", Icons.Default.Warning),
-    LANDMARKS("PUNTOS", Icons.Default.Place),
-    TERRAIN("TERRENO", Icons.Default.Terrain),
-    NOTES_FIA("NOTAS", Icons.Default.EditNote)
+/** Pestaña de la barra: las flechas armadas, cada categoría de simbolos.json y las notas de texto. */
+private data class TabPaleta(val clave: String, val titulo: String, val icono: ImageVector)
+
+private const val TAB_FLECHAS = "FLECHAS"
+private const val TAB_NOTAS = "NOTAS_TEXTO"
+
+private fun iconoCategoria(codigo: String): ImageVector = when (codigo) {
+    "ROAD_RALLY" -> Icons.Default.CallSplit
+    "LANDMARKS" -> Icons.Default.Place
+    "TERRAIN" -> Icons.Default.Terrain
+    "SIGNS" -> Icons.Default.Warning
+    "SPEED" -> Icons.Default.Speed
+    else -> Icons.Default.Category
 }
 
-data class SymbolItem(
-    val code: String,
-    val label: String,
-    val category: SidebarTab,
-    val isArrow: Boolean = false,
-    val isNoteText: Boolean = false
-)
-
+/**
+ * Barra de símbolos: solo los símbolos oficiales de simbolos.json y las flechas armadas
+ * de flechas_armadas.json (especificación de la viñeta, puntos 5 y 8).
+ *
+ * - Tocar un símbolo lo inserta en el centro del recuadro que se está editando.
+ * - Arrastrarlo con el dedo hacia un costado lo levanta; al soltarlo dentro de un recuadro
+ *   de dibujo o de notas queda en ese lugar. Arriba y abajo se desplaza la lista.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SidebarSymbolsPalette(
-    onInsertStamp: (String) -> Unit,
+    onInsertar: (ItemPaleta) -> Unit,
     onAppendNoteText: (String) -> Unit,
     onCollapse: () -> Unit,
     vinetaNumeroActiva: Int?,
+    arrastre: ArrastreSimbolo,
     modifier: Modifier = Modifier
 ) {
     val isDark = ThemeManager.isDarkTheme
@@ -56,113 +79,27 @@ fun SidebarSymbolsPalette(
     val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
     val textSecondary = if (isDark) Color.White.copy(alpha = 0.65f) else Color(0xFF64748B)
 
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedTab by remember { mutableStateOf(SidebarTab.CROSS_COUNTRY) }
+    val context = LocalContext.current
+    val bib: Biblioteca = remember { BibliotecaVineta.obtener(context) }
+    val dibujante = remember(bib) { DibujanteVineta(bib) }
 
-    // Catálogo completo oficial FIA 2026 / Rally Navigator (Reglamento Art. 5.14)
-    val allSymbols = remember {
-        listOf(
-            // --- MANIOBRAS / PISTAS FIA ---
-            SymbolItem("FLECHA_MANIOBRA", "CURVA FLEX", SidebarTab.CROSS_COUNTRY, isArrow = true),
-            SymbolItem("RECTA", "RECTA", SidebarTab.CROSS_COUNTRY, isArrow = true),
-            SymbolItem("CURVA_DER", "CURVA DER", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("CURVA_IZQ", "CURVA IZQ", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("DERECHA_90", "90° DER", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("IZQUIERDA_90", "90° IZQ", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("RETOME_DER", "RETOME DER", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("RETOME_IZQ", "RETOME IZQ", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("CRUCE_X", "CRUCE +", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("CRUCE_T", "EMPALME T", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("BIFURCACION_Y", "DESVÍO Y", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("ROTONDA", "ROTONDA", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("PISTA_PRINCIPAL", "PISTA PPAL", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("PISTAS_PARALELAS", "PISTAS //", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("HORS_PISTE", "HP (FUERA PISTA)", SidebarTab.CROSS_COUNTRY),
-            SymbolItem("HP_PROHIBIDO", "HP PROHIBIDO", SidebarTab.CROSS_COUNTRY),
-
-            // --- SIGNOS / CONTROLES / PELIGROS FIA ---
-            SymbolItem("PELIGRO_1", "! ATENCIÓN", SidebarTab.SIGNS),
-            SymbolItem("PELIGRO_2", "!! PELIGRO", SidebarTab.SIGNS),
-            SymbolItem("PELIGRO_3", "!!! GRAVE", SidebarTab.SIGNS),
-            SymbolItem("PRECAUCION", "PRECAUCIÓN", SidebarTab.SIGNS),
-            SymbolItem("STOP", "STOP", SidebarTab.SIGNS),
-            SymbolItem("RADAR_DZ", "DZ RADAR", SidebarTab.SIGNS),
-            SymbolItem("RADAR_FZ", "FZ FIN", SidebarTab.SIGNS),
-            SymbolItem("RESET_0000", "0000 RESET", SidebarTab.SIGNS),
-            SymbolItem("TC", "TC CONTROL", SidebarTab.SIGNS),
-            SymbolItem("CP", "CP PASO", SidebarTab.SIGNS),
-            SymbolItem("DSS", "DSS LARGADA", SidebarTab.SIGNS),
-            SymbolItem("ASS", "ASS LLEGADA", SidebarTab.SIGNS),
-            SymbolItem("DN", "DN NEUTRA", SidebarTab.SIGNS),
-            SymbolItem("SOBREPASO_DZ", "DZ NO PASAR", SidebarTab.SIGNS),
-            SymbolItem("SURTIDOR", "COMBUST.", SidebarTab.SIGNS),
-            SymbolItem("ASISTENCIA", "ASISTENCIA", SidebarTab.SIGNS),
-            SymbolItem("MEDICO", "MÉDICO", SidebarTab.SIGNS),
-            SymbolItem("GPS_POINT", "WPV GPS", SidebarTab.SIGNS),
-
-            // --- LANDMARKS / REFERENCIAS FIA ---
-            SymbolItem("PIN_KM", "PIN KM FIA", SidebarTab.LANDMARKS),
-            SymbolItem("TRANQUERA", "TRANQUERA", SidebarTab.LANDMARKS),
-            SymbolItem("GUARDAGANADO", "GUARDAG.", SidebarTab.LANDMARKS),
-            SymbolItem("PUENTE", "PUENTE", SidebarTab.LANDMARKS),
-            SymbolItem("TUNEL", "TÚNEL", SidebarTab.LANDMARKS),
-            SymbolItem("ALCANTARILLA", "ALCANT.", SidebarTab.LANDMARKS),
-            SymbolItem("VIAS_TREN", "VÍAS TREN", SidebarTab.LANDMARKS),
-            SymbolItem("ALAMBRADO", "ALAMBRADO", SidebarTab.LANDMARKS),
-            SymbolItem("ALAMBRADO_PUAS", "ALAMB. PÚAS", SidebarTab.LANDMARKS),
-            SymbolItem("POSTE", "POSTE", SidebarTab.LANDMARKS),
-            SymbolItem("POSTE_LUZ", "POSTE LUZ", SidebarTab.LANDMARKS),
-            SymbolItem("LINEA_ELECTRICA", "LÍNEA ELECT.", SidebarTab.LANDMARKS),
-            SymbolItem("TORRE_ALTA_TENSION", "TORRE A.T.", SidebarTab.LANDMARKS),
-            SymbolItem("ANTENA", "ANTENA", SidebarTab.LANDMARKS),
-            SymbolItem("MOLINO", "MOLINO/POZO", SidebarTab.LANDMARKS),
-            SymbolItem("TANQUES", "TANQUES", SidebarTab.LANDMARKS),
-            SymbolItem("BARRILES", "BARRILES", SidebarTab.LANDMARKS),
-            SymbolItem("NEUMATICOS", "NEUMÁTICOS", SidebarTab.LANDMARKS),
-            SymbolItem("CARTELES", "CARTEL RUTA", SidebarTab.LANDMARKS),
-            SymbolItem("MURO", "MURO/PIRCA", SidebarTab.LANDMARKS),
-            SymbolItem("PIPELINE", "DUCTO", SidebarTab.LANDMARKS),
-            SymbolItem("CASA", "POBLADO", SidebarTab.LANDMARKS),
-            SymbolItem("IGLESIA", "IGLESIA", SidebarTab.LANDMARKS),
-            SymbolItem("RUINAS", "RUINAS", SidebarTab.LANDMARKS),
-            SymbolItem("CEMENTERIO", "CEMENTERIO", SidebarTab.LANDMARKS),
-            SymbolItem("CAMPAMENTO", "CAMPAMENTO", SidebarTab.LANDMARKS),
-            SymbolItem("ARBOL", "ÁRBOL", SidebarTab.LANDMARKS),
-            SymbolItem("ARBOL_SECO", "ÁRBOL SECO", SidebarTab.LANDMARKS),
-            SymbolItem("PALMERA", "PALMERA", SidebarTab.LANDMARKS),
-            SymbolItem("CAMEL_GRASS", "CAMEL GRASS", SidebarTab.LANDMARKS),
-            SymbolItem("VEGETACION", "ARBUSTO", SidebarTab.LANDMARKS),
-            SymbolItem("VACA", "VACA/ANIMAL", SidebarTab.LANDMARKS),
-            SymbolItem("CAMELLO", "CAMELLO", SidebarTab.LANDMARKS),
-            SymbolItem("CAIRN", "APACHETA", SidebarTab.LANDMARKS),
-            SymbolItem("MONUMENTO", "MONUMENTO", SidebarTab.LANDMARKS),
-            SymbolItem("CIRCULO", "MOJÓN", SidebarTab.LANDMARKS),
-
-            // --- TERRENO Y RELIEVE FIA ---
-            SymbolItem("SALTO", "SALTO/LOMO", SidebarTab.TERRAIN),
-            SymbolItem("POZO", "POZO/DIP", SidebarTab.TERRAIN),
-            SymbolItem("COMPRESION", "COMPRESIÓN", SidebarTab.TERRAIN),
-            SymbolItem("ZANJA", "ZANJA", SidebarTab.TERRAIN),
-            SymbolItem("CRESTA", "CRESTA", SidebarTab.TERRAIN),
-            SymbolItem("ESCALON_SUBIDA", "ESCALÓN SUBIDA", SidebarTab.TERRAIN),
-            SymbolItem("ESCALON_BAJADA", "ESCALÓN BAJADA", SidebarTab.TERRAIN),
-            SymbolItem("DUNAS", "DUNAS", SidebarTab.TERRAIN),
-            SymbolItem("CUVETTE", "CUVETTE/OLLA", SidebarTab.TERRAIN),
-            SymbolItem("DUNA_CORTADA", "DUNA CORTADA", SidebarTab.TERRAIN),
-            SymbolItem("FESH_FESH", "FESH-FESH", SidebarTab.TERRAIN),
-            SymbolItem("VADO", "VADO AGUA", SidebarTab.TERRAIN),
-            SymbolItem("RIO", "RÍO", SidebarTab.TERRAIN),
-            SymbolItem("WADI", "WADI/OUED", SidebarTab.TERRAIN),
-            SymbolItem("PIEDRAS", "PIEDRAS", SidebarTab.TERRAIN),
-            SymbolItem("BARRO", "HUELLAS", SidebarTab.TERRAIN),
-            SymbolItem("CHOTT", "SALAR/CHOTT", SidebarTab.TERRAIN),
-            SymbolItem("PASO_HORMIGON", "RADIER/BADÉN", SidebarTab.TERRAIN),
-            SymbolItem("SINUOSO", "SINUOSO", SidebarTab.TERRAIN),
-            SymbolItem("PERALTE", "PERALTE", SidebarTab.TERRAIN)
-        )
+    val tabs = remember(bib) {
+        listOf(TabPaleta(TAB_FLECHAS, "FLECHAS", Icons.Default.CallMade)) +
+            bib.categorias.map { TabPaleta(it.codigo, it.nombre.uppercase(), iconoCategoria(it.codigo)) } +
+            TabPaleta(TAB_NOTAS, "NOTAS", Icons.Default.EditNote)
     }
 
-    // Abreviaturas oficiales de Notas estilo Rally Navigator (Lexicon FIA Art. 5.14)
+    val armadas: List<ItemPaleta> = remember(bib) {
+        bib.flechasArmadas.values.map { ItemPaleta.ArmadaItem(it.codigo, it.nombre, it.flecha) }
+    }
+    val simbolos: List<Pair<String, ItemPaleta>> = remember(bib) {
+        bib.listaSimbolos.map { it.categoria to ItemPaleta.SimboloItem(it.codigo, it.nombre) }
+    }
+
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedTab by remember { mutableStateOf(TAB_FLECHAS) }
+
+    // Abreviaturas de texto para la nota escrita de la viñeta (no son símbolos del dibujo)
     val fiaNoteShortcuts = remember {
         listOf(
             "L" to "Left", "R" to "Right", "kpL" to "Keep Left", "kpR" to "Keep Right",
@@ -177,13 +114,17 @@ fun SidebarSymbolsPalette(
         )
     }
 
-    val filteredSymbols = remember(searchQuery, selectedTab) {
-        if (searchQuery.isNotBlank()) {
-            allSymbols.filter {
-                it.label.contains(searchQuery, ignoreCase = true) || it.code.contains(searchQuery, ignoreCase = true)
-            }
-        } else {
-            allSymbols.filter { it.category == selectedTab }
+    val itemsVisibles: List<ItemPaleta> = remember(searchQuery, selectedTab, bib) {
+        val q = searchQuery.trim()
+        if (q.isNotEmpty()) {
+            fun coincide(nombre: String, codigo: String) =
+                nombre.contains(q, ignoreCase = true) || codigo.contains(q, ignoreCase = true)
+            armadas.filter { val a = it as ItemPaleta.ArmadaItem; coincide(a.nombre, a.codigo) } +
+                simbolos.map { it.second }.filter { val s = it as ItemPaleta.SimboloItem; coincide(s.nombre, s.codigo) }
+        } else when (selectedTab) {
+            TAB_FLECHAS -> armadas
+            TAB_NOTAS -> emptyList()
+            else -> simbolos.filter { it.first == selectedTab }.map { it.second }
         }
     }
 
@@ -199,7 +140,7 @@ fun SidebarSymbolsPalette(
                 .padding(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // 1. CABECERA: TÍTULO + INDICACIÓN ACTIVA + BOTÓN COLAPSAR (▶)
+            // 1. CABECERA
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -216,18 +157,10 @@ fun SidebarSymbolsPalette(
                         modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = "SÍMBOLOS",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 11.sp,
-                        color = textPrimary
-                    )
+                    Text(text = "SÍMBOLOS", fontWeight = FontWeight.Black, fontSize = 11.sp, color = textPrimary)
                     if (vinetaNumeroActiva != null) {
                         Spacer(modifier = Modifier.width(4.dp))
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = FredianiCyan.copy(alpha = 0.2f)
-                        ) {
+                        Surface(shape = RoundedCornerShape(4.dp), color = FredianiCyan.copy(alpha = 0.2f)) {
                             Text(
                                 text = "#$vinetaNumeroActiva",
                                 fontWeight = FontWeight.Bold,
@@ -238,21 +171,12 @@ fun SidebarSymbolsPalette(
                         }
                     }
                 }
-
-                IconButton(
-                    onClick = onCollapse,
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Cerrar panel",
-                        tint = textSecondary,
-                        modifier = Modifier.size(16.dp)
-                    )
+                IconButton(onClick = onCollapse, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Cerrar panel", tint = textSecondary, modifier = Modifier.size(16.dp))
                 }
             }
 
-            // 2. BUSCADOR RÁPIDO (RALLY NAVIGATOR STYLE)
+            // 2. BUSCADOR
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -272,34 +196,29 @@ fun SidebarSymbolsPalette(
                 textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp)
             )
 
-            // 3. TABS DE CATEGORÍAS CON ICONOS DESTACADOS
+            // 3. PESTAÑAS
             if (searchQuery.isEmpty()) {
                 ScrollableTabRow(
-                    selectedTabIndex = SidebarTab.values().indexOf(selectedTab),
+                    selectedTabIndex = tabs.indexOfFirst { it.clave == selectedTab }.coerceAtLeast(0),
                     containerColor = Color.Transparent,
                     divider = {},
                     edgePadding = 2.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    SidebarTab.values().forEach { tab ->
-                        val sel = selectedTab == tab
+                    tabs.forEach { tab ->
+                        val sel = selectedTab == tab.clave
+                        val col = if (sel) (if (isDark) RallyCyan else FredianiCyanText) else textSecondary
                         Tab(
                             selected = sel,
-                            onClick = { selectedTab = tab },
-                            icon = {
-                                Icon(
-                                    imageVector = tab.icono,
-                                    contentDescription = tab.titulo,
-                                    tint = if (sel) (if (isDark) RallyCyan else FredianiCyanText) else textSecondary,
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            },
+                            onClick = { selectedTab = tab.clave },
+                            icon = { Icon(imageVector = tab.icono, contentDescription = tab.titulo, tint = col, modifier = Modifier.size(19.dp)) },
                             text = {
                                 Text(
                                     text = tab.titulo,
                                     fontSize = 10.sp,
                                     fontWeight = if (sel) FontWeight.Black else FontWeight.Bold,
-                                    color = if (sel) (if (isDark) RallyCyan else FredianiCyanText) else textSecondary
+                                    color = col,
+                                    maxLines = 1
                                 )
                             },
                             modifier = Modifier.height(48.dp)
@@ -308,14 +227,9 @@ fun SidebarSymbolsPalette(
                 }
             }
 
-            // 4. GRILLA DE SÍMBOLOS O LISTA DE NOTAS FIA
-            if (searchQuery.isEmpty() && selectedTab == SidebarTab.NOTES_FIA) {
-                // SECCIÓN ESPECIAL: ABREVIATURAS Y TEXTOS FIA RALLY NAVIGATOR
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 2.dp)
-                ) {
+            // 4. GRILLA
+            if (searchQuery.isEmpty() && selectedTab == TAB_NOTAS) {
+                Column(modifier = Modifier.fillMaxSize().padding(horizontal = 2.dp)) {
                     Text(
                         text = "Toque para insertar texto en la nota:",
                         fontSize = 9.sp,
@@ -342,80 +256,133 @@ fun SidebarSymbolsPalette(
                                     modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Text(
-                                        text = abr,
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 11.sp,
-                                        color = if (isDark) RallyCyan else FredianiCyanText
-                                    )
-                                    Text(
-                                        text = desc,
-                                        fontSize = 7.5.sp,
-                                        color = textSecondary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center
-                                    )
+                                    Text(text = abr, fontWeight = FontWeight.Black, fontSize = 11.sp, color = if (isDark) RallyCyan else FredianiCyanText)
+                                    Text(text = desc, fontSize = 7.5.sp, color = textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                                 }
                             }
                         }
                     }
                 }
             } else {
-                // GRILLA REGULAR DE SÍMBOLOS GRÁFICOS MAXIMIZADOS
+                Text(
+                    text = "Toque para insertar · arrastre hacia el costado y suelte en el recuadro",
+                    fontSize = 8.5.sp,
+                    color = textSecondary,
+                    maxLines = 2
+                )
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 78.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(filteredSymbols, key = { it.code }) { item ->
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isDark) RallySurface else Color.White,
-                            border = androidx.compose.foundation.BorderStroke(1.2.dp, borderCol),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(78.dp)
-                                .clickable { onInsertStamp(item.code) }
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 2.dp, vertical = 3.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(54.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(Color.White)
-                                        .border(0.8.dp, Color(0xFFCBD5E1), RoundedCornerShape(6.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize().padding(2.dp)) {
-                                        DiagramaCanvasRenderer.renderStampPreview(
-                                            drawScope = this,
-                                            type = item.code,
-                                            primaryColor = Color.Black
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = item.label,
-                                    fontSize = 7.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = textPrimary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
+                    items(itemsVisibles, key = { it.clave }) { item ->
+                        CeldaPaleta(
+                            item = item,
+                            arrastre = arrastre,
+                            bib = bib,
+                            dibujante = dibujante,
+                            borderCol = borderCol,
+                            textPrimary = textPrimary,
+                            onTocar = { onInsertar(item) }
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CeldaPaleta(
+    item: ItemPaleta,
+    arrastre: ArrastreSimbolo,
+    bib: Biblioteca,
+    dibujante: DibujanteVineta,
+    borderCol: Color,
+    textPrimary: Color,
+    onTocar: () -> Unit
+) {
+    val isDark = ThemeManager.isDarkTheme
+    val coords = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    val nombre = when (item) {
+        is ItemPaleta.SimboloItem -> item.nombre
+        is ItemPaleta.ArmadaItem -> item.nombre
+    }
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = if (isDark) RallySurface else Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.2.dp, borderCol),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(78.dp)
+            .onGloballyPositioned { coords[0] = it }
+            .pointerInput(item.clave) {
+                // Solo el movimiento hacia los costados levanta el símbolo; arriba/abajo desplaza la lista
+                detectHorizontalDragGestures(
+                    onDragStart = { pos ->
+                        coords[0]?.takeIf { it.isAttached }?.let { arrastre.iniciar(item, it.localToWindow(pos)) }
+                    },
+                    onDragEnd = { arrastre.soltar() },
+                    onDragCancel = { arrastre.cancelar() },
+                    onHorizontalDrag = { change, _ ->
+                        change.consume()
+                        coords[0]?.takeIf { it.isAttached }?.let { arrastre.mover(it.localToWindow(change.position)) }
+                    }
+                )
+            }
+            .clickable { onTocar() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 2.dp, vertical = 3.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.White)
+                    .border(0.8.dp, Color(0xFFCBD5E1), RoundedCornerShape(6.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                MuestraItemPaleta(item, bib, dibujante, Modifier.fillMaxSize().padding(2.dp))
+            }
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = nombre,
+                fontSize = 7.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+/** Dibujo de muestra de un símbolo (viewBox 100) o de una flecha armada, sin WebView. */
+@Composable
+fun MuestraItemPaleta(item: ItemPaleta, bib: Biblioteca, dibujante: DibujanteVineta, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val lado = minOf(size.width, size.height)
+        val left = (size.width - lado) / 2f
+        val top = (size.height - lado) / 2f
+        drawIntoCanvas { c ->
+            val nc = c.nativeCanvas
+            when (item) {
+                is ItemPaleta.SimboloItem -> bib.simbolo(item.codigo)?.let { sim ->
+                    nc.save()
+                    nc.translate(left, top)
+                    nc.scale(lado / 100f, lado / 100f)
+                    DibujanteSvg.dibujar(nc, sim.ops)
+                    nc.restore()
+                }
+                is ItemPaleta.ArmadaItem ->
+                    dibujante.dibujarCapa(nc, Capa(arrows = listOf(item.flecha)), left, top, lado, ALTO_DIBUJO, conPalito = true)
             }
         }
     }

@@ -27,13 +27,17 @@ data class VinetaEntity(
     val latitud: Double,
     val longitud: Double,
     val altitud: Double = 0.0,        // Metros sobre el nivel del mar
-    val rumbo: Float = 0.0f,          // Heading 0-360 grados
+    val rumbo: Float = 0.0f,          // Rumbo (CAP) cargado a mano. No se calcula solo ni se muestra (punto 12)
     val velocidadKmh: Float = 0.0f,   // Velocidad instantánea al marcar
     val tulipTipo: String = "BLANCO", // Tipo de maniobra/ícono (por defecto en blanco hasta que el usuario dibuje o elija una maniobra)
     val tulipSvgData: String = "",    // Coordenadas o dibujo vectorial opcional
     val notasSvgData: String = "",    // Croquis o dibujo a mano alzada en anotaciones
+    // Dibujo y capa de notas en el formato versión 1 de la especificación (texto JSON).
+    // null = nunca se guardó en versión 1: se arma desde tulipSvgData / notasSvgData / tulipTipo,
+    // que quedan como respaldo. "" = viñeta sin dibujo.
+    val dibujo: String? = null,
     val informacion: String = "",     // Notas: "Firme", "Puente angosto"
-    val peligro: String = "",         // "", "!", "!!", "!!!"
+    val peligro: String = "",         // "", "!", "!!", "!!!" — se calcula al guardar desde los símbolos EXCL_n / PELIGRO_n
     val esOffRoad: Boolean = false,   // True = trazo directo sin snap / False = ajustado a red de caminos
     val velocidadPromedioSectorKmh: Double = 0.0, // Promedio exigido en este sector
     val velocidadMaximaSectorKmh: Double = 0.0,   // Velocidad máxima permitida en este sector (DZ/Radar)

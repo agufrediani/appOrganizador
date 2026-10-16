@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import com.example.roadbookorganizador.gps.racebox.RaceBoxBleManager
 import com.example.roadbookorganizador.gps.racebox.RaceBoxConnectionStatus
 import com.example.roadbookorganizador.service.LocationTrackingService
+import com.example.roadbookorganizador.util.paraPantalla
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -23,7 +24,7 @@ class MapaLibreViewModel(application: Application) : AndroidViewModel(applicatio
     private val repository = RoadbookRepository(AppDatabase.getInstance(application))
     val odoEngine = OdometerEngine()
 
-    val odoState: StateFlow<OdometerState> = odoEngine.state
+    val odoState: StateFlow<OdometerState> = odoEngine.state.paraPantalla(viewModelScope)
 
     private val _rallyIdActual = MutableStateFlow<Long>(1L)
     val puntos = _rallyIdActual.flatMapLatest { id ->
@@ -69,7 +70,7 @@ class MapaLibreViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun agregarPuntoInteres(nombre: String, tipo: String, descripcion: String, lat: Double? = null, lng: Double? = null) {
-        val s = odoState.value
+        val s = odoEngine.state.value
         val rId = _rallyIdActual.value
         viewModelScope.launch {
             val pLat = lat ?: (if (s.latitud != 0.0) s.latitud else -31.4201)

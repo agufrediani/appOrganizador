@@ -22,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -33,6 +34,9 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -50,6 +54,27 @@ import com.example.roadbookorganizador.data.model.PointData
 import com.example.roadbookorganizador.data.model.StampData
 import com.example.roadbookorganizador.data.model.StrokeData
 import com.example.roadbookorganizador.ui.theme.*
+import com.example.roadbookorganizador.ui.vineta.ANCHO_FLECHA
+import com.example.roadbookorganizador.ui.vineta.ArrastreSimbolo
+import com.example.roadbookorganizador.ui.vineta.BibliotecaVineta
+import com.example.roadbookorganizador.ui.vineta.CapaEditada
+import com.example.roadbookorganizador.ui.vineta.DibujanteVineta
+import com.example.roadbookorganizador.ui.vineta.ESCALA_NUEVA
+import com.example.roadbookorganizador.ui.vineta.EditorCapa
+import com.example.roadbookorganizador.ui.vineta.ItemPaleta
+import com.example.roadbookorganizador.ui.vineta.SeleccionEditor
+import com.example.roadbookorganizador.ui.vineta.VistaCapa
+import com.example.roadbookorganizador.ui.vineta.conDibujo
+import com.example.roadbookorganizador.ui.vineta.dibujoV1
+import com.example.roadbookorganizador.vineta.ALTO_NOTAS
+import com.example.roadbookorganizador.vineta.Capa
+import com.example.roadbookorganizador.vineta.Carteles
+import com.example.roadbookorganizador.vineta.DibujoV1
+import com.example.roadbookorganizador.vineta.Flecha
+import com.example.roadbookorganizador.vineta.FranjaCarteles
+import com.example.roadbookorganizador.vineta.LetraNotas
+import com.example.roadbookorganizador.vineta.Sello
+import com.example.roadbookorganizador.vineta.ValoresCartel
 
 enum class NavigatorTab(val titulo: String) {
     MY_ICONS("MY ICONS"),
@@ -87,14 +112,29 @@ fun RoadbookMasterView(
     val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
 
     var vinetaEnEdicionId by remember { mutableStateOf<Long?>(vinetaSeleccionadaId) }
-    var drawingDraft by remember { mutableStateOf(DrawingData()) }
     var activeTool by remember { mutableStateOf(ActiveDrawTool.PEN) }
-    var selectedStampIdx by remember { mutableStateOf<Int?>(null) }
-    var selectedArrowIdx by remember { mutableStateOf<Int?>(null) }
     var asistenteTrazoActivo by remember { mutableStateOf(true) }
     var activeTab by remember { mutableStateOf(NavigatorTab.ROAD_RALLY) }
     var selectedStrokeColor by remember { mutableStateOf("#000000") }
     var selectedStrokeWidth by remember { mutableStateOf(7f) }
+
+    // Dibujo de la viñeta en edición (formato versión 1 de la especificación)
+    val context = LocalContext.current
+    val bib = remember { BibliotecaVineta.obtener(context) }
+    val dibujante = remember(bib) { DibujanteVineta(bib) }
+    val arrastre = remember { ArrastreSimbolo() }
+    var borrador by remember { mutableStateOf(DibujoV1()) }
+    var cargadoId by remember { mutableStateOf<Long?>(null) }
+    var capaActiva by remember { mutableStateOf(CapaEditada.DIBUJO) }
+    var seleccion by remember { mutableStateOf(SeleccionEditor()) }
+
+    // Franja de carteles de velocidad de cada viñeta (punto 10), en el orden del tramo
+    val franjas: Map<Long, FranjaCarteles?> = remember(vinetas) {
+        val lista = Carteles.franjasDelTramo(vinetas.map {
+            ValoresCartel.desdeCampos(it.tiempoIdealSegundos, it.velocidadPromedioSectorKmh, it.velocidadMaximaSectorKmh)
+        })
+        vinetas.mapIndexed { i, v -> v.id to lista[i] }.toMap()
+    }
 
     var capaNumeroVisible by remember { mutableStateOf(true) }
     var capaTotalVisible by remember { mutableStateOf(true) }
@@ -129,33 +169,51 @@ fun RoadbookMasterView(
         }
     }
 
-    // Sincronizar borrador al cambiar la viñeta en edición sin inyectar jamás flechas automáticas
-    LaunchedEffect(vinetaEnEdicionId) {
-        val cur = vinetas.find { it.id == vinetaEnEdicionId }
-        if (cur != null) {
-            val parsed = DrawingData.fromJson(cur.tulipSvgData)
-            drawingDraft = parsed
-            selectedStampIdx = if (parsed.stamps.isNotEmpty()) parsed.stamps.lastIndex else null
-            selectedArrowIdx = if (parsed.arrows.isNotEmpty()) parsed.arrows.lastIndex else null
-            activeTool = ActiveDrawTool.SELECT
-        } else {
-            drawingDraft = DrawingData()
-            selectedStampIdx = null
-            selectedArrowIdx = null
+    // Cargar el dibujo de la viñeta en edición una sola vez (cuando ya está en la lista).
+    // Nunca se agregan flechas automáticas.
+    LaunchedEffect(vinetaEnEdicionId, vinetas) {
+        val id = vinetaEnEdicionId
+        if (id == null) {
+            cargadoId = null
+            borrador = DibujoV1()
+            seleccion = SeleccionEditor()
+            return@LaunchedEffect
+        }
+        if (cargadoId == id) return@LaunchedEffect
+        val cur = vinetas.find { it.id == id } ?: return@LaunchedEffect
+        borrador = cur.dibujoV1(bib)
+        cargadoId = id
+        seleccion = SeleccionEditor()
+        activeTool = ActiveDrawTool.SELECT
+    }
+
+    /** Abre la viñeta para editar (cargando su dibujo en el momento) y elige el recuadro. */
+    fun abrirEdicion(v: VinetaEntity, capa: CapaEditada) {
+        if (vinetaEnEdicionId != v.id || cargadoId != v.id) {
+            borrador = v.dibujoV1(bib)
+            cargadoId = v.id
+            vinetaEnEdicionId = v.id
+            seleccion = SeleccionEditor()
+            onSeleccionarVineta(v)
+        }
+        if (capaActiva != capa) {
+            capaActiva = capa
+            seleccion = SeleccionEditor()
         }
     }
 
-    val persistDraft: (DrawingData) -> Unit = { newDraft ->
-        drawingDraft = newDraft
+    /** Guarda el dibujo (versión 1) y el peligro calculado de la viñeta en edición. */
+    val persistir: (DibujoV1) -> Unit = { nuevo ->
+        borrador = nuevo
         val cur = vinetas.find { it.id == vinetaEnEdicionId }
-        if (cur != null) {
-            val newTulipTipo = if (newDraft.isEmpty()) "BLANCO" else cur.tulipTipo
-            onGuardarVineta(cur.copy(
-                tulipSvgData = newDraft.toJson(),
-                tulipTipo = newTulipTipo
-            ))
+        if (cur != null && cargadoId == cur.id) {
+            onGuardarVineta(cur.conDibujo(nuevo))
         }
     }
+
+    fun capaDe(d: DibujoV1, c: CapaEditada): Capa = if (c == CapaEditada.DIBUJO) d.dibujo else d.notasCapa
+    fun conCapa(d: DibujoV1, c: CapaEditada, capa: Capa): DibujoV1 =
+        if (c == CapaEditada.DIBUJO) d.copy(dibujo = capa) else d.copy(notasCapa = capa)
 
     val distanciaTotalEstimada = tramo?.distanciaTotalEstimada ?: 10.0
     val tableListState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -171,62 +229,32 @@ fun RoadbookMasterView(
         }
     }
 
-    val insertStampAction: (String) -> Unit = { stampCode ->
-        val targetVineta = vinetas.find { it.id == vinetaEnEdicionId } ?: vinetas.firstOrNull()
-        if (targetVineta != null) {
-            if (vinetaEnEdicionId != targetVineta.id) {
-                vinetaEnEdicionId = targetVineta.id
-                onSeleccionarVineta(targetVineta)
+    /** Inserta un símbolo o una flecha armada en un recuadro, en (x, y) de 0 a 1. */
+    fun insertarEn(v: VinetaEntity, capa: CapaEditada, item: ItemPaleta, x: Double, y: Double) {
+        abrirEdicion(v, capa)
+        val c = capaDe(borrador, capa)
+        val nueva = when (item) {
+            is ItemPaleta.SimboloItem -> {
+                val cc = c.copy(stamps = c.stamps + Sello(item.codigo, x, y, ESCALA_NUEVA, 0.0))
+                seleccion = SeleccionEditor(sello = cc.stamps.lastIndex)
+                cc
             }
-            if (stampCode == "FLECHA_MANIOBRA") {
-                val na = drawingDraft.arrows.toMutableList()
-                na.add(
-                    ManeuverArrow(
-                        p0 = PointData(0.5f, 0.85f),
-                        p1 = PointData(0.5f, 0.60f),
-                        p2 = PointData(0.65f, 0.40f),
-                        p3 = PointData(0.80f, 0.25f),
-                        strokeWidth = selectedStrokeWidth,
-                        colorHex = selectedStrokeColor
-                    )
-                )
-                persistDraft(drawingDraft.copy(arrows = na))
-                selectedArrowIdx = na.lastIndex
-                selectedStampIdx = null
-                activeTool = ActiveDrawTool.SELECT
-            } else if (stampCode == "RECTA") {
-                val na = drawingDraft.arrows.toMutableList()
-                na.add(
-                    ManeuverArrow(
-                        p0 = PointData(0.5f, 0.88f),
-                        p1 = PointData(0.5f, 0.65f),
-                        p2 = PointData(0.5f, 0.40f),
-                        p3 = PointData(0.5f, 0.15f),
-                        strokeWidth = selectedStrokeWidth,
-                        colorHex = selectedStrokeColor
-                    )
-                )
-                persistDraft(drawingDraft.copy(arrows = na))
-                selectedArrowIdx = na.lastIndex
-                selectedStampIdx = null
-                activeTool = ActiveDrawTool.SELECT
-            } else {
-                val nst = drawingDraft.stamps.toMutableList()
-                nst.add(
-                    StampData(
-                        type = stampCode,
-                        x = 0.5f,
-                        y = 0.5f,
-                        scale = 1.0f,
-                        rotation = 0.0f
-                    )
-                )
-                persistDraft(drawingDraft.copy(stamps = nst))
-                selectedStampIdx = nst.lastIndex
-                selectedArrowIdx = null
-                activeTool = ActiveDrawTool.SELECT
+            is ItemPaleta.ArmadaItem -> {
+                // La flecha armada se usa tal cual; en la capa de notas va sin palito del GPS
+                val f = if (capa == CapaEditada.NOTAS) item.flecha.copy(gps = null) else item.flecha
+                val cc = c.copy(arrows = c.arrows + f)
+                seleccion = SeleccionEditor(flecha = cc.arrows.lastIndex)
+                cc
             }
         }
+        activeTool = ActiveDrawTool.SELECT
+        persistir(conCapa(borrador, capa, nueva))
+    }
+
+    /** Tocar un símbolo de la barra: va al centro del recuadro que se está editando. */
+    val insertarTocando: (ItemPaleta) -> Unit = { item ->
+        val destino = vinetas.find { it.id == vinetaEnEdicionId } ?: vinetas.firstOrNull()
+        if (destino != null) insertarEn(destino, capaActiva, item, 0.5, 0.5)
     }
 
     val appendNoteAction: (String) -> Unit = { noteShortcut ->
@@ -382,86 +410,58 @@ fun RoadbookMasterView(
                 selectedStrokeColor = selectedStrokeColor,
                 strokeWidth = selectedStrokeWidth,
                 asistenteTrazo = asistenteTrazoActivo,
-                hasPinKm = selectedArrowIdx != null && selectedArrowIdx in drawingDraft.arrows.indices && drawingDraft.arrows[selectedArrowIdx!!].hasPin,
+                capaActiva = capaActiva,
+                onCapaChange = { c -> vinetas.find { it.id == vinetaEnEdicionId }?.let { abrirEdicion(it, c) } },
+                letraNotasAuto = borrador.notasLetra == null,
+                letraNotasValor = vinetas.find { it.id == vinetaEnEdicionId }?.let {
+                    dibujante.letraNotas(LetraNotas.textoCompleto(it.informacion), borrador.notasLetra, franjas[it.id] != null)
+                },
+                onLetraNotas = { nueva -> persistir(borrador.copy(notasLetra = nueva)) },
                 onToggleAsistente = { asistenteTrazoActivo = !asistenteTrazoActivo },
                 onAddArrow = {
-                    val na = drawingDraft.arrows.toMutableList()
-                    na.add(
-                        ManeuverArrow(
-                            p0 = PointData(0.5f, 0.85f),
-                            p1 = PointData(0.5f, 0.60f),
-                            p2 = PointData(0.65f, 0.40f),
-                            p3 = PointData(0.80f, 0.25f),
-                            strokeWidth = selectedStrokeWidth,
-                            colorHex = selectedStrokeColor,
-                            hasPin = true,
-                            pinT = 0.5f,
-                            pinSide = 1f
-                        )
+                    val c = capaDe(borrador, capaActiva)
+                    val nueva = Flecha(
+                        x0 = 0.5, y0 = 0.85, x1 = 0.5, y1 = 0.60,
+                        x2 = 0.65, y2 = 0.40, x3 = 0.80, y3 = 0.25,
+                        width = ANCHO_FLECHA, color = selectedStrokeColor
                     )
-                    persistDraft(drawingDraft.copy(arrows = na))
-                    selectedArrowIdx = na.lastIndex
-                    selectedStampIdx = null
+                    val cc = c.copy(arrows = c.arrows + nueva)
+                    seleccion = SeleccionEditor(flecha = cc.arrows.lastIndex)
                     activeTool = ActiveDrawTool.SELECT
-                },
-                onTogglePinKm = {
-                    if (selectedArrowIdx != null && selectedArrowIdx in drawingDraft.arrows.indices) {
-                        val na = drawingDraft.arrows.toMutableList()
-                        val cur = na[selectedArrowIdx!!]
-                        val next = when {
-                            cur.hasPin && cur.pinSide > 0 -> cur.copy(pinSide = -1f)
-                            cur.hasPin && cur.pinSide < 0 -> cur.copy(hasPin = false)
-                            else -> cur.copy(hasPin = true, pinSide = 1f)
-                        }
-                        na[selectedArrowIdx!!] = next
-                        persistDraft(drawingDraft.copy(arrows = na))
-                    }
+                    persistir(conCapa(borrador, capaActiva, cc))
                 },
                 onToolChange = { activeTool = it },
                 onColorChange = { selectedStrokeColor = it },
                 onStrokeWidthChange = { selectedStrokeWidth = it },
                 onUndo = {
-                    if (drawingDraft.strokes.isNotEmpty()) {
-                        val nl = drawingDraft.strokes.toMutableList()
-                        nl.removeAt(nl.lastIndex)
-                        persistDraft(drawingDraft.copy(strokes = nl))
-                    } else if (drawingDraft.arrows.isNotEmpty()) {
-                        val na = drawingDraft.arrows.toMutableList()
-                        na.removeAt(na.lastIndex)
-                        selectedArrowIdx = null
-                        persistDraft(drawingDraft.copy(arrows = na))
-                    } else if (drawingDraft.stamps.isNotEmpty()) {
-                        val nst = drawingDraft.stamps.toMutableList()
-                        nst.removeAt(nst.lastIndex)
-                        selectedStampIdx = null
-                        persistDraft(drawingDraft.copy(stamps = nst))
+                    val c = capaDe(borrador, capaActiva)
+                    val cc = when {
+                        c.strokes.isNotEmpty() -> c.copy(strokes = c.strokes.dropLast(1))
+                        c.arrows.isNotEmpty() -> c.copy(arrows = c.arrows.dropLast(1))
+                        c.stamps.isNotEmpty() -> c.copy(stamps = c.stamps.dropLast(1))
+                        else -> null
+                    }
+                    if (cc != null) {
+                        seleccion = SeleccionEditor()
+                        persistir(conCapa(borrador, capaActiva, cc))
                     }
                 },
                 onClear = {
-                    if (selectedStampIdx != null && selectedStampIdx in drawingDraft.stamps.indices) {
-                        val nst = drawingDraft.stamps.toMutableList()
-                        nst.removeAt(selectedStampIdx!!)
-                        selectedStampIdx = null
-                        persistDraft(drawingDraft.copy(stamps = nst))
-                    } else if (selectedArrowIdx != null && selectedArrowIdx in drawingDraft.arrows.indices) {
-                        val na = drawingDraft.arrows.toMutableList()
-                        na.removeAt(selectedArrowIdx!!)
-                        selectedArrowIdx = null
-                        persistDraft(drawingDraft.copy(arrows = na))
-                    } else {
-                        selectedStampIdx = null
-                        selectedArrowIdx = null
-                        persistDraft(DrawingData())
+                    val c = capaDe(borrador, capaActiva)
+                    val si = seleccion.sello
+                    val fi = seleccion.flecha
+                    val cc = when {
+                        si != null && si in c.stamps.indices -> c.copy(stamps = c.stamps.filterIndexed { j, _ -> j != si })
+                        fi != null && fi in c.arrows.indices -> c.copy(arrows = c.arrows.filterIndexed { j, _ -> j != fi })
+                        else -> Capa()
                     }
+                    seleccion = SeleccionEditor()
+                    persistir(conCapa(borrador, capaActiva, cc))
                 },
                 onGuardar = {
                     val cur = vinetas.find { it.id == vinetaEnEdicionId }
-                    if (cur != null) {
-                        val newTulipTipo = if (drawingDraft.isEmpty()) "BLANCO" else cur.tulipTipo
-                        onGuardarVineta(cur.copy(
-                            tulipSvgData = drawingDraft.toJson(),
-                            tulipTipo = newTulipTipo
-                        ))
+                    if (cur != null && cargadoId == cur.id) {
+                        onGuardarVineta(cur.conDibujo(borrador))
                     }
                     vinetaEnEdicionId = null
                 },
@@ -523,8 +523,8 @@ fun RoadbookMasterView(
                     }
                     HeaderColumnaToggle("TOTAL", capaTotalVisible, { capaTotalVisible = !capaTotalVisible }, Modifier.width(58.dp))
                     HeaderColumnaToggle("PARCIAL", capaParcialVisible, { capaParcialVisible = !capaParcialVisible }, Modifier.width(54.dp))
-                    HeaderColumnaToggle("DIBUJO", capaIndicacionVisible, { capaIndicacionVisible = !capaIndicacionVisible }, Modifier.weight(0.55f))
-                    HeaderColumnaToggle("NOTAS", capaAnotacionesVisible, { capaAnotacionesVisible = !capaAnotacionesVisible }, Modifier.weight(0.45f))
+                    HeaderColumnaToggle("DIBUJO", capaIndicacionVisible, { capaIndicacionVisible = !capaIndicacionVisible }, Modifier.width(TAM_DIBUJO + 6.dp))
+                    HeaderColumnaToggle("NOTAS", capaAnotacionesVisible, { capaAnotacionesVisible = !capaAnotacionesVisible }, Modifier.weight(1f))
                     HeaderColumnaToggle("REG.", capaRegresivaVisible, { capaRegresivaVisible = !capaRegresivaVisible }, Modifier.width(52.dp))
                 }
             }
@@ -560,7 +560,9 @@ fun RoadbookMasterView(
                 ) {
                     items(vinetas, key = { it.id }) { v ->
                         val distRegresiva = (distanciaTotalEstimada - v.distanciaTotal).coerceAtLeast(0.0)
-                        val isEditingThis = v.id == vinetaEnEdicionId
+                        val isEditingThis = v.id == vinetaEnEdicionId && cargadoId == v.id
+                        val dibujoGuardado = remember(v.dibujo, v.tulipSvgData, v.notasSvgData, v.tulipTipo, v.peligro) { v.dibujoV1(bib) }
+                        val dibujoFila = if (isEditingThis) borrador else dibujoGuardado
 
                         FilaRoadbookInPlace(
                             vineta = v,
@@ -574,13 +576,15 @@ fun RoadbookMasterView(
                                     vinetasSeleccionadasParaBorrar + v.id
                                 }
                             },
-                            drawingDraft = if (isEditingThis) drawingDraft else DrawingData.fromJson(v.tulipSvgData),
-                            selectedStampIdx = if (isEditingThis) selectedStampIdx else null,
-                            selectedArrowIdx = if (isEditingThis) selectedArrowIdx else null,
+                            dibujo = dibujoFila,
+                            franja = franjas[v.id],
+                            dibujante = dibujante,
+                            arrastre = arrastre,
+                            capaActiva = capaActiva,
+                            seleccion = if (isEditingThis) seleccion else SeleccionEditor(),
                             asistenteTrazoActivo = asistenteTrazoActivo,
                             activeTool = activeTool,
                             selectedColorHex = selectedStrokeColor,
-                            strokeWidth = selectedStrokeWidth,
                             capaNumeroVisible = capaNumeroVisible,
                             capaTotalVisible = capaTotalVisible,
                             capaParcialVisible = capaParcialVisible,
@@ -588,42 +592,27 @@ fun RoadbookMasterView(
                             capaAnotacionesVisible = capaAnotacionesVisible,
                             capaRegresivaVisible = capaRegresivaVisible,
                             onTocarFila = {
-                                onSeleccionarVineta(v)
-                                vinetaEnEdicionId = v.id
+                                abrirEdicion(v, capaActiva)
                             },
                             onEditarIndicacion = {
-                                onSeleccionarVineta(v)
-                                vinetaEnEdicionId = v.id
+                                abrirEdicion(v, capaActiva)
                                 vinetaParaEditarNotas = v
                             },
-                            onActivarEdicionDiagrama = {
-                                onSeleccionarVineta(v)
-                                vinetaEnEdicionId = v.id
+                            onActivarCapa = { c ->
+                                abrirEdicion(v, c)
                             },
                             onTocarAnotaciones = {
                                 vinetaParaEditarNotas = v
                             },
-                            onUpdateDraft = { updatedDraft ->
-                                persistDraft(updatedDraft)
+                            onCambioCapa = { c, capa ->
+                                if (isEditingThis) persistir(conCapa(borrador, c, capa))
                             },
-                            onSelectStamp = { idx ->
-                                selectedStampIdx = idx
-                                if (idx != null) selectedArrowIdx = null
-                            },
-                            onSelectArrow = { idx ->
-                                selectedArrowIdx = idx
-                                if (idx != null) selectedStampIdx = null
-                            },
+                            onSeleccion = { s -> seleccion = s },
                             onToolChange = { tool ->
                                 activeTool = tool
                             },
-                            onGuardarCambios = {
-                                val saved = v.copy(tulipSvgData = drawingDraft.toJson())
-                                onGuardarVineta(saved)
-                                vinetaEnEdicionId = null
-                            },
-                            onCerrarEdicion = {
-                                vinetaEnEdicionId = null
+                            onSoltar = { c, item, x, y ->
+                                insertarEn(v, c, item, x, y)
                             }
                         )
                     }
@@ -632,8 +621,10 @@ fun RoadbookMasterView(
         }
     }
 
+    val raizCoords = remember { arrayOfNulls<androidx.compose.ui.layout.LayoutCoordinates>(1) }
+    Box(modifier = modifier.fillMaxSize().onGloballyPositioned { raizCoords[0] = it }) {
     if (isLandscape) {
-        Row(modifier = modifier.fillMaxSize()) {
+        Row(modifier = Modifier.fillMaxSize()) {
             Card(
                 modifier = Modifier
                     .weight(1f)
@@ -672,10 +663,11 @@ fun RoadbookMasterView(
 
                 // PANEL DERECHO: PALETA DE SÍMBOLOS Y NOTAS FIA
                 SidebarSymbolsPalette(
-                    onInsertStamp = insertStampAction,
+                    onInsertar = insertarTocando,
                     onAppendNoteText = appendNoteAction,
                     onCollapse = { sidebarExpanded = false },
                     vinetaNumeroActiva = vinetas.find { it.id == vinetaEnEdicionId }?.numero,
+                    arrastre = arrastre,
                     modifier = Modifier
                         .width(sidebarWidthDp.dp)
                         .fillMaxHeight()
@@ -712,7 +704,7 @@ fun RoadbookMasterView(
         // PORTRAIT: TABLA 100% ANCHO COMPLETO SIN DEFORMACIONES
         // PALETA DE SÍMBOLOS DOCKADA ABAJO SI EL USUARIO LA ABRE
         // =========================================================================
-        Column(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -728,10 +720,11 @@ fun RoadbookMasterView(
             if (sidebarExpanded) {
                 Spacer(modifier = Modifier.height(4.dp))
                 SidebarSymbolsPalette(
-                    onInsertStamp = insertStampAction,
+                    onInsertar = insertarTocando,
                     onAppendNoteText = appendNoteAction,
                     onCollapse = { sidebarExpanded = false },
                     vinetaNumeroActiva = vinetas.find { it.id == vinetaEnEdicionId }?.numero,
+                    arrastre = arrastre,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(260.dp)
@@ -740,17 +733,42 @@ fun RoadbookMasterView(
         }
     }
 
+    // Símbolo que se está arrastrando desde la barra: sigue al dedo por encima de todo
+    arrastre.item?.let { item ->
+        val origen = raizCoords[0]?.takeIf { it.isAttached }?.localToWindow(Offset.Zero) ?: Offset.Zero
+        val tamPx = with(density) { 64.dp.toPx() }
+        Box(
+            modifier = Modifier
+                .offset {
+                    androidx.compose.ui.unit.IntOffset(
+                        (arrastre.posicion.x - origen.x - tamPx / 2f).toInt(),
+                        (arrastre.posicion.y - origen.y - tamPx / 2f).toInt()
+                    )
+                }
+                .size(64.dp)
+                .alpha(0.85f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White)
+                .border(2.dp, Color(0xFFF59E0B), RoundedCornerShape(8.dp))
+        ) {
+            MuestraItemPaleta(item, bib, dibujante, Modifier.fillMaxSize().padding(4.dp))
+        }
+    }
+    }
+
     // Modal de edición de texto y notas si se pulsa la columna de anotaciones
     vinetaParaEditarNotas?.let { v ->
         RoadbookNotesDialog(
             vineta = v,
-            onGuardar = { nota, peligro, distTot, distPar, notasSvg, offRoad, velProm, velMax, tIdeal, rCap, esReinicio, distOculta, esOculta, mostrarWpt, esTierra, esPc, tipoPc ->
-                val vinetaActualizada = v.copy(
+            onGuardar = { nota, distTot, distPar, offRoad, velProm, velMax, tIdeal, rCap, esReinicio, distOculta, esOculta, mostrarWpt, esTierra, esPc, tipoPc ->
+                // Se parte de la versión más nueva de la viñeta (y del dibujo en edición) para no
+                // pisar un dibujo guardado mientras el diálogo estaba abierto.
+                val actual = vinetas.find { it.id == v.id } ?: v
+                val base = if (cargadoId == v.id && vinetaEnEdicionId == v.id) actual.conDibujo(borrador) else actual
+                val vinetaActualizada = base.copy(
                     informacion = nota,
-                    peligro = peligro,
                     distanciaTotal = distTot,
                     distanciaParcial = distPar,
-                    notasSvgData = notasSvg,
                     esOffRoad = offRoad,
                     velocidadPromedioSectorKmh = velProm,
                     velocidadMaximaSectorKmh = velMax,
@@ -893,13 +911,15 @@ fun FilaRoadbookInPlace(
     isEditing: Boolean,
     estaSeleccionadaParaBorrar: Boolean = false,
     onToggleSeleccionBorrar: () -> Unit = {},
-    drawingDraft: DrawingData,
-    selectedStampIdx: Int?,
-    selectedArrowIdx: Int? = null,
+    dibujo: DibujoV1,
+    franja: FranjaCarteles?,
+    dibujante: DibujanteVineta,
+    arrastre: ArrastreSimbolo,
+    capaActiva: CapaEditada,
+    seleccion: SeleccionEditor,
     asistenteTrazoActivo: Boolean = true,
     activeTool: ActiveDrawTool,
     selectedColorHex: String,
-    strokeWidth: Float = 7f,
     capaNumeroVisible: Boolean,
     capaTotalVisible: Boolean,
     capaParcialVisible: Boolean,
@@ -908,14 +928,12 @@ fun FilaRoadbookInPlace(
     capaRegresivaVisible: Boolean,
     onTocarFila: () -> Unit,
     onEditarIndicacion: () -> Unit = onTocarFila,
-    onActivarEdicionDiagrama: () -> Unit,
+    onActivarCapa: (CapaEditada) -> Unit,
     onTocarAnotaciones: () -> Unit,
-    onUpdateDraft: (DrawingData) -> Unit,
-    onSelectStamp: (Int?) -> Unit,
-    onSelectArrow: (Int?) -> Unit = {},
+    onCambioCapa: (CapaEditada, Capa) -> Unit,
+    onSeleccion: (SeleccionEditor) -> Unit,
     onToolChange: (ActiveDrawTool) -> Unit,
-    onGuardarCambios: () -> Unit,
-    onCerrarEdicion: () -> Unit
+    onSoltar: (CapaEditada, ItemPaleta, Double, Double) -> Unit
 ) {
     val isDark = ThemeManager.isDarkTheme
     val cardBg = if (isEditing) {
@@ -942,7 +960,7 @@ fun FilaRoadbookInPlace(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (isEditing) 200.dp else 160.dp)
+                .height(ALTO_FILA)
                 .padding(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1078,291 +1096,146 @@ fun FilaRoadbookInPlace(
 
             VerticalDivider(color = cardBorder, modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
 
-            // 4. RECUADRO DIBUJO / DIAGRAMA CON EDICIÓN DIRECTA EN EL LUGAR
+            // 4. RECUADRO DE DIBUJO (cuadrado, 100 × 100 unidades) CON EDICIÓN EN EL LUGAR
             Box(
                 modifier = Modifier
-                    .weight(0.55f)
                     .fillMaxHeight()
-                    .padding(horizontal = 3.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White)
-                    .border(
-                        width = if (isEditing) 2.dp else 1.dp,
-                        color = if (isEditing) FredianiCyan else Color(0xFFCBD5E1),
-                        shape = RoundedCornerShape(8.dp)
-                    )
+                    .padding(horizontal = 3.dp),
+                contentAlignment = Alignment.Center
             ) {
                 if (capaIndicacionVisible) {
-                    if (isEditing) {
-                        // MODO ACTIVO: LIENZO INTERACTIVO 100% ANCHO DE CELDA
-                        InPlaceDiagramCanvas(
-                            drawingData = drawingDraft,
-                            selectedStampIdx = selectedStampIdx,
-                            selectedArrowIdx = selectedArrowIdx,
-                            asistenteTrazoActivo = asistenteTrazoActivo,
-                            activeTool = activeTool,
-                            selectedColorHex = selectedColorHex,
-                            strokeWidth = strokeWidth,
-                            fallbackTulip = "", // En modo edición interactiva nunca mostramos un fallback fantasma
-                            onUpdateDraft = onUpdateDraft,
-                            onSelectStamp = onSelectStamp,
-                            onSelectArrow = onSelectArrow,
-                            onToolChange = onToolChange
-                        )
-                    } else {
-                        // MODO VISTA: DIAGRAMA VECTORIAL + BOTÓN EDITAR RÁPIDO
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .combinedClickable(
-                                    onClick = { onActivarEdicionDiagrama() },
-                                    onDoubleClick = { onEditarIndicacion() },
-                                    onLongClick = { onEditarIndicacion() }
-                                )
-                        ) {
-                            Canvas(modifier = Modifier.fillMaxSize().padding(6.dp)) {
-                                DiagramaCanvasRenderer.render(
-                                    drawScope = this,
-                                    drawingData = drawingDraft,
-                                    fallbackTulip = if (vineta.tulipSvgData.isNotBlank() || vineta.tulipTipo == "BLANCO" || vineta.tulipTipo == "VACIO" || vineta.tulipTipo == "RECTA") "" else vineta.tulipTipo,
-                                    primaryColor = Color.Black
-                                )
-                            }
-                            Surface(
-                                shape = CircleShape,
-                                color = FredianiCyan.copy(alpha = 0.15f),
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(4.dp)
-                                    .size(22.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.Edit, contentDescription = null, tint = FredianiCyanText, modifier = Modifier.size(13.dp))
-                                }
-                            }
-                        }
-                    }
+                    RecuadroCapa(
+                        clave = "${vineta.id}-D",
+                        capa = dibujo.dibujo,
+                        esNotas = false,
+                        franja = null,
+                        dibujante = dibujante,
+                        editando = isEditing && capaActiva == CapaEditada.DIBUJO,
+                        seleccion = seleccion,
+                        activeTool = activeTool,
+                        colorHex = selectedColorHex,
+                        asistente = asistenteTrazoActivo,
+                        arrastre = arrastre,
+                        onCambio = { onCambioCapa(CapaEditada.DIBUJO, it) },
+                        onSeleccion = onSeleccion,
+                        onHerramienta = onToolChange,
+                        onActivar = { onActivarCapa(CapaEditada.DIBUJO) },
+                        onDobleToque = onEditarIndicacion,
+                        onSoltar = { item, x, y -> onSoltar(CapaEditada.DIBUJO, item, x, y) },
+                        modifier = Modifier.size(TAM_DIBUJO)
+                    )
+                } else {
+                    Spacer(modifier = Modifier.size(TAM_DIBUJO))
                 }
             }
 
             VerticalDivider(color = cardBorder, modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
 
-            // 5. ANOTACIONES Y NOTAS
-            Box(
+            // 5. NOTAS: capa de notas (100 × 64 unidades) con la franja de carteles y la nota escrita
+            Column(
                 modifier = Modifier
-                    .weight(0.45f)
+                    .weight(1f)
                     .fillMaxHeight()
                     .padding(horizontal = 3.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(if (isDark) RallySurface else Color(0xFFF8FAFC))
                     .border(1.dp, cardBorder, RoundedCornerShape(8.dp))
-                    .combinedClickable(
-                        onClick = { onTocarAnotaciones() },
-                        onDoubleClick = { onEditarIndicacion() },
-                        onLongClick = { onEditarIndicacion() }
-                    )
-                    .padding(6.dp)
+                    .padding(4.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 if (capaAnotacionesVisible) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.SpaceBetween
+                    // Etiquetas de la viñeta (no son parte del dibujo)
+                    val neutroBg = if (isDark) Color.Black else Color(0xFFE2E8F0)
+                    val etiquetas = buildList {
+                        if (vineta.esOffRoad) add(Triple("🏜️ OFF-ROAD", Color(0xFF78350F), Color(0xFFFEF3C7)))
+                        if (vineta.esReinicioCero) add(Triple("0,00 REINICIO", Color(0xFF065F46), Color(0xFFA7F3D0)))
+                        if (vineta.distanciaOculta) add(Triple("X.XX OCULTA", Color(0xFF7C2D12), Color(0xFFFED7AA)))
+                        if (vineta.esOcultaOrg) add(Triple("🔒 OCUL", Color(0xFF831843), Color(0xFFFBCFE8)))
+                        if (vineta.esTierra) add(Triple("DIRT", Color(0xFF713F12), Color(0xFFFEF08A)))
+                        if (vineta.esPuntoControl) {
+                            val tipo = if (vineta.tipoPuntoControl.isNotBlank()) vineta.tipoPuntoControl else "PASO"
+                            add(Triple("🎯 WP $tipo", Color(0xFF581C87), Color(0xFFE9D5FF)))
+                        }
+                        if (vineta.mostrarWpt) add(Triple(String.format(java.util.Locale.US, "WPT %.4f, %.4f", vineta.latitud, vineta.longitud), neutroBg, if (isDark) RallyCyan else FredianiCyanText))
+                        if (vineta.radioCapturaMetros != 30) add(Triple("WPV ${vineta.radioCapturaMetros}m", neutroBg, textSecondary))
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Badges de Peligro, Off-Road, DZ Max, y Regularidad Promedio
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = when (vineta.peligro) {
-                                    "! ATENCIÓN" -> FredianiAmberBg
-                                    "!! PELIGRO", "!!!" -> FredianiRedBg
-                                    "LARGADA" -> FredianiGreenBg
-                                    else -> if (isDark) Color.Black else Color(0xFFE2E8F0)
-                                }
-                            ) {
+                        etiquetas.forEach { (texto, fondo, colorTexto) ->
+                            Surface(shape = RoundedCornerShape(4.dp), color = fondo) {
                                 Text(
-                                    text = if (vineta.peligro.isNotBlank()) vineta.peligro else "NORMAL",
+                                    text = texto,
                                     fontWeight = FontWeight.Black,
                                     fontSize = 7.5.sp,
-                                    color = when (vineta.peligro) {
-                                        "! ATENCIÓN" -> FredianiAmberText
-                                        "!! PELIGRO", "!!!" -> FredianiRedText
-                                        "LARGADA" -> FredianiGreenText
-                                        else -> textSecondary
-                                    },
+                                    color = colorTexto,
+                                    maxLines = 1,
+                                    softWrap = false,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                 )
                             }
-
-                            if (vineta.esOffRoad) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFF78350F)
-                                ) {
-                                    Text(
-                                        text = "🏜️ OFF-ROAD",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 7.5.sp,
-                                        color = Color(0xFFFEF3C7),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
-
-                            if (vineta.velocidadMaximaSectorKmh > 0) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFF991B1B)
-                                ) {
-                                    Text(
-                                        text = "🔴 DZ ${vineta.velocidadMaximaSectorKmh.toInt()}",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 7.5.sp,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
-
-                            if (vineta.velocidadPromedioSectorKmh > 0) {
-                                val segs = if (vineta.tiempoIdealSegundos > 0) vineta.tiempoIdealSegundos else {
-                                    (vineta.distanciaParcial / vineta.velocidadPromedioSectorKmh) * 3600
-                                }
-                                val m = (segs / 60).toInt()
-                                val s = (segs % 60).toInt()
-                                val tLabel = String.format("%02d'%02d\"", m, s)
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFF1E3A8A)
-                                ) {
-                                    Text(
-                                        text = "⚡ ${vineta.velocidadPromedioSectorKmh.toInt()}k ($tLabel)",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 7.5.sp,
-                                        color = Color(0xFF93C5FD),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
-                            if (vineta.esReinicioCero) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFF065F46)
-                                ) {
-                                    Text(
-                                        text = "0,00 REINICIO",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 7.5.sp,
-                                        color = Color(0xFFA7F3D0),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
-
-                            if (vineta.distanciaOculta) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFF7C2D12)
-                                ) {
-                                    Text(
-                                        text = "X.XX OCULTA",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 7.5.sp,
-                                        color = Color(0xFFFED7AA),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
-
-                            if (vineta.esOcultaOrg) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFF831843)
-                                ) {
-                                    Text(
-                                        text = "🔒 OCUL",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 7.5.sp,
-                                        color = Color(0xFFFBCFE8),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
-
-                            if (vineta.esTierra) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFF713F12)
-                                ) {
-                                    Text(
-                                        text = "DIRT",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 7.5.sp,
-                                        color = Color(0xFFFEF08A),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
-
-                            if (vineta.esPuntoControl) {
-                                val tipo = if (vineta.tipoPuntoControl.isNotBlank()) vineta.tipoPuntoControl else "PASO"
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFF581C87)
-                                ) {
-                                    Text(
-                                        text = "🎯 WP $tipo",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 7.5.sp,
-                                        color = Color(0xFFE9D5FF),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
                         }
+                    }
 
-                        Text(
-                            text = if (vineta.informacion.isNotBlank()) vineta.informacion else "Tocar para añadir notas...",
-                            fontWeight = if (vineta.informacion.isNotBlank()) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = 10.5.sp,
-                            color = if (vineta.informacion.isNotBlank()) textPrimary else textSecondary,
-                            maxLines = 2
+                    // Recuadro de la capa de notas, con su proporción fija
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        RecuadroCapa(
+                            clave = "${vineta.id}-N",
+                            capa = dibujo.notasCapa,
+                            esNotas = true,
+                            franja = franja,
+                            dibujante = dibujante,
+                            editando = isEditing && capaActiva == CapaEditada.NOTAS,
+                            seleccion = seleccion,
+                            activeTool = activeTool,
+                            colorHex = selectedColorHex,
+                            asistente = asistenteTrazoActivo,
+                            arrastre = arrastre,
+                            onCambio = { onCambioCapa(CapaEditada.NOTAS, it) },
+                            onSeleccion = onSeleccion,
+                            onHerramienta = onToolChange,
+                            onActivar = { onActivarCapa(CapaEditada.NOTAS) },
+                            onDobleToque = onTocarAnotaciones,
+                            onSoltar = { item, x, y -> onSoltar(CapaEditada.NOTAS, item, x, y) },
+                            modifier = Modifier.aspectRatio((100.0 / ALTO_NOTAS).toFloat(), matchHeightConstraintsFirst = true),
+                            // Punto 12: la app tiene un solo texto, que es la descripción
+                            textoNotas = LetraNotas.textoCompleto(vineta.informacion),
+                            notasLetra = dibujo.notasLetra
                         )
+                    }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "RUMBO: ${String.format("%.0f°", vineta.rumbo)} • CAP",
-                                fontSize = 8.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                color = textSecondary
-                            )
-                            if (vineta.mostrarWpt) {
-                                Text(
-                                    text = "WPT: ${String.format(java.util.Locale.US, "%.4f, %.4f", vineta.latitud, vineta.longitud)}",
-                                    fontSize = 8.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isDark) RallyCyan else FredianiCyanText
-                                )
-                            }
-                            if (vineta.radioCapturaMetros != 30) {
-                                Text(
-                                    text = "WPV ${vineta.radioCapturaMetros}m",
-                                    fontSize = 7.5.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    color = textSecondary
-                                )
-                            }
-                        }
+                    // Nota escrita y acceso a los datos de la viñeta
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { onTocarAnotaciones() },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (vineta.informacion.isNotBlank()) "Editar nota y datos" else "Tocar para escribir la nota...",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 9.sp,
+                            color = textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            Icons.Default.EditNote,
+                            contentDescription = "Datos de la viñeta",
+                            tint = if (isDark) RallyCyan else FredianiCyanText,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }
@@ -1405,672 +1278,94 @@ fun FilaRoadbookInPlace(
     }
 }
 
+/** Lado del recuadro de dibujo (cuadrado) y alto de cada fila del roadbook. */
+private val TAM_DIBUJO = 160.dp
+private val ALTO_FILA = TAM_DIBUJO + 8.dp
+
 /**
- * LIENZO INTERACTIVO DE DIBUJO DENTRO DE LA MISMA CELDA DE VIÑETA (IN-PLACE)
- * Con ancho 100% de la celda de la columna DIBUJO (sin barras internas que reduzcan el área).
- * Controles universales ubicados en la barra superior (Rally Navigator Style).
+ * Un recuadro de la viñeta (dibujo o capa de notas). Si es el que se está editando muestra el
+ * editor; si no, solo lo dibuja. También recibe los símbolos que se sueltan arrastrando.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun InPlaceDiagramCanvas(
-    drawingData: DrawingData,
-    selectedStampIdx: Int?,
-    selectedArrowIdx: Int? = null,
-    asistenteTrazoActivo: Boolean = true,
+private fun RecuadroCapa(
+    clave: String,
+    capa: Capa,
+    esNotas: Boolean,
+    franja: FranjaCarteles?,
+    dibujante: DibujanteVineta,
+    editando: Boolean,
+    seleccion: SeleccionEditor,
     activeTool: ActiveDrawTool,
-    selectedColorHex: String,
-    strokeWidth: Float = 7f,
-    fallbackTulip: String,
-    onUpdateDraft: (DrawingData) -> Unit,
-    onSelectStamp: (Int?) -> Unit,
-    onSelectArrow: (Int?) -> Unit = {},
-    onToolChange: (ActiveDrawTool) -> Unit
+    colorHex: String,
+    asistente: Boolean,
+    arrastre: ArrastreSimbolo,
+    onCambio: (Capa) -> Unit,
+    onSeleccion: (SeleccionEditor) -> Unit,
+    onHerramienta: (ActiveDrawTool) -> Unit,
+    onActivar: () -> Unit,
+    onDobleToque: () -> Unit,
+    onSoltar: (ItemPaleta, Double, Double) -> Unit,
+    modifier: Modifier = Modifier,
+    textoNotas: String = "",
+    notasLetra: Double? = null
 ) {
-    var strokes by remember { mutableStateOf(drawingData.strokes.toMutableList()) }
-    var stamps by remember { mutableStateOf(drawingData.stamps.toMutableList()) }
-    var arrows by remember { mutableStateOf(drawingData.arrows.toMutableList()) }
-    var currentStrokePoints by remember { mutableStateOf<List<PointData>>(emptyList()) }
-    var dragTarget by remember { mutableStateOf(DragTarget.NONE) }
-    var rulerStartPoint by remember { mutableStateOf<PointData?>(null) }
-    var rulerCurrentPoint by remember { mutableStateOf<PointData?>(null) }
-
-    var activeStampIdx by remember { mutableStateOf(selectedStampIdx) }
-    var activeArrowIdx by remember { mutableStateOf(selectedArrowIdx) }
-
-    var resizeInitialScale by remember { mutableStateOf(1f) }
-    var resizeInitialDist by remember { mutableStateOf(1f) }
-    var resizeInitialPoints by remember { mutableStateOf<List<PointData>>(emptyList()) }
-    var resizeCenter by remember { mutableStateOf(Offset.Zero) }
-
-    LaunchedEffect(drawingData) {
-        if (dragTarget == DragTarget.NONE) {
-            strokes = drawingData.strokes.toMutableList()
-            stamps = drawingData.stamps.toMutableList()
-            arrows = drawingData.arrows.toMutableList()
-        }
-    }
-    LaunchedEffect(selectedStampIdx) {
-        activeStampIdx = selectedStampIdx
-    }
-    LaunchedEffect(selectedArrowIdx) {
-        activeArrowIdx = selectedArrowIdx
-    }
-
-    val currentStamps by rememberUpdatedState(stamps)
-    val currentArrows by rememberUpdatedState(arrows)
-    val currentStrokes by rememberUpdatedState(strokes)
-    val currentSelectedStampIdx by rememberUpdatedState(selectedStampIdx)
-    val currentSelectedArrowIdx by rememberUpdatedState(selectedArrowIdx)
-    val currentActiveTool by rememberUpdatedState(activeTool)
-    val currentSelectedColorHex by rememberUpdatedState(selectedColorHex)
-    val currentStrokeWidth by rememberUpdatedState(strokeWidth)
-    val currentAsistenteTrazo by rememberUpdatedState(asistenteTrazoActivo)
-    val currentOnUpdateDraft by rememberUpdatedState(onUpdateDraft)
-    val currentOnSelectStamp by rememberUpdatedState(onSelectStamp)
-    val currentOnSelectArrow by rememberUpdatedState(onSelectArrow)
-    val currentOnToolChange by rememberUpdatedState(onToolChange)
-
+    val onSoltarAct by rememberUpdatedState(onSoltar)
+    DisposableEffect(clave) { onDispose { arrastre.quitar(clave) } }
+    val resaltado = arrastre.item != null && arrastre.destinoBajoDedo == clave
+    val forma = RoundedCornerShape(6.dp)
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        val w = size.width.toFloat()
-                        val h = size.height.toFloat()
-                        if (w <= 0 || h <= 0) return@detectDragGestures
-
-                        // 1. ¿Toca tiradores o marco del sello actualmente seleccionado?
-                        val selStampIdx = activeStampIdx ?: currentSelectedStampIdx
-                        if (selStampIdx != null && selStampIdx in stamps.indices) {
-                            val sel = stamps[selStampIdx]
-                            val cx = sel.x * w
-                            val cy = sel.y * h
-                            val boxRadius = (60f * sel.scale).coerceAtLeast(42f)
-                            val left = cx - boxRadius
-                            val top = cy - boxRadius
-                            val right = cx + boxRadius
-                            val bottom = cy + boxRadius
-
-                            // Botón borrar flotante (esquina superior derecha)
-                            val delBadgeStamp = Offset(right + 12f, top - 12f)
-                            if (Math.hypot((offset.x - delBadgeStamp.x).toDouble(), (offset.y - delBadgeStamp.y).toDouble()) <= 32f) {
-                                val nst = stamps.toMutableList()
-                                nst.removeAt(selStampIdx)
-                                stamps = nst
-                                activeStampIdx = null
-                                currentOnSelectStamp(null)
-                                dragTarget = DragTarget.NONE
-                                currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                                return@detectDragGestures
-                            }
-
-                            // 4 esquinas PowerPoint para redimensionar (TL, TR, BL, BR)
-                            val corners = listOf(
-                                Offset(left, top),
-                                Offset(right, top),
-                                Offset(left, bottom),
-                                Offset(right, bottom)
-                            )
-                            for (c in corners) {
-                                if (Math.hypot((offset.x - c.x).toDouble(), (offset.y - c.y).toDouble()) <= 42f) {
-                                    activeStampIdx = selStampIdx
-                                    resizeInitialScale = sel.scale
-                                    resizeInitialDist = Math.hypot((offset.x - cx).toDouble(), (offset.y - cy).toDouble()).toFloat().coerceAtLeast(10f)
-                                    dragTarget = DragTarget.RESIZE_STAMP
-                                    return@detectDragGestures
-                                }
-                            }
-
-                            // Toca dentro del sello actualmente seleccionado para moverlo
-                            if (offset.x in (left - 16f)..(right + 16f) && offset.y in (top - 16f)..(bottom + 16f)) {
-                                activeStampIdx = selStampIdx
-                                dragTarget = DragTarget.MOVE_STAMP
-                                return@detectDragGestures
-                            }
-                        }
-
-                        // 2. ¿Toca tiradores o cuerpo de la flecha actualmente seleccionada?
-                        val selArrIdx = activeArrowIdx ?: currentSelectedArrowIdx
-                        if (selArrIdx != null && selArrIdx in arrows.indices) {
-                            val arr = arrows[selArrIdx]
-                            val p0 = Offset(arr.p0.x * w, arr.p0.y * h)
-                            val p1 = Offset(arr.p1.x * w, arr.p1.y * h)
-                            val p2 = Offset(arr.p2.x * w, arr.p2.y * h)
-                            val p3 = Offset(arr.p3.x * w, arr.p3.y * h)
-
-                            val minX = minOf(p0.x, p1.x, p2.x, p3.x)
-                            val maxX = maxOf(p0.x, p1.x, p2.x, p3.x)
-                            val minY = minOf(p0.y, p1.y, p2.y, p3.y)
-                            val maxY = maxOf(p0.y, p1.y, p2.y, p3.y)
-                            val pad = 32f
-                            val left = minX - pad
-                            val top = minY - pad
-                            val right = maxX + pad
-                            val bottom = maxY + pad
-                            val cx = (minX + maxX) / 2f
-                            val cy = (minY + maxY) / 2f
-
-                            // Botón borrar flotante sobre esquina superior derecha de la flecha
-                            val delBadgeArrow = Offset(right + 12f, top - 12f)
-                            if (Math.hypot((offset.x - delBadgeArrow.x).toDouble(), (offset.y - delBadgeArrow.y).toDouble()) <= 32f) {
-                                val na = arrows.toMutableList()
-                                na.removeAt(selArrIdx)
-                                arrows = na
-                                activeArrowIdx = null
-                                currentOnSelectArrow(null)
-                                dragTarget = DragTarget.NONE
-                                currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                                return@detectDragGestures
-                            }
-
-                            // 4 esquinas PowerPoint para redimensionar la flecha
-                            val cornersArrow = listOf(
-                                Offset(left, top),
-                                Offset(right, top),
-                                Offset(left, bottom),
-                                Offset(right, bottom)
-                            )
-                            for (c in cornersArrow) {
-                                if (Math.hypot((offset.x - c.x).toDouble(), (offset.y - c.y).toDouble()) <= 42f) {
-                                    activeArrowIdx = selArrIdx
-                                    resizeCenter = Offset(cx, cy)
-                                    resizeInitialPoints = listOf(arr.p0, arr.p1, arr.p2, arr.p3)
-                                    resizeInitialDist = Math.hypot((offset.x - cx).toDouble(), (offset.y - cy).toDouble()).toFloat().coerceAtLeast(10f)
-                                    dragTarget = DragTarget.RESIZE_ARROW
-                                    return@detectDragGestures
-                                }
-                            }
-
-                            // Tiradores individuales P0, P1, P2, P3
-                            if (Math.hypot((offset.x - p0.x).toDouble(), (offset.y - p0.y).toDouble()) <= 38f) {
-                                activeArrowIdx = selArrIdx
-                                dragTarget = DragTarget.ARROW_P0
-                                return@detectDragGestures
-                            }
-                            if (Math.hypot((offset.x - p1.x).toDouble(), (offset.y - p1.y).toDouble()) <= 38f) {
-                                activeArrowIdx = selArrIdx
-                                dragTarget = DragTarget.ARROW_P1
-                                return@detectDragGestures
-                            }
-                            if (Math.hypot((offset.x - p2.x).toDouble(), (offset.y - p2.y).toDouble()) <= 38f) {
-                                activeArrowIdx = selArrIdx
-                                dragTarget = DragTarget.ARROW_P2
-                                return@detectDragGestures
-                            }
-                            if (Math.hypot((offset.x - p3.x).toDouble(), (offset.y - p3.y).toDouble()) <= 38f) {
-                                activeArrowIdx = selArrIdx
-                                dragTarget = DragTarget.ARROW_P3
-                                return@detectDragGestures
-                            }
-
-                            // Tirador del Pin de Kilometraje Oficial FIA (Art. 5.6.2)
-                            if (arr.hasPin) {
-                                val t = arr.pinT.coerceIn(0.15f, 0.85f)
-                                val u = 1f - t
-                                val bx = u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x
-                                val by = u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y
-                                val tdx = 3 * u * u * (p1.x - p0.x) + 6 * u * t * (p2.x - p1.x) + 3 * t * t * (p3.x - p2.x)
-                                val tdy = 3 * u * u * (p1.y - p0.y) + 6 * u * t * (p2.y - p1.y) + 3 * t * t * (p3.y - p2.y)
-                                val tAngle = Math.atan2(tdy.toDouble(), tdx.toDouble()).toFloat()
-                                val sideSign = if (arr.pinSide >= 0) 1f else -1f
-                                val pinAngle = tAngle + sideSign * (Math.PI.toFloat() * 0.72f)
-                                val pinLen = 28f
-                                val pinHead = Offset(
-                                    (bx + pinLen * Math.cos(pinAngle.toDouble())).toFloat(),
-                                    (by + pinLen * Math.sin(pinAngle.toDouble())).toFloat()
-                                )
-                                if (Math.hypot((offset.x - pinHead.x).toDouble(), (offset.y - pinHead.y).toDouble()) <= 42f) {
-                                    activeArrowIdx = selArrIdx
-                                    dragTarget = DragTarget.ARROW_PIN
-                                    return@detectDragGestures
-                                }
-                            }
-
-                            // Toca dentro del marco de la flecha o a lo largo del cuerpo para moverla
-                            if (offset.x in left..right && offset.y in top..bottom) {
-                                activeArrowIdx = selArrIdx
-                                dragTarget = DragTarget.MOVE_ARROW
-                                return@detectDragGestures
-                            }
-                        }
-
-                        // 3. ¿TOCA DIRECTAMENTE ENCIMA DE CUALQUIER SELLO? (SIEMPRE LO SELECCIONA Y MUEVE)
-                        for (i in stamps.indices.reversed()) {
-                            val s = stamps[i]
-                            val cx = s.x * w
-                            val cy = s.y * h
-                            val boxRadius = (60f * s.scale).coerceAtLeast(42f)
-                            if (offset.x in (cx - boxRadius - 16f)..(cx + boxRadius + 16f) &&
-                                offset.y in (cy - boxRadius - 16f)..(cy + boxRadius + 16f)) {
-                                activeStampIdx = i
-                                activeArrowIdx = null
-                                currentOnSelectStamp(i)
-                                currentOnSelectArrow(null)
-                                currentOnToolChange(ActiveDrawTool.SELECT)
-                                dragTarget = DragTarget.MOVE_STAMP
-                                return@detectDragGestures
-                            }
-                        }
-
-                        // 4. ¿TOCA DIRECTAMENTE ENCIMA DE CUALQUIER FLECHA?
-                        for (i in arrows.indices.reversed()) {
-                            val arr = arrows[i]
-                            val p0 = Offset(arr.p0.x * w, arr.p0.y * h)
-                            val p1 = Offset(arr.p1.x * w, arr.p1.y * h)
-                            val p2 = Offset(arr.p2.x * w, arr.p2.y * h)
-                            val p3 = Offset(arr.p3.x * w, arr.p3.y * h)
-                            var hit = false
-                            for (step in 0..20) {
-                                val t = step / 20f
-                                val bx = (1 - t) * (1 - t) * (1 - t) * p0.x + 3 * (1 - t) * (1 - t) * t * p1.x + 3 * (1 - t) * t * t * p2.x + t * t * t * p3.x
-                                val by = (1 - t) * (1 - t) * (1 - t) * p0.y + 3 * (1 - t) * (1 - t) * t * p1.y + 3 * (1 - t) * t * t * p2.y + t * t * t * p3.y
-                                if (Math.hypot((offset.x - bx).toDouble(), (offset.y - by).toDouble()) <= 44f) {
-                                    hit = true
-                                    break
-                                }
-                            }
-                            if (hit) {
-                                activeArrowIdx = i
-                                activeStampIdx = null
-                                currentOnSelectArrow(i)
-                                currentOnSelectStamp(null)
-                                currentOnToolChange(ActiveDrawTool.SELECT)
-                                dragTarget = DragTarget.MOVE_ARROW
-                                return@detectDragGestures
-                            }
-                        }
-
-                        // 5. Toca en lienzo vacío
-                        when (currentActiveTool) {
-                            ActiveDrawTool.PEN -> {
-                                dragTarget = DragTarget.DRAW_STROKE
-                                currentStrokePoints = listOf(PointData(offset.x / w, offset.y / h))
-                            }
-                            ActiveDrawTool.RULER -> {
-                                dragTarget = DragTarget.DRAW_STROKE
-                                val pt = PointData(offset.x / w, offset.y / h)
-                                rulerStartPoint = pt
-                                rulerCurrentPoint = pt
-                            }
-                            ActiveDrawTool.SELECT -> {
-                                activeStampIdx = null
-                                activeArrowIdx = null
-                                currentOnSelectStamp(null)
-                                currentOnSelectArrow(null)
-                                dragTarget = DragTarget.NONE
-                            }
-                        }
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        val w = size.width.toFloat()
-                        val h = size.height.toFloat()
-                        if (w <= 0 || h <= 0) return@detectDragGestures
-
-                        when (dragTarget) {
-                            DragTarget.MOVE_STAMP -> {
-                                val idx = activeStampIdx
-                                if (idx != null && idx in stamps.indices) {
-                                    val cur = stamps[idx]
-                                    val dx = dragAmount.x / w
-                                    val dy = dragAmount.y / h
-                                    val nst = stamps.toMutableList()
-                                    nst[idx] = cur.copy(
-                                        x = (cur.x + dx).coerceIn(0.05f, 0.95f),
-                                        y = (cur.y + dy).coerceIn(0.05f, 0.95f)
-                                    )
-                                    stamps = nst
-                                    currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                                }
-                            }
-                            DragTarget.RESIZE_STAMP -> {
-                                val idx = activeStampIdx
-                                if (idx != null && idx in stamps.indices && resizeInitialDist > 0f) {
-                                    val cur = stamps[idx]
-                                    val cx = cur.x * w
-                                    val cy = cur.y * h
-                                    val currentDist = Math.hypot((change.position.x - cx).toDouble(), (change.position.y - cy).toDouble()).toFloat()
-                                    val ratio = currentDist / resizeInitialDist
-                                    val newScale = (resizeInitialScale * ratio).coerceIn(0.35f, 4.0f)
-                                    val nst = stamps.toMutableList()
-                                    nst[idx] = cur.copy(scale = newScale)
-                                    stamps = nst
-                                    currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                                }
-                            }
-                            DragTarget.RESIZE_ARROW -> {
-                                val idx = activeArrowIdx
-                                if (idx != null && idx in arrows.indices && resizeInitialPoints.size == 4 && resizeInitialDist > 0f) {
-                                    val currentDist = Math.hypot((change.position.x - resizeCenter.x).toDouble(), (change.position.y - resizeCenter.y).toDouble()).toFloat()
-                                    val ratio = (currentDist / resizeInitialDist).coerceIn(0.15f, 5.0f)
-                                    val p0Init = resizeInitialPoints[0]
-                                    val p1Init = resizeInitialPoints[1]
-                                    val p2Init = resizeInitialPoints[2]
-                                    val p3Init = resizeInitialPoints[3]
-                                    val cxRel = resizeCenter.x / w
-                                    val cyRel = resizeCenter.y / h
-
-                                    fun scalePoint(pt: PointData): PointData {
-                                        val nx = cxRel + (pt.x - cxRel) * ratio
-                                        val ny = cyRel + (pt.y - cyRel) * ratio
-                                        return PointData(nx.coerceIn(0f, 1f), ny.coerceIn(0f, 1f))
-                                    }
-
-                                    val na = arrows.toMutableList()
-                                    na[idx] = na[idx].copy(
-                                        p0 = scalePoint(p0Init),
-                                        p1 = scalePoint(p1Init),
-                                        p2 = scalePoint(p2Init),
-                                        p3 = scalePoint(p3Init)
-                                    )
-                                    arrows = na
-                                    currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                                }
-                            }
-                            DragTarget.ARROW_P0 -> {
-                                val idx = activeArrowIdx
-                                if (idx != null && idx in arrows.indices) {
-                                    val na = arrows.toMutableList()
-                                    na[idx] = na[idx].copy(p0 = PointData((change.position.x / w).coerceIn(0f, 1f), (change.position.y / h).coerceIn(0f, 1f)))
-                                    arrows = na
-                                    currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                                }
-                            }
-                            DragTarget.ARROW_P1 -> {
-                                val idx = activeArrowIdx
-                                if (idx != null && idx in arrows.indices) {
-                                    val na = arrows.toMutableList()
-                                    na[idx] = na[idx].copy(p1 = PointData((change.position.x / w).coerceIn(0f, 1f), (change.position.y / h).coerceIn(0f, 1f)))
-                                    arrows = na
-                                    currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                                }
-                            }
-                            DragTarget.ARROW_P2 -> {
-                                val idx = activeArrowIdx
-                                if (idx != null && idx in arrows.indices) {
-                                    val na = arrows.toMutableList()
-                                    na[idx] = na[idx].copy(p2 = PointData((change.position.x / w).coerceIn(0f, 1f), (change.position.y / h).coerceIn(0f, 1f)))
-                                    arrows = na
-                                    currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                                }
-                            }
-                            DragTarget.ARROW_P3 -> {
-                                val idx = activeArrowIdx
-                                if (idx != null && idx in arrows.indices) {
-                                    val na = arrows.toMutableList()
-                                    na[idx] = na[idx].copy(p3 = PointData((change.position.x / w).coerceIn(0f, 1f), (change.position.y / h).coerceIn(0f, 1f)))
-                                    arrows = na
-                                    currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                                }
-                            }
-                            DragTarget.ARROW_PIN -> {
-                                val idx = activeArrowIdx
-                                if (idx != null && idx in arrows.indices) {
-                                    val cur = arrows[idx]
-                                    val p0 = Offset(cur.p0.x * w, cur.p0.y * h)
-                                    val p1 = Offset(cur.p1.x * w, cur.p1.y * h)
-                                    val p2 = Offset(cur.p2.x * w, cur.p2.y * h)
-                                    val p3 = Offset(cur.p3.x * w, cur.p3.y * h)
-                                    val touchPos = change.position
-
-                                    // Muestreo paramétrico sobre la curva Bézier para encontrar el t más cercano
-                                    var bestT = cur.pinT
-                                    var bestDist = Float.MAX_VALUE
-                                    for (step in 15..85 step 2) {
-                                        val st = step / 100f
-                                        val su = 1f - st
-                                        val bx = su * su * su * p0.x + 3 * su * su * st * p1.x + 3 * su * st * st * p2.x + st * st * st * p3.x
-                                        val by = su * su * su * p0.y + 3 * su * su * st * p1.y + 3 * su * st * st * p2.y + st * st * st * p3.y
-                                        val d = Math.hypot((touchPos.x - bx).toDouble(), (touchPos.y - by).toDouble()).toFloat()
-                                        if (d < bestDist) {
-                                            bestDist = d
-                                            bestT = st
-                                        }
-                                    }
-
-                                    // Lado de la curva (orientación respecto al vector tangente)
-                                    val u = 1f - bestT
-                                    val bx = u * u * u * p0.x + 3 * u * u * bestT * p1.x + 3 * u * bestT * bestT * p2.x + bestT * bestT * bestT * p3.x
-                                    val by = u * u * u * p0.y + 3 * u * u * bestT * p1.y + 3 * u * bestT * bestT * p2.y + bestT * bestT * bestT * p3.y
-                                    val tdx = 3 * u * u * (p1.x - p0.x) + 6 * u * bestT * (p2.x - p1.x) + 3 * bestT * bestT * (p3.x - p2.x)
-                                    val tdy = 3 * u * u * (p1.y - p0.y) + 6 * u * bestT * (p2.y - p1.y) + 3 * bestT * bestT * (p3.y - p2.y)
-
-                                    val cross = (touchPos.x - bx) * tdy - (touchPos.y - by) * tdx
-                                    val newSide = if (cross >= 0) 1f else -1f
-
-                                    val na = arrows.toMutableList()
-                                    na[idx] = cur.copy(pinT = bestT, pinSide = newSide)
-                                    arrows = na
-                                    currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                                }
-                            }
-                            DragTarget.MOVE_ARROW -> {
-                                val idx = activeArrowIdx
-                                if (idx != null && idx in arrows.indices) {
-                                    val cur = arrows[idx]
-                                    val dx = dragAmount.x / w
-                                    val dy = dragAmount.y / h
-                                    val na = arrows.toMutableList()
-                                    na[idx] = cur.copy(
-                                        p0 = PointData((cur.p0.x + dx).coerceIn(0f, 1f), (cur.p0.y + dy).coerceIn(0f, 1f)),
-                                        p1 = PointData((cur.p1.x + dx).coerceIn(0f, 1f), (cur.p1.y + dy).coerceIn(0f, 1f)),
-                                        p2 = PointData((cur.p2.x + dx).coerceIn(0f, 1f), (cur.p2.y + dy).coerceIn(0f, 1f)),
-                                        p3 = PointData((cur.p3.x + dx).coerceIn(0f, 1f), (cur.p3.y + dy).coerceIn(0f, 1f))
-                                    )
-                                    arrows = na
-                                    currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                                }
-                            }
-                            DragTarget.DRAW_STROKE -> {
-                                if (currentActiveTool == ActiveDrawTool.PEN) {
-                                    currentStrokePoints = currentStrokePoints + PointData(
-                                        (change.position.x / w).coerceIn(0f, 1f),
-                                        (change.position.y / h).coerceIn(0f, 1f)
-                                    )
-                                } else if (currentActiveTool == ActiveDrawTool.RULER) {
-                                    rulerCurrentPoint = PointData(
-                                        (change.position.x / w).coerceIn(0f, 1f),
-                                        (change.position.y / h).coerceIn(0f, 1f)
-                                    )
-                                }
-                            }
-                            DragTarget.NONE -> {}
-                        }
-                    },
-                    onDragEnd = {
-                        if (dragTarget == DragTarget.DRAW_STROKE) {
-                            if (currentActiveTool == ActiveDrawTool.PEN && currentStrokePoints.size >= 2) {
-                                if (currentAsistenteTrazo && currentStrokePoints.size >= 5) {
-                                    val p0 = currentStrokePoints.first()
-                                    val p3 = currentStrokePoints.last()
-                                    val distTotal = Math.hypot((p3.x - p0.x).toDouble(), (p3.y - p0.y).toDouble())
-                                    if (distTotal >= 0.12) {
-                                        val idx1 = currentStrokePoints.size / 3
-                                        val idx2 = (currentStrokePoints.size * 2) / 3
-                                        val p1 = currentStrokePoints[idx1]
-                                        val p2 = currentStrokePoints[idx2]
-                                        val newArrow = ManeuverArrow(
-                                            p0 = p0,
-                                            p1 = p1,
-                                            p2 = p2,
-                                            p3 = p3,
-                                            strokeWidth = currentStrokeWidth,
-                                            colorHex = currentSelectedColorHex
-                                        )
-                                        val na = arrows.toMutableList()
-                                        na.add(newArrow)
-                                        arrows = na
-                                        activeArrowIdx = arrows.lastIndex
-                                        activeStampIdx = null
-                                        currentOnSelectArrow(arrows.lastIndex)
-                                        currentOnSelectStamp(null)
-                                        currentOnToolChange(ActiveDrawTool.SELECT)
-                                    } else {
-                                        val nl = strokes.toMutableList()
-                                        nl.add(StrokeData(points = currentStrokePoints, colorHex = currentSelectedColorHex, strokeWidth = currentStrokeWidth))
-                                        strokes = nl
-                                    }
-                                } else {
-                                    val nl = strokes.toMutableList()
-                                    nl.add(StrokeData(points = currentStrokePoints, colorHex = currentSelectedColorHex, strokeWidth = currentStrokeWidth))
-                                    strokes = nl
-                                }
-                            } else if (currentActiveTool == ActiveDrawTool.RULER && rulerStartPoint != null && rulerCurrentPoint != null) {
-                                val nl = strokes.toMutableList()
-                                nl.add(StrokeData(points = listOf(rulerStartPoint!!, rulerCurrentPoint!!), colorHex = currentSelectedColorHex, strokeWidth = currentStrokeWidth))
-                                strokes = nl
-                            }
-                        }
-                        currentStrokePoints = emptyList()
-                        rulerStartPoint = null
-                        rulerCurrentPoint = null
-                        dragTarget = DragTarget.NONE
-                        currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                    },
-                    onDragCancel = {
-                        currentStrokePoints = emptyList()
-                        rulerStartPoint = null
-                        rulerCurrentPoint = null
-                        dragTarget = DragTarget.NONE
-                        currentOnUpdateDraft(DrawingData(strokes = strokes, stamps = stamps, arrows = arrows))
-                    }
-                )
+        modifier = modifier
+            .clip(forma)
+            .background(Color.White)
+            .onGloballyPositioned { c ->
+                val origen = c.localToWindow(Offset.Zero)
+                val completo = androidx.compose.ui.geometry.Rect(origen, Size(c.size.width.toFloat(), c.size.height.toFloat()))
+                arrastre.registrar(clave, c.boundsInWindow(), completo) { item, x, y -> onSoltarAct(item, x, y) }
             }
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(4.dp)) {
-            val selectedArrowToRender = if (currentActiveTool == ActiveDrawTool.SELECT) (activeArrowIdx ?: currentSelectedArrowIdx) else null
-            // Renderizar contenido base
-            DiagramaCanvasRenderer.render(
-                drawScope = this,
-                drawingData = DrawingData(strokes = strokes, stamps = stamps, arrows = arrows),
-                fallbackTulip = fallbackTulip,
-                primaryColor = Color.Black,
-                selectedArrowIdx = selectedArrowToRender
+            .border(
+                width = if (editando || resaltado) 2.dp else 1.dp,
+                color = when {
+                    resaltado -> Color(0xFFF59E0B)
+                    editando -> FredianiCyan
+                    else -> Color(0xFFCBD5E1)
+                },
+                shape = forma
             )
-
-            // Trazo libre temporal mientras se dibuja con PEN
-            if (currentActiveTool == ActiveDrawTool.PEN && currentStrokePoints.size >= 2) {
-                val path = androidx.compose.ui.graphics.Path()
-                val first = currentStrokePoints[0]
-                path.moveTo(first.x * size.width, first.y * size.height)
-                for (i in 1 until currentStrokePoints.size) {
-                    val pt = currentStrokePoints[i]
-                    path.lineTo(pt.x * size.width, pt.y * size.height)
-                }
-                val strokeCol = try { Color(android.graphics.Color.parseColor(currentSelectedColorHex)) } catch (e: Exception) { Color.Black }
-                drawPath(
-                    path = path,
-                    color = strokeCol,
-                    style = Stroke(width = currentStrokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                )
-            }
-
-            // Trazo de regla recta temporal mientras se arrastra con RULER
-            if (currentActiveTool == ActiveDrawTool.RULER && rulerStartPoint != null && rulerCurrentPoint != null) {
-                val strokeCol = try { Color(android.graphics.Color.parseColor(currentSelectedColorHex)) } catch (e: Exception) { Color.Black }
-                drawLine(
-                    color = strokeCol,
-                    start = Offset(rulerStartPoint!!.x * size.width, rulerStartPoint!!.y * size.height),
-                    end = Offset(rulerCurrentPoint!!.x * size.width, rulerCurrentPoint!!.y * size.height),
-                    strokeWidth = currentStrokeWidth,
-                    cap = StrokeCap.Round
-                )
-            }
-
-            // RECUADRO DE TRANSFORMACIÓN POWERPOINT PARA SELLO SELECCIONADO
-            val curSelStamp = if (currentActiveTool == ActiveDrawTool.SELECT) (activeStampIdx ?: currentSelectedStampIdx) else null
-            if (curSelStamp != null && curSelStamp in stamps.indices) {
-                val sel = stamps[curSelStamp]
-                val cx = sel.x * size.width
-                val cy = sel.y * size.height
-                val boxRadius = (60f * sel.scale).coerceAtLeast(42f)
-                val left = cx - boxRadius
-                val top = cy - boxRadius
-                val right = cx + boxRadius
-                val bottom = cy + boxRadius
-
-                // Marco rectangular discontinuo
-                drawRect(
-                    color = Color(0xFF0284C7),
-                    topLeft = Offset(left, top),
-                    size = Size(boxRadius * 2, boxRadius * 2),
-                    style = Stroke(
-                        width = 2.5f,
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 5f), 0f)
-                    )
-                )
-
-                // 4 esquinas PowerPoint para redimensionar desde cualquiera
-                val corners = listOf(
-                    Offset(left, top),
-                    Offset(right, top),
-                    Offset(left, bottom),
-                    Offset(right, bottom)
-                )
-                for (pt in corners) {
-                    drawCircle(color = Color.White, radius = 8f, center = pt)
-                    drawCircle(color = Color(0xFF0284C7), radius = 8f, center = pt, style = Stroke(width = 3f))
-                    drawCircle(color = Color(0xFF0284C7), radius = 3f, center = pt)
-                }
-
-                // Botón borrar flotante en esquina superior derecha
-                val delBadge = Offset(right + 12f, top - 12f)
-                drawCircle(color = RallyRed, radius = 11f, center = delBadge)
-                drawCircle(color = Color.White, radius = 11f, center = delBadge, style = Stroke(1.5f))
-                drawLine(color = Color.White, start = delBadge + Offset(-4.5f, -4.5f), end = delBadge + Offset(4.5f, 4.5f), strokeWidth = 2.5f)
-                drawLine(color = Color.White, start = delBadge + Offset(-4.5f, 4.5f), end = delBadge + Offset(4.5f, -4.5f), strokeWidth = 2.5f)
-            }
-
-            // RECUADRO DE TRANSFORMACIÓN POWERPOINT Y BORRADO PARA FLECHA SELECCIONADA
-            val curSelArrow = if (currentActiveTool == ActiveDrawTool.SELECT) (activeArrowIdx ?: currentSelectedArrowIdx) else null
-            if (curSelArrow != null && curSelArrow in arrows.indices) {
-                val arr = arrows[curSelArrow]
-                val p0 = Offset(arr.p0.x * size.width, arr.p0.y * size.height)
-                val p1 = Offset(arr.p1.x * size.width, arr.p1.y * size.height)
-                val p2 = Offset(arr.p2.x * size.width, arr.p2.y * size.height)
-                val p3 = Offset(arr.p3.x * size.width, arr.p3.y * size.height)
-
-                val minX = minOf(p0.x, p1.x, p2.x, p3.x)
-                val maxX = maxOf(p0.x, p1.x, p2.x, p3.x)
-                val minY = minOf(p0.y, p1.y, p2.y, p3.y)
-                val maxY = maxOf(p0.y, p1.y, p2.y, p3.y)
-                val pad = 32f
-                val left = minX - pad
-                val top = minY - pad
-                val right = maxX + pad
-                val bottom = maxY + pad
-
-                // Marco rectangular discontinuo
-                drawRect(
-                    color = Color(0xFF0284C7).copy(alpha = 0.8f),
-                    topLeft = Offset(left, top),
-                    size = Size(right - left, bottom - top),
-                    style = Stroke(
-                        width = 2.0f,
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 5f), 0f)
-                    )
-                )
-
-                // 4 esquinas PowerPoint para redimensionar la flecha completa
-                val cornersArrow = listOf(
-                    Offset(left, top),
-                    Offset(right, top),
-                    Offset(left, bottom),
-                    Offset(right, bottom)
-                )
-                for (pt in cornersArrow) {
-                    drawCircle(color = Color.White, radius = 8f, center = pt)
-                    drawCircle(color = Color(0xFF0284C7), radius = 8f, center = pt, style = Stroke(width = 3f))
-                    drawCircle(color = Color(0xFF0284C7), radius = 3f, center = pt)
-                }
-
-                // Botón borrar flotante en esquina superior derecha del marco de la flecha
-                val delBadgeArrow = Offset(right + 12f, top - 12f)
-                drawCircle(color = RallyRed, radius = 11f, center = delBadgeArrow)
-                drawCircle(color = Color.White, radius = 11f, center = delBadgeArrow, style = Stroke(1.5f))
-                drawLine(color = Color.White, start = delBadgeArrow + Offset(-4.5f, -4.5f), end = delBadgeArrow + Offset(4.5f, 4.5f), strokeWidth = 2.5f)
-                drawLine(color = Color.White, start = delBadgeArrow + Offset(-4.5f, 4.5f), end = delBadgeArrow + Offset(4.5f, -4.5f), strokeWidth = 2.5f)
-            }
+    ) {
+        if (editando) {
+            EditorCapa(
+                capa = capa,
+                esNotas = esNotas,
+                franja = franja,
+                dibujante = dibujante,
+                seleccion = seleccion,
+                herramienta = activeTool,
+                colorHex = colorHex,
+                asistente = asistente,
+                onCambio = onCambio,
+                onSeleccion = onSeleccion,
+                onHerramienta = onHerramienta,
+                modifier = Modifier.fillMaxSize(),
+                textoNotas = textoNotas,
+                notasLetra = notasLetra
+            )
+        } else {
+            VistaCapa(
+                capa = capa,
+                esNotas = esNotas,
+                franja = franja,
+                dibujante = dibujante,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .combinedClickable(
+                        onClick = onActivar,
+                        onDoubleClick = onDobleToque,
+                        onLongClick = onDobleToque
+                    ),
+                textoNotas = textoNotas,
+                notasLetra = notasLetra
+            )
         }
     }
 }
@@ -2336,10 +1631,13 @@ fun RoadbookDrawingToolbar(
     selectedStrokeColor: String,
     strokeWidth: Float,
     asistenteTrazo: Boolean = true,
-    hasPinKm: Boolean = false,
+    capaActiva: CapaEditada = CapaEditada.DIBUJO,
+    onCapaChange: (CapaEditada) -> Unit = {},
+    letraNotasAuto: Boolean = true,
+    letraNotasValor: Double? = null,
+    onLetraNotas: (Double?) -> Unit = {},
     onToggleAsistente: () -> Unit = {},
     onAddArrow: () -> Unit = {},
-    onTogglePinKm: () -> Unit = {},
     onToolChange: (ActiveDrawTool) -> Unit,
     onColorChange: (String) -> Unit,
     onStrokeWidthChange: (Float) -> Unit,
@@ -2389,6 +1687,59 @@ fun RoadbookDrawingToolbar(
                         )
                     }
 
+                    // Recuadro que se edita: dibujo o capa de notas
+                    listOf(CapaEditada.DIBUJO to "DIBUJO", CapaEditada.NOTAS to "NOTAS").forEach { (c, nombre) ->
+                        val sel = capaActiva == c
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (sel) FredianiCyan else Color.Transparent,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (sel) FredianiCyan else barBorder),
+                            modifier = Modifier.clickable { onCapaChange(c) }
+                        ) {
+                            Text(
+                                text = nombre,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 9.sp,
+                                color = if (sel) Color.Black else (if (isDark) Color.White else Color(0xFF334155)),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    VerticalDivider(modifier = Modifier.height(20.dp).padding(horizontal = 2.dp), color = barBorder)
+
+                    // Letra del texto de las notas (punto 12): A↓ · Auto · A↑
+                    if (letraNotasValor != null) {
+                        val textoBoton = if (isDark) Color.White else Color(0xFF334155)
+                        TextButton(
+                            onClick = { onLetraNotas(LetraNotas.menos(letraNotasValor)) },
+                            contentPadding = PaddingValues(horizontal = 4.dp),
+                            modifier = Modifier.height(26.dp)
+                        ) { Text("A↓", fontSize = 10.sp, fontWeight = FontWeight.Black, color = textoBoton) }
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (letraNotasAuto) FredianiCyan else Color.Transparent,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (letraNotasAuto) FredianiCyan else barBorder),
+                            modifier = Modifier.clickable { onLetraNotas(null) }
+                        ) {
+                            val valor = String.format(java.util.Locale.US, "%.1f", letraNotasValor).removeSuffix(".0").replace('.', ',')
+                            Text(
+                                text = if (letraNotasAuto) "Auto $valor" else valor,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 9.sp,
+                                color = if (letraNotasAuto) Color.Black else textoBoton,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                        TextButton(
+                            onClick = { onLetraNotas(LetraNotas.mas(letraNotasValor)) },
+                            contentPadding = PaddingValues(horizontal = 4.dp),
+                            modifier = Modifier.height(26.dp)
+                        ) { Text("A↑", fontSize = 10.sp, fontWeight = FontWeight.Black, color = textoBoton) }
+
+                        VerticalDivider(modifier = Modifier.height(20.dp).padding(horizontal = 2.dp), color = barBorder)
+                    }
+
                     // Botón SELECT
                     ToolIconButton(
                         icon = Icons.Default.NearMe,
@@ -2422,14 +1773,8 @@ fun RoadbookDrawingToolbar(
                         onClick = onAddArrow
                     )
 
-                    // Botón PIN KM OFICIAL FIA (Art. 5.6.2)
-                    ToolIconButton(
-                        icon = Icons.Default.PinDrop,
-                        label = if (hasPinKm) "Pin Km Activo" else "Pin Km",
-                        selected = hasPinKm,
-                        tint = if (hasPinKm) Color(0xFFF59E0B) else null,
-                        onClick = onTogglePinKm
-                    )
+                    // El palito del GPS siempre está en la flecha: se mueve arrastrando su punta.
+
 
                     // Botón ASISTENTE DE TRAZO
                     ToolIconButton(
@@ -2767,10 +2112,8 @@ fun RoadbookNotesDialog(
     vineta: VinetaEntity,
     onGuardar: (
         nota: String,
-        peligro: String,
         distTotal: Double,
         distParcial: Double,
-        notasSvg: String,
         esOffRoad: Boolean,
         velPromedio: Double,
         velMaxima: Double,
@@ -2788,7 +2131,6 @@ fun RoadbookNotesDialog(
 ) {
     val isDark = ThemeManager.isDarkTheme
     var nota by remember { mutableStateOf(vineta.informacion) }
-    var peligro by remember { mutableStateOf(vineta.peligro) }
     var distTotStr by remember { mutableStateOf(String.format(java.util.Locale.US, "%.3f", vineta.distanciaTotal)) }
     var distParStr by remember { mutableStateOf(String.format(java.util.Locale.US, "%.3f", vineta.distanciaParcial)) }
 
@@ -2854,18 +2196,7 @@ fun RoadbookNotesDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 2. PELIGRO
-                Text("Grado de Peligro:", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("", "! ATENCIÓN", "!! PELIGRO", "!!!").forEach { p ->
-                        val sel = peligro == p
-                        FilterChip(
-                            selected = sel,
-                            onClick = { peligro = p },
-                            label = { Text(if (p.isEmpty()) "Normal" else p, fontSize = 10.sp) }
-                        )
-                    }
-                }
+                // El peligro no se elige acá: se calcula de los símbolos EXCL / PELIGRO dibujados.
 
                 // 3. KILOMETRAJE
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -3074,10 +2405,8 @@ fun RoadbookNotesDialog(
 
                     onGuardar(
                         nota,
-                        peligro,
                         tot,
                         par,
-                        vineta.notasSvgData,
                         esOffRoad,
                         vProm,
                         vMax,

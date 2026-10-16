@@ -1,0 +1,873 @@
+{
+  "formato": "frediani-equivalencias-app",
+  "version": 2,
+  "descripcion": "Cómo pasa cada código de símbolo de la app Kotlin (formato viejo) a la biblioteca oficial (simbolos.json).",
+  "resultados": {
+    "igual": "Pasa al símbolo oficial indicado.",
+    "flecha": "Es una maniobra: pasa a la flecha armada indicada (flechas_armadas.json).",
+    "gps": "Es el palito del GPS de la flecha.",
+    "nuevo": "Todavía no existe en la plataforma: se guarda como \"APP:<código>\" y se ve como \"?\".",
+    "simbolo": "Pasa a ese símbolo oficial, centrado en el recuadro.",
+    "vacio": "La viñeta queda sin dibujo."
+  },
+  "equivalencias": [
+    {
+      "codigos_app": [
+        "FLECHA_MANIOBRA",
+        "FLECHA_CURVA",
+        "MANIOBRA_ARROW"
+      ],
+      "resultado": "flecha",
+      "flecha_armada": "recta"
+    },
+    {
+      "codigos_app": [
+        "RECTA"
+      ],
+      "resultado": "flecha",
+      "flecha_armada": "recta"
+    },
+    {
+      "codigos_app": [
+        "CURVA_DER",
+        "CURVA_SUAVE_DER"
+      ],
+      "resultado": "flecha",
+      "flecha_armada": "der_45"
+    },
+    {
+      "codigos_app": [
+        "CURVA_IZQ",
+        "CURVA_SUAVE_IZQ"
+      ],
+      "resultado": "flecha",
+      "flecha_armada": "izq_45"
+    },
+    {
+      "codigos_app": [
+        "DERECHA_2",
+        "DERECHA_3",
+        "DERECHA_90"
+      ],
+      "resultado": "flecha",
+      "flecha_armada": "der_90"
+    },
+    {
+      "codigos_app": [
+        "IZQUIERDA_2",
+        "IZQUIERDA_3",
+        "IZQUIERDA_90"
+      ],
+      "resultado": "flecha",
+      "flecha_armada": "izq_90"
+    },
+    {
+      "codigos_app": [
+        "RETOME_DER",
+        "HORQUILLA_DER"
+      ],
+      "resultado": "flecha",
+      "flecha_armada": "der_vuelta"
+    },
+    {
+      "codigos_app": [
+        "RETOME_IZQ",
+        "HORQUILLA_IZQ"
+      ],
+      "resultado": "flecha",
+      "flecha_armada": "izq_vuelta"
+    },
+    {
+      "codigos_app": [
+        "CRUCE",
+        "CRUCE_RECTO",
+        "CRUCE_X"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "CRUCE"
+    },
+    {
+      "codigos_app": [
+        "CRUCE_T"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "CRUCE_T"
+    },
+    {
+      "codigos_app": [
+        "BIFURCACION_Y"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "CRUCE_Y",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "ROTONDA"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "ROTONDA"
+    },
+    {
+      "codigos_app": [
+        "TC",
+        "CONTROL_HORARIO"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_CH",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "LARGADA",
+        "START"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:LARGADA",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:LARGADA\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "LLEGADA",
+        "FINISH"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:LLEGADA",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:LLEGADA\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "STOP"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "STOP"
+    },
+    {
+      "codigos_app": [
+        "RESET_0000"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:RESET_0000",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:RESET_0000\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "GPS_POINT",
+        "ANTENA_GPS"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_WPV",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "SURTIDOR",
+        "COMBUSTIBLE"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:SURTIDOR",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:SURTIDOR\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "ASISTENCIA"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:ASISTENCIA",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:ASISTENCIA\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "MEDICO",
+        "PRIMEROS_AUXILIOS"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:MEDICO",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:MEDICO\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "RADAR_DZ"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_DZ",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "RADAR_FZ"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_FZ",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "PELIGRO_1",
+        "PELIGRO_!"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "PELIGRO_1"
+    },
+    {
+      "codigos_app": [
+        "PELIGRO_2",
+        "PELIGRO_!!"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "PELIGRO_2"
+    },
+    {
+      "codigos_app": [
+        "PELIGRO_3",
+        "PELIGRO_!!!"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "PELIGRO_3"
+    },
+    {
+      "codigos_app": [
+        "PRECAUCION",
+        "PELIGRO"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:PRECAUCION",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:PRECAUCION\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "PIN_KM",
+        "ALFILER"
+      ],
+      "resultado": "gps",
+      "nota": "Es el palito del GPS de la flecha, no un símbolo"
+    },
+    {
+      "codigos_app": [
+        "TRANQUERA"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_TRANQUERA",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "GUARDAGANADO"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "GUARDAGANADO"
+    },
+    {
+      "codigos_app": [
+        "PUENTE",
+        "SOBRE_PUENTE"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_PUENTE",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "TUNEL",
+        "BAJO_PUENTE"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "TUNEL"
+    },
+    {
+      "codigos_app": [
+        "ALCANTARILLA"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:ALCANTARILLA",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:ALCANTARILLA\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "VIAS_TREN"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_VIA_TREN",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "ALAMBRADO"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_ALAMBRADO",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "ALAMBRADO_PUAS"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:ALAMBRADO_PUAS",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:ALAMBRADO_PUAS\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "TORRE_ALTA_TENSION"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "TORRE_ALTA_TENSION"
+    },
+    {
+      "codigos_app": [
+        "POSTE_LUZ"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "POSTE_LUZ"
+    },
+    {
+      "codigos_app": [
+        "LINEA_ELECTRICA"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:LINEA_ELECTRICA",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:LINEA_ELECTRICA\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "POSTE"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:POSTE",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:POSTE\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "ANTENA"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:ANTENA",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:ANTENA\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "MOLINO",
+        "POZO_AGUA"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "MOLINO_VIENTO",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "TANQUES"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "TANQUE_ELEVADO",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "BARRILES"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "TAMBOR_PETROLEO",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "NEUMATICOS"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "PILA_NEUMATICOS",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "CARTELES"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "CARTEL_IZQ",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "MURO"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:MURO",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:MURO\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "PIPELINE"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:PIPELINE",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:PIPELINE\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "CASA",
+        "POBLADO"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "CASA_RURAL",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "IGLESIA"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "IGLESIA"
+    },
+    {
+      "codigos_app": [
+        "RUINAS"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "RUINAS"
+    },
+    {
+      "codigos_app": [
+        "CEMENTERIO"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "CEMENTERIO"
+    },
+    {
+      "codigos_app": [
+        "CAMPAMENTO",
+        "VIVAC"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "CAMPING",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "ARBOL"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "ARBOL_VERDE",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "ARBOL_SECO"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "ARBOL_SECO"
+    },
+    {
+      "codigos_app": [
+        "PALMERA"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "PALMERA"
+    },
+    {
+      "codigos_app": [
+        "CAMEL_GRASS"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:CAMEL_GRASS",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:CAMEL_GRASS\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "VEGETACION",
+        "ARBUSTO"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:VEGETACION",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:VEGETACION\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "VACA",
+        "ANIMALES"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "VACA"
+    },
+    {
+      "codigos_app": [
+        "CAMELLO"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "CAMELLO"
+    },
+    {
+      "codigos_app": [
+        "CAIRN",
+        "APACHETA"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:CAIRN",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:CAIRN\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "MONUMENTO"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:MONUMENTO",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:MONUMENTO\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "VADO",
+        "AGUA"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "VADO"
+    },
+    {
+      "codigos_app": [
+        "RIO",
+        "AGUA_CORRIENTE"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "RIO"
+    },
+    {
+      "codigos_app": [
+        "WADI",
+        "OUED"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:WADI",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:WADI\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "SALTO",
+        "LOMO",
+        "BUMP"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_SALTO",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "POZO",
+        "DIP"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "POZO"
+    },
+    {
+      "codigos_app": [
+        "COMPRESION"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:COMPRESION",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:COMPRESION\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "ZANJA",
+        "DITCH"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "ZANJA"
+    },
+    {
+      "codigos_app": [
+        "CRESTA",
+        "SUMMIT"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:CRESTA",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:CRESTA\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "ESCALON_SUBIDA",
+        "STEP_UP"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:ESCALON_SUBIDA",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:ESCALON_SUBIDA\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "ESCALON_BAJADA",
+        "STEP_DOWN"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:ESCALON_BAJADA",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:ESCALON_BAJADA\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "DUNAS",
+        "ARENA"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "DUNAS"
+    },
+    {
+      "codigos_app": [
+        "CUVETTE"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:CUVETTE",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:CUVETTE\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "DUNA_CORTADA"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:DUNA_CORTADA",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:DUNA_CORTADA\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "FESH_FESH"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:FESH_FESH",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:FESH_FESH\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "PIEDRAS",
+        "ROCAS"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "PIEDRAS"
+    },
+    {
+      "codigos_app": [
+        "BARRO",
+        "HUELLON"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "BARRO"
+    },
+    {
+      "codigos_app": [
+        "CHOTT",
+        "SALAR"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:CHOTT",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:CHOTT\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "PASO_HORMIGON"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "BADEN",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "SINUOSO"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:SINUOSO",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:SINUOSO\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "PERALTE",
+        "INCLINACION"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:PERALTE",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:PERALTE\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "DSS"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_DSS",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "ASS"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_ASS",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "CP"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_CP",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "DN",
+        "FN"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:DN",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:DN\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "SOBREPASO_DZ"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:SOBREPASO_DZ",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:SOBREPASO_DZ\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "PISTA_PRINCIPAL"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:PISTA_PRINCIPAL",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:PISTA_PRINCIPAL\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "PISTAS_PARALELAS"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "PISTAS_PARALELAS"
+    },
+    {
+      "codigos_app": [
+        "HORS_PISTE",
+        "HP"
+      ],
+      "resultado": "igual",
+      "codigo_oficial": "FIA_OFF_PISTE",
+      "nota": "Elegido por Frediani el 15/10/2026"
+    },
+    {
+      "codigos_app": [
+        "HP_PROHIBIDO"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:HP_PROHIBIDO",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:HP_PROHIBIDO\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "CIRCULO",
+        "MOJON"
+      ],
+      "resultado": "nuevo",
+      "tipo_mientras_tanto": "APP:CIRCULO",
+      "nota": "Todavía no existe en la plataforma. Mientras tanto se guarda como \"APP:CIRCULO\" y se ve como \"?\"."
+    },
+    {
+      "codigos_app": [
+        "FLECHA"
+      ],
+      "resultado": "flecha",
+      "flecha_armada": "recta"
+    }
+  ],
+  "tulipTipo_sin_dibujo": {
+    "descripcion": "Viñetas viejas de la app con tulipSvgData vacío. Si el código de tulipTipo no está acá, se busca en \"equivalencias\". Un símbolo va centrado: x 0.5, y 0.5, scale 1.3, rot 0.",
+    "reglas": [
+      {
+        "tulipTipo": [
+          "BLANCO",
+          "VACIO",
+          "NINGUNO",
+          "RECTA"
+        ],
+        "resultado": "vacio",
+        "nota": "En la app no dibujaban nada: la viñeta queda sin dibujo"
+      },
+      {
+        "tulipTipo": [
+          "RECTA_HUELLAS"
+        ],
+        "resultado": "flecha",
+        "flecha_armada": "recta"
+      },
+      {
+        "tulipTipo": [
+          "DERECHA_1"
+        ],
+        "resultado": "flecha",
+        "flecha_armada": "der_leve"
+      },
+      {
+        "tulipTipo": [
+          "IZQUIERDA_1"
+        ],
+        "resultado": "flecha",
+        "flecha_armada": "izq_leve"
+      },
+      {
+        "tulipTipo": [
+          "DERECHA_4"
+        ],
+        "resultado": "flecha",
+        "flecha_armada": "der_135"
+      },
+      {
+        "tulipTipo": [
+          "IZQUIERDA_4"
+        ],
+        "resultado": "flecha",
+        "flecha_armada": "izq_135"
+      },
+      {
+        "tulipTipo": [
+          "CRUCE_DER"
+        ],
+        "resultado": "flecha",
+        "flecha_armada": "der_90"
+      },
+      {
+        "tulipTipo": [
+          "CRUCE_IZQ"
+        ],
+        "resultado": "flecha",
+        "flecha_armada": "izq_90"
+      },
+      {
+        "tulipTipo": [
+          "BIFURCACION_DER"
+        ],
+        "resultado": "flecha",
+        "flecha_armada": "der_45"
+      },
+      {
+        "tulipTipo": [
+          "BIFURCACION_IZQ"
+        ],
+        "resultado": "flecha",
+        "flecha_armada": "izq_45"
+      },
+      {
+        "tulipTipo": [
+          "ROTONDA_1",
+          "ROTONDA_2"
+        ],
+        "resultado": "simbolo",
+        "codigo_oficial": "ROTONDA"
+      },
+      {
+        "tulipTipo": [
+          "STOP_FIN"
+        ],
+        "resultado": "simbolo",
+        "codigo_oficial": "STOP"
+      },
+      {
+        "tulipTipo": [
+          "CHICANA_DER",
+          "CHICANA_IZQ"
+        ],
+        "resultado": "nuevo",
+        "nota": "Sin equivalente: se guarda como \"APP:<código>\" y se ve como \"?\""
+      }
+    ]
+  }
+}

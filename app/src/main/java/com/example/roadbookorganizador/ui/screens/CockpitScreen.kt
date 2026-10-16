@@ -586,7 +586,6 @@ fun CockpitScreen(
             state = dialogoMarcado,
             onDiagramaSeleccionada = { viewModel.actualizarTulipaSeleccionada(it) },
             onNotaCambio = { viewModel.actualizarNota(it) },
-            onPeligroCambio = { viewModel.actualizarPeligro(it) },
             onGuardar = { viewModel.guardarVineta() },
             onCancelar = { viewModel.cancelarMarcado() }
         )

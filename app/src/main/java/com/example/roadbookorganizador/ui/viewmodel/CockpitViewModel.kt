@@ -14,6 +14,11 @@ import com.example.roadbookorganizador.service.OdometerEngine
 import com.example.roadbookorganizador.service.OdometerState
 import com.example.roadbookorganizador.service.RoadSnappingService
 import com.example.roadbookorganizador.util.GpxKmzExporter
+import com.example.roadbookorganizador.util.paraPantalla
+import com.example.roadbookorganizador.ui.vineta.BibliotecaVineta
+import com.example.roadbookorganizador.vineta.Capa
+import com.example.roadbookorganizador.vineta.DibujoV1
+import com.example.roadbookorganizador.vineta.VinetaDibujo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -30,9 +35,8 @@ data class DialogoMarcadoState(
     val longitud: Double = 0.0,
     val altitud: Double = 0.0,
     val rumbo: Float = 0.0f,
-    val tulipaSeleccionada: String = "BLANCO",
-    val nota: String = "",
-    val peligro: String = ""
+    val tulipaSeleccionada: String = "BLANCO", // código de flecha armada o "BLANCO" (sin dibujo)
+    val nota: String = ""
 )
 
 data class DialogoPuntoManualState(
@@ -67,7 +71,8 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
     private val _tramoActivo = MutableStateFlow<TramoEntity?>(null)
     val tramoActivo: StateFlow<TramoEntity?> = _tramoActivo.asStateFlow()
 
-    val odoState: StateFlow<OdometerState> = odometerEngine.state
+    // Solo para pantalla: máximo 5 refrescos por segundo (el motor sigue a 25 Hz)
+    val odoState: StateFlow<OdometerState> = odometerEngine.state.paraPantalla(viewModelScope)
 
     val vinetas = _tramoActivo.flatMapLatest { tramo ->
         if (tramo != null) repository.getVinetasByTramo(tramo.id)
@@ -106,7 +111,7 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
                         latitud = lat,
                         longitud = lon,
                         altitud = s.altitud,
-                        rumbo = s.rumbo,
+                        rumbo = 0f, // CAP: nunca se calcula solo (punto 12); el rumbo del GPS no se guarda en la viñeta
                         velocidadKmh = s.velocidadKmh,
                         tulipTipo = "CONTROL_HORARIO",
                         informacion = "WP Auto ($tipoPc)",
@@ -199,8 +204,7 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
             altitud = s.altitud,
             rumbo = s.rumbo,
             tulipaSeleccionada = "BLANCO",
-            nota = "",
-            peligro = ""
+            nota = ""
         )
     }
 
@@ -212,10 +216,6 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
         _dialogoMarcado.value = _dialogoMarcado.value.copy(nota = nota)
     }
 
-    fun actualizarPeligro(peligro: String) {
-        _dialogoMarcado.value = _dialogoMarcado.value.copy(peligro = peligro)
-    }
-
     fun cancelarMarcado() {
         odometerEngine.descongelar()
         _dialogoMarcado.value = DialogoMarcadoState(visible = false)
@@ -224,6 +224,13 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
     fun guardarVineta() {
         val tId = _tramoActivo.value?.id ?: return
         val dlg = _dialogoMarcado.value
+
+        // El dibujo se guarda directo en la versión 1: la flecha armada elegida (o nada).
+        val bib = BibliotecaVineta.obtener(getApplication<Application>())
+        val armada = bib.flechasArmadas[dlg.tulipaSeleccionada]
+        val (dibujoJson, peligroCalculado) = VinetaDibujo.paraGuardar(
+            if (armada != null) DibujoV1(dibujo = Capa(arrows = listOf(armada.flecha))) else DibujoV1()
+        )
 
         viewModelScope.launch {
             val entidad = VinetaEntity(
@@ -234,11 +241,12 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
                 latitud = dlg.latitud,
                 longitud = dlg.longitud,
                 altitud = dlg.altitud,
-                rumbo = dlg.rumbo,
-                velocidadKmh = odoState.value.velocidadKmh,
+                rumbo = 0f, // CAP: nunca se calcula solo (punto 12); el rumbo del GPS no se guarda en la viñeta
+                velocidadKmh = odometerEngine.state.value.velocidadKmh,
                 tulipTipo = dlg.tulipaSeleccionada,
+                dibujo = dibujoJson,
                 informacion = dlg.nota,
-                peligro = dlg.peligro
+                peligro = peligroCalculado
             )
 
             repository.insertVineta(entidad)
@@ -290,7 +298,7 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
                 latitud = s.latitud,
                 longitud = s.longitud,
                 altitud = s.altitud,
-                rumbo = s.rumbo,
+                rumbo = 0f, // CAP: nunca se calcula solo (punto 12); el rumbo del GPS no se guarda en la viñeta
                 velocidadKmh = s.velocidadKmh,
                 tulipTipo = "CONTROL_HORARIO",
                 informacion = "WP $tipo",
@@ -318,7 +326,7 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
 
     fun finalizarTramo() {
         val tramo = _tramoActivo.value ?: return
-        val totalKm = odoState.value.odometroTotalKm
+        val totalKm = odometerEngine.state.value.odometroTotalKm
         viewModelScope.launch {
             repository.updateDistanciaYEstado(tramo.id, totalKm, "COMPLETADO")
             _tramoActivo.value = repository.getTramoById(tramo.id)
@@ -521,7 +529,7 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
                 latitud = dlg.latitud,
                 longitud = dlg.longitud,
                 altitud = 0.0,
-                rumbo = odoState.value.rumbo,
+                rumbo = 0f, // CAP: nunca se calcula solo (punto 12); el rumbo del GPS no se guarda en la viñeta
                 velocidadKmh = 0f,
                 tulipTipo = dlg.dibujoTipo,
                 informacion = if (dlg.nota.isNotBlank()) "${dlg.tipoPunto}: ${dlg.nota}" else dlg.tipoPunto,
