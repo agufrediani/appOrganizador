@@ -64,8 +64,56 @@ object Geometria {
         val n = Pu(-tan.y * lado, tan.x * lado)
         val a = Math.toRadians(35.0)
         val d = n * cos(a) - tan * sin(a)
-        val largo = max(7.0, 1.5 * w)
+        val largo = largoPalito(w, gps)
         return Palito(q, q + d * largo, max(1.6, 0.3 * w))
+    }
+
+    /** Largo del palito del GPS: gps.largo si está; si no, max(11, 2,2 × grosor) (punto 6). */
+    fun largoPalito(w: Double, gps: Gps): Double = gps.largo?.takeIf { it > 0 } ?: max(11.0, 2.2 * w)
+
+    data class Raya(val desde: Pu, val hasta: Pu)
+    data class DibujoProhibido(val desde: Pu, val hasta: Pu, val grosor: Double, val rayitas: List<Raya>)
+
+    private fun girar(v: Pu, grados: Double): Pu {
+        val r = Math.toRadians(grados)
+        val c = cos(r)
+        val s = sin(r)
+        return Pu(v.x * c - v.y * s, v.x * s + v.y * c)
+    }
+
+    /**
+     * Camino prohibido (punto 6 bis): palito recto desde Q (punto en t), en la dirección de
+     * la tangente girada ang grados, de largo `largo`, tachado con dos rayitas perpendiculares
+     * a 0,75·largo ± s/2.
+     */
+    fun prohibido(p: List<Pu>, w: Double, c: Prohibido): DibujoProhibido {
+        val t = c.t.coerceIn(0.0, 1.0)
+        val q = bezier(p, t)
+        var tan = derivada(p, t)
+        if (hypot(tan.x, tan.y) < 1e-9) tan = p[3] - p[0]
+        val d = girar(normalizar(tan), c.ang)
+        val largo = max(4.0, c.largo)
+        val medio = max(2.8, 1.1 * w)
+        val sep = max(2.0, 0.75 * w)
+        val r = girar(d, 90.0)
+        val rayitas = listOf(largo * 0.75 - sep / 2, largo * 0.75 + sep / 2).map { k ->
+            val centro = q + d * k
+            Raya(centro - r * medio, centro + r * medio)
+        }
+        return DibujoProhibido(q, q + d * largo, max(1.4, 0.45 * w), rayitas)
+    }
+
+    /** Ángulo (grados desde el sentido de la flecha en t) y largo para que el palito llegue a [destino] (unidades). */
+    fun anguloYLargo(p: List<Pu>, t: Double, destino: Pu): Pair<Double, Double> {
+        val q = bezier(p, t)
+        var tan = derivada(p, t)
+        if (hypot(tan.x, tan.y) < 1e-9) tan = p[3] - p[0]
+        val dx = destino.x - q.x
+        val dy = destino.y - q.y
+        var ang = Math.toDegrees(atan2(dy, dx) - atan2(tan.y, tan.x))
+        while (ang > 180) ang -= 360.0
+        while (ang < -180) ang += 360.0
+        return Math.round(ang).toDouble() to Math.round(hypot(dx, dy) * 10.0) / 10.0
     }
 
     /**

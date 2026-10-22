@@ -30,5 +30,13 @@ data class TramoEntity(
     val estadoTrazado: String = "BORRADOR", // BORRADOR, EN_TRAZADO, COMPLETADO, SINCRONIZADO
     val ordenSecuencia: Int = 1,
     val fechaTrazado: Long? = null,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+
+    // ---- Sincronización con la plataforma (ESPECIFICACION_TAQUEO punto 0 bis) ----
+    /** Identificador fijo del tramo, el mismo en la plataforma y en la tablet (32 hex). */
+    val uid: String = VinetaEntity.nuevoUid(),
+    /** true = tiene cambios hechos en la tablet (o es nuevo) que todavía no llegaron a la plataforma. */
+    val pendienteSubir: Boolean = false,
+    /** El tramo tal como vino del servidor la última vez (JSON), para mandar solo lo que cambió. */
+    val datosServidor: String? = null
 )

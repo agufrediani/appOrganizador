@@ -69,49 +69,25 @@ object GpxKmzExporter {
     }
 
     /**
-     * Genera un archivo JSON completo compatible con la Plataforma Web Frediani Roadbook.
+     * Archivo JSON del tramo en el formato "Frediani 2.1" (el mismo de la plataforma): sirve
+     * para pasarlo a otra tablet o importarlo en la web. Ver util/ArchivoTramo.
      */
     fun exportarJsonPlataforma(
         context: Context,
         tramo: TramoEntity,
-        vinetas: List<VinetaEntity>
+        vinetas: List<VinetaEntity>,
+        rally: String? = null
     ): File {
-        val fileName = "Export_Web_${tramo.identificador.replace(" ", "_")}.json"
+        val nombre = "Frediani_Roadbook_${tramo.identificador.ifBlank { "tramo" }.replace(" ", "_")}.json"
         val dir = context.getExternalFilesDir(null) ?: context.filesDir
-        val file = File(dir, fileName)
-
-        val payload = mapOf(
-            "tramo_identificador" to tramo.identificador,
-            "tramo_nombre" to tramo.nombre,
-            "tipo" to tramo.tipo,
-            "distancia_medida_km" to tramo.distanciaMedidaReal,
-            "velocidad_promedio_objetivo_kmh" to tramo.velocidadPromedioObjetivoKmh,
-            "velocidad_maxima_permitida_kmh" to tramo.velocidadMaximaPermitidaKmh,
-            "total_vinetas" to vinetas.size,
-            "vinetas" to vinetas.map { v ->
-                mapOf(
-                    "numero" to v.numero,
-                    "distancia_total" to v.distanciaTotal,
-                    "distancia_parcial" to v.distanciaParcial,
-                    "latitud" to v.latitud,
-                    "longitud" to v.longitud,
-                    "altitud" to v.altitud,
-                    "tulip_tipo" to v.tulipTipo,
-                    "tulip_svg_data" to v.tulipSvgData,
-                    "notas_svg_data" to v.notasSvgData,
-                    "informacion" to v.informacion,
-                    "peligro" to v.peligro,
-                    "es_off_road" to v.esOffRoad,
-                    "velocidad_promedio_sector_kmh" to v.velocidadPromedioSectorKmh,
-                    "velocidad_maxima_sector_kmh" to v.velocidadMaximaSectorKmh,
-                    "tiempo_ideal_segundos" to v.tiempoIdealSegundos,
-                    "radio_captura_metros" to v.radioCapturaMetros
-                )
-            }
-        )
-
-        val gson = GsonBuilder().setPrettyPrinting().create()
-        file.writeText(gson.toJson(payload))
+        val file = File(dir, nombre)
+        val bib = com.example.roadbookorganizador.ui.vineta.BibliotecaVineta.obtener(context)
+        val texto = ArchivoTramo.escribir(rally, tramo, vinetas) { v ->
+            v.dibujo ?: com.example.roadbookorganizador.vineta.VinetaDibujo.paraGuardar(
+                com.example.roadbookorganizador.vineta.VinetaDibujo.leer(bib, v.dibujo, v.tulipSvgData, v.notasSvgData, v.tulipTipo, v.peligro)
+            ).first
+        }
+        file.writeText(texto)
         return file
     }
 

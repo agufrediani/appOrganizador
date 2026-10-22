@@ -13,7 +13,8 @@ data class Estilo(
     val linecap: String,         // butt | round | square
     val linejoin: String,        // miter | round | bevel
     val dash: List<Double>?,
-    val opacity: Double
+    val opacity: Double,
+    val fillOpacity: Double = 1.0
 )
 
 sealed class OpSvg {
@@ -73,7 +74,7 @@ object SvgSimple {
     }
 
     private val HEREDABLES = setOf(
-        "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-dasharray",
+        "fill", "fill-opacity", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-dasharray",
         "font-size", "font-weight", "font-family", "text-anchor"
     )
 
@@ -100,7 +101,8 @@ object SvgSimple {
             linecap = todo["stroke-linecap"] ?: "butt",
             linejoin = todo["stroke-linejoin"] ?: "miter",
             dash = dash,
-            opacity = a["opacity"]?.toDoubleOrNull() ?: 1.0
+            opacity = a["opacity"]?.toDoubleOrNull() ?: 1.0,
+            fillOpacity = todo["fill-opacity"]?.toDoubleOrNull()?.coerceIn(0.0, 1.0) ?: 1.0
         )
     }
 

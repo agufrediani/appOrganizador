@@ -20,8 +20,17 @@ class RoadbookRepository(private val db: AppDatabase) {
     fun getTramoFlow(tramoId: Long): Flow<TramoEntity?> = db.tramoDao().getTramoFlowById(tramoId)
     suspend fun getTramoById(tramoId: Long): TramoEntity? = db.tramoDao().getTramoById(tramoId)
     suspend fun getTramoByRallyAndWebId(rallyId: Long, webId: Int): TramoEntity? = db.tramoDao().getTramoByRallyAndWebId(rallyId, webId)
-    suspend fun insertTramo(tramo: TramoEntity): Long = db.tramoDao().insertTramo(tramo)
-    suspend fun updateTramo(tramo: TramoEntity) = db.tramoDao().updateTramo(tramo)
+    // Lo que se crea o cambia en la tablet queda marcado para subir a la plataforma
+    suspend fun insertTramo(tramo: TramoEntity): Long = db.tramoDao().insertTramo(tramo.copy(pendienteSubir = true))
+    suspend fun updateTramo(tramo: TramoEntity) = db.tramoDao().updateTramo(tramo.copy(pendienteSubir = true))
+    /** Guarda lo que vino del servidor tal cual (no queda para subir). */
+    suspend fun guardarTramoDesdeServidor(tramo: TramoEntity): Long =
+        if (tramo.id == 0L) db.tramoDao().insertTramo(tramo.copy(pendienteSubir = false))
+        else { db.tramoDao().updateTramo(tramo.copy(pendienteSubir = false)); tramo.id }
+    suspend fun getTramoByUid(rallyId: Long, uid: String): TramoEntity? = db.tramoDao().getTramoByUid(rallyId, uid)
+    suspend fun getTodosLosTramos(): List<TramoEntity> = db.tramoDao().getTodosSync()
+    suspend fun marcarTramoSubido(id: Long, webId: Int?) = db.tramoDao().marcarSubido(id, webId)
+    suspend fun guardarDatosServidorTramo(id: Long, datos: String?) = db.tramoDao().guardarDatosServidor(id, datos)
     suspend fun updateDistanciaYEstado(tramoId: Long, distancia: Double, estado: String) =
         db.tramoDao().updateDistanciaYEstado(tramoId, distancia, estado)
     suspend fun deleteTramo(tramo: TramoEntity) = db.tramoDao().deleteTramo(tramo)
@@ -32,19 +41,35 @@ class RoadbookRepository(private val db: AppDatabase) {
     suspend fun getCantidadVinetas(tramoId: Long): Int = db.vinetaDao().getCantidadVinetas(tramoId)
     // Cada alta, baja o edición deja las viñetas numeradas 1, 2, 3… en orden de distancia,
     // sin números repetidos ni huecos.
+    // Todo lo que se cambia en la tablet queda marcado para subir a la plataforma.
     suspend fun insertVineta(vineta: VinetaEntity): Long {
-        val id = db.vinetaDao().insertVineta(vineta)
+        val id = db.vinetaDao().insertVineta(vineta.copy(pendienteSubir = true))
         renumerarVinetas(vineta.tramoId)
         return id
     }
     suspend fun updateVineta(vineta: VinetaEntity) {
-        db.vinetaDao().updateVineta(vineta)
+        db.vinetaDao().updateVineta(vineta.copy(pendienteSubir = true))
         renumerarVinetas(vineta.tramoId)
     }
     suspend fun deleteVineta(vineta: VinetaEntity) {
+        // Si ya estaba en la plataforma, se anota para borrarla allá también
+        vineta.webId?.let { db.vinetaDao().insertBaja(BajaPendienteEntity(tramoId = vineta.tramoId, webId = it, uid = vineta.uid)) }
         db.vinetaDao().deleteVineta(vineta)
         renumerarVinetas(vineta.tramoId)
     }
+
+    // --- SINCRONIZACIÓN (sin marcar "falta subir") ---
+    suspend fun getVinetasSync(tramoId: Long): List<VinetaEntity> = db.vinetaDao().getVinetasByTramoSync(tramoId)
+    suspend fun getVinetasPendientes(tramoId: Long): List<VinetaEntity> = db.vinetaDao().getPendientes(tramoId)
+    fun contarPendientes(tramoId: Long): Flow<Int> = db.vinetaDao().contarPendientes(tramoId)
+    suspend fun marcarVinetaSubida(id: Long, webId: Int?) = db.vinetaDao().marcarSubida(id, webId)
+    suspend fun getBajasPendientes(tramoId: Long): List<BajaPendienteEntity> = db.vinetaDao().getBajas(tramoId)
+    suspend fun borrarBajaPendiente(id: Long) = db.vinetaDao().borrarBaja(id)
+    /** Guarda lo que vino del servidor tal cual (no queda para subir). */
+    suspend fun guardarDesdeServidor(vineta: VinetaEntity): Long =
+        if (vineta.id == 0L) db.vinetaDao().insertVineta(vineta.copy(pendienteSubir = false))
+        else { db.vinetaDao().updateVineta(vineta.copy(pendienteSubir = false)); vineta.id }
+    suspend fun borrarDesdeServidor(vineta: VinetaEntity) = db.vinetaDao().deleteVineta(vineta)
 
     suspend fun renumerarVinetas(tramoId: Long) {
         val dao = db.vinetaDao()

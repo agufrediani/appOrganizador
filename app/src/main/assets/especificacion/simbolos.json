@@ -22,6 +22,10 @@
     {
       "codigo": "SPEED",
       "nombre": "Velocidad"
+    },
+    {
+      "codigo": "SHAPES",
+      "nombre": "Formas"
     }
   ],
   "simbolos": [
@@ -30,42 +34,60 @@
       "nombre": "! Atención",
       "categoria": "SIGNS",
       "color": "#000000",
-      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"45\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"45\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/></svg>"
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"45\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"45\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"45\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"currentColor\"/><rect x=\"45\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"currentColor\"/></svg>"
     },
     {
       "codigo": "EXCL_2",
       "nombre": "!! Atención",
       "categoria": "SIGNS",
       "color": "#000000",
-      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"35\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"35\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/><rect x=\"55\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"55\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/></svg>"
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"35\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"35\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/><rect x=\"55\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"55\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"35\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"currentColor\"/><rect x=\"35\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"currentColor\"/><rect x=\"55\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"currentColor\"/><rect x=\"55\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"currentColor\"/></svg>"
     },
     {
       "codigo": "EXCL_3",
       "nombre": "!!! Atención",
       "categoria": "SIGNS",
       "color": "#000000",
-      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"23\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"23\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/><rect x=\"45\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"45\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/><rect x=\"67\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"67\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/></svg>"
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"23\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"23\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/><rect x=\"45\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"45\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/><rect x=\"67\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"#000000\"/><rect x=\"67\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"#000000\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"23\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"currentColor\"/><rect x=\"23\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"currentColor\"/><rect x=\"45\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"currentColor\"/><rect x=\"45\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"currentColor\"/><rect x=\"67\" y=\"18\" width=\"10\" height=\"44\" rx=\"2\" fill=\"currentColor\"/><rect x=\"67\" y=\"70\" width=\"10\" height=\"11\" rx=\"2\" fill=\"currentColor\"/></svg>"
     },
     {
       "codigo": "PELIGRO_1",
       "nombre": "! Peligro 1",
       "categoria": "SIGNS",
       "color": "#eab308",
-      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"#fef08a\" stroke=\"#ca8a04\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"50\" y1=\"36\" x2=\"50\" y2=\"60\" stroke=\"#000000\" stroke-width=\"9\" stroke-linecap=\"round\"/><circle cx=\"50\" cy=\"74\" r=\"5\" fill=\"#000000\"/></svg>"
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"#ca8a04\" fill-opacity=\"0.3\" stroke=\"#ca8a04\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"50\" y1=\"36\" x2=\"50\" y2=\"60\" stroke=\"#000000\" stroke-width=\"9\" stroke-linecap=\"round\"/><circle cx=\"50\" cy=\"74\" r=\"5\" fill=\"#000000\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#ca8a04",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"currentColor\" fill-opacity=\"0.3\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"50\" y1=\"36\" x2=\"50\" y2=\"60\" stroke=\"#000000\" stroke-width=\"9\" stroke-linecap=\"round\"/><circle cx=\"50\" cy=\"74\" r=\"5\" fill=\"#000000\"/></svg>"
     },
     {
       "codigo": "PELIGRO_2",
       "nombre": "!! Peligro 2",
       "categoria": "SIGNS",
       "color": "#f97316",
-      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"#fed7aa\" stroke=\"#ea580c\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"42\" y1=\"36\" x2=\"42\" y2=\"60\" stroke=\"#000000\" stroke-width=\"7\" stroke-linecap=\"round\"/><circle cx=\"42\" cy=\"74\" r=\"4.5\" fill=\"#000000\"/><line x1=\"58\" y1=\"36\" x2=\"58\" y2=\"60\" stroke=\"#000000\" stroke-width=\"7\" stroke-linecap=\"round\"/><circle cx=\"58\" cy=\"74\" r=\"4.5\" fill=\"#000000\"/></svg>"
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"#ea580c\" fill-opacity=\"0.3\" stroke=\"#ea580c\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"42\" y1=\"36\" x2=\"42\" y2=\"60\" stroke=\"#000000\" stroke-width=\"7\" stroke-linecap=\"round\"/><circle cx=\"42\" cy=\"74\" r=\"4.5\" fill=\"#000000\"/><line x1=\"58\" y1=\"36\" x2=\"58\" y2=\"60\" stroke=\"#000000\" stroke-width=\"7\" stroke-linecap=\"round\"/><circle cx=\"58\" cy=\"74\" r=\"4.5\" fill=\"#000000\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#ea580c",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"currentColor\" fill-opacity=\"0.3\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"42\" y1=\"36\" x2=\"42\" y2=\"60\" stroke=\"#000000\" stroke-width=\"7\" stroke-linecap=\"round\"/><circle cx=\"42\" cy=\"74\" r=\"4.5\" fill=\"#000000\"/><line x1=\"58\" y1=\"36\" x2=\"58\" y2=\"60\" stroke=\"#000000\" stroke-width=\"7\" stroke-linecap=\"round\"/><circle cx=\"58\" cy=\"74\" r=\"4.5\" fill=\"#000000\"/></svg>"
     },
     {
       "codigo": "PELIGRO_3",
       "nombre": "!!! Peligro 3",
       "categoria": "SIGNS",
       "color": "#ef4444",
-      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"#fecaca\" stroke=\"#dc2626\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"36\" y1=\"36\" x2=\"36\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"36\" cy=\"74\" r=\"4\" fill=\"#000000\"/><line x1=\"50\" y1=\"36\" x2=\"50\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"50\" cy=\"74\" r=\"4\" fill=\"#000000\"/><line x1=\"64\" y1=\"36\" x2=\"64\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"64\" cy=\"74\" r=\"4\" fill=\"#000000\"/></svg>"
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"#dc2626\" fill-opacity=\"0.3\" stroke=\"#dc2626\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"36\" y1=\"36\" x2=\"36\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"36\" cy=\"74\" r=\"4\" fill=\"#000000\"/><line x1=\"50\" y1=\"36\" x2=\"50\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"50\" cy=\"74\" r=\"4\" fill=\"#000000\"/><line x1=\"64\" y1=\"36\" x2=\"64\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"64\" cy=\"74\" r=\"4\" fill=\"#000000\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#dc2626",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,85 10,85\" fill=\"currentColor\" fill-opacity=\"0.3\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linejoin=\"round\"/><line x1=\"36\" y1=\"36\" x2=\"36\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"36\" cy=\"74\" r=\"4\" fill=\"#000000\"/><line x1=\"50\" y1=\"36\" x2=\"50\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"50\" cy=\"74\" r=\"4\" fill=\"#000000\"/><line x1=\"64\" y1=\"36\" x2=\"64\" y2=\"60\" stroke=\"#000000\" stroke-width=\"6\" stroke-linecap=\"round\"/><circle cx=\"64\" cy=\"74\" r=\"4\" fill=\"#000000\"/></svg>"
     },
     {
       "codigo": "STOP",
@@ -657,6 +679,114 @@
       "nombre": "Rumbo CAP",
       "categoria": "ROAD_RALLY",
       "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,15 85,75 50,62 15,75\" fill=\"#facc15\" stroke=\"#000000\" stroke-width=\"5\" stroke-linejoin=\"round\"/><circle cx=\"50\" cy=\"55\" r=\"5\" fill=\"#000000\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_CIRCULO",
+      "nombre": "Círculo",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"38\" stroke=\"#000000\" stroke-width=\"7\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><circle cx=\"50\" cy=\"50\" r=\"38\" stroke=\"currentColor\" stroke-width=\"7\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_OVALO",
+      "nombre": "Óvalo",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><ellipse cx=\"50\" cy=\"50\" rx=\"42\" ry=\"27\" stroke=\"#000000\" stroke-width=\"7\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><ellipse cx=\"50\" cy=\"50\" rx=\"42\" ry=\"27\" stroke=\"currentColor\" stroke-width=\"7\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_CUADRADO",
+      "nombre": "Cuadrado",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"14\" y=\"14\" width=\"72\" height=\"72\" stroke=\"#000000\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"14\" y=\"14\" width=\"72\" height=\"72\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_RECTANGULO",
+      "nombre": "Rectángulo",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"8\" y=\"26\" width=\"84\" height=\"48\" stroke=\"#000000\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><rect x=\"8\" y=\"26\" width=\"84\" height=\"48\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_ROMBO",
+      "nombre": "Rombo",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,50 50,90 10,50\" stroke=\"#000000\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 90,50 50,90 10,50\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_TRIANGULO",
+      "nombre": "Triángulo",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,12 90,84 10,84\" stroke=\"#000000\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,12 90,84 10,84\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_TRIANGULO_INV",
+      "nombre": "Triángulo invertido",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"10,16 90,16 50,88\" stroke=\"#000000\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"10,16 90,16 50,88\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_PENTAGONO",
+      "nombre": "Pentágono",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 89,38 74,84 26,84 11,38\" stroke=\"#000000\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,10 89,38 74,84 26,84 11,38\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_HEXAGONO",
+      "nombre": "Hexágono",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"29,14 71,14 92,50 71,86 29,86 8,50\" stroke=\"#000000\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"29,14 71,14 92,50 71,86 29,86 8,50\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_OCTOGONO",
+      "nombre": "Octógono",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"34,10 66,10 90,34 90,66 66,90 34,90 10,66 10,34\" stroke=\"#000000\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"34,10 66,10 90,34 90,66 66,90 34,90 10,66 10,34\" stroke=\"currentColor\" stroke-width=\"7\" stroke-linejoin=\"round\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_ESTRELLA",
+      "nombre": "Estrella",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,8 61,38 93,38 67,57 77,89 50,70 23,89 33,57 7,38 39,38\" stroke=\"#000000\" stroke-width=\"6\" stroke-linejoin=\"round\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><polygon points=\"50,8 61,38 93,38 67,57 77,89 50,70 23,89 33,57 7,38 39,38\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linejoin=\"round\"/></svg>"
+    },
+    {
+      "codigo": "FORMA_CRUZ",
+      "nombre": "Cruz",
+      "categoria": "SHAPES",
+      "svg": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M38 10 H62 V38 H90 V62 H62 V90 H38 V62 H10 V38 H38 Z\" stroke=\"#000000\" stroke-width=\"6\" stroke-linejoin=\"round\"/></svg>",
+      "colorable": true,
+      "colorPorDefecto": "#000000",
+      "svgPintable": "<svg viewBox=\"0 0 100 100\" fill=\"none\"><path d=\"M38 10 H62 V38 H90 V62 H62 V90 H38 V62 H10 V38 H38 Z\" stroke=\"currentColor\" stroke-width=\"6\" stroke-linejoin=\"round\"/></svg>"
     }
   ]
 }

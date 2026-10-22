@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -31,426 +32,176 @@ import androidx.compose.ui.unit.sp
 import com.example.roadbookorganizador.data.local.UsuarioSesion
 import com.example.roadbookorganizador.data.local.entity.RallyEntity
 import com.example.roadbookorganizador.ui.theme.*
+import com.example.roadbookorganizador.ui.components.CabeceraPlataforma
+import com.example.roadbookorganizador.ui.components.PestanaRally
+import com.example.roadbookorganizador.ui.components.PestanasRally
+import com.example.roadbookorganizador.ui.components.SelectorRallyPlataforma
 import com.example.roadbookorganizador.ui.viewmodel.MenuPrincipalViewModel
 
 /**
- * PANTALLA DASHBOARD DE OPERACIONES DEL RALLY ACTIVO:
- * Muestra el rally actual chiquito arriba, el botón cuadrado de sincronismo (ida y vuelta)
- * y las ventanas/módulos de trabajo (Tramos, Itinerario, Mapa Libre, Calibración, Ajustes).
+ * PANEL GENERAL del rally, como la pestaña de la plataforma (App.tsx, tabRally "panel"):
+ * portada con el estado, el nombre y la sede; la reseña; y las zonas y puntos de interés
+ * (las tres primeras, con "Ver todas"). La cabecera y las pestañas las pone MarcoRally.
+ *
+ * Lo que la plataforma muestra y la tablet no tiene (inscriptos, recuadro offline, sponsors)
+ * no se inventa: se ve en la web.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MenuPrincipalScreen(
+fun PanelGeneralRally(
     viewModel: MenuPrincipalViewModel,
-    sesion: UsuarioSesion,
-    onCambiarRally: () -> Unit,
-    onNavigateToTramos: () -> Unit,
-    onNavigateToMapaLibre: () -> Unit,
-    onNavigateToCalibracion: () -> Unit,
-    onNavigateToAjustes: () -> Unit,
-    onLogout: () -> Unit
+    onVerZonas: () -> Unit
 ) {
     val context = LocalContext.current
-    val activeRally by viewModel.activeRally.collectAsState()
-    val estadisticas by viewModel.estadisticas.collectAsState()
+    val rally by viewModel.activeRally.collectAsState()
+    val puntos by viewModel.puntosRallyActivo.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
-
-    var mostrarModalEditarRally by remember { mutableStateOf(false) }
+    val c = com.example.roadbookorganizador.ui.components.ColoresPlataforma
+    val chico = com.example.roadbookorganizador.ui.components.tamanoPantalla() == com.example.roadbookorganizador.ui.components.TamanoPantalla.CHICO
 
     LaunchedEffect(Unit) {
-        viewModel.syncMessage.collect { msg ->
-            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-        }
+        viewModel.syncMessage.collect { msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
     }
 
-    val isDark = ThemeManager.isDarkTheme
-    val cardBg = if (isDark) RallyCardBg else Color.White
-    val cardBorder = if (isDark) RallySurface else Color(0xFFE2E8F0)
-    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
-    val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(if (chico) 12.dp else 20.dp),
+        verticalArrangement = Arrangement.spacedBy(if (chico) 14.dp else 24.dp)
+    ) {
+        val r = rally
+        if (r == null) {
+            Text("Elegí un rally en \"Mis Rallies\".", color = c.apagado(), fontSize = 14.sp)
+            return@Column
+        }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onCambiarRally) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Cambiar Rally",
-                            tint = textPrimary
-                        )
-                    }
-                },
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(
-                            painter = painterResource(id = R.drawable.logo_frediani_roadbook),
-                            contentDescription = "Frediani Roadbook Logo",
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "FREDIANI ROADBOOK",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp,
-                                color = if (isDark) Color.White else Color(0xFF0F172A),
-                                letterSpacing = 0.5.sp
-                            )
-                            Text(
-                                text = "${sesion.nombre.ifBlank { "Organizador" }} • ${sesion.club.ifBlank { "Frediani Competición" }}",
-                                fontSize = 11.sp,
-                                color = if (isDark) RallyCyanLight else FredianiCyanText
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    // Toggle Tema Claro / Oscuro
-                    IconButton(onClick = { ThemeManager.toggleTheme() }) {
-                        Text(text = if (isDark) "☀️" else "🌙", fontSize = 18.sp)
-                    }
-                    // Engranaje de Ajustes
-                    IconButton(onClick = onNavigateToAjustes) {
-                        Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                    // Cerrar sesión
-                    IconButton(onClick = onLogout) {
-                        @Suppress("DEPRECATION")
-                        Icon(Icons.Default.Logout, contentDescription = "Cerrar Sesión", tint = Color.Gray)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
+        // PORTADA (sin foto: el degradé de la plataforma cuando no hay portada)
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(c.tarjeta())
+                .border(1.dp, c.borde(), RoundedCornerShape(24.dp))
         ) {
-            // =========================================================================
-            // 1. IDENTIFICADOR DEL RALLY ARRIBA CHIQUITO (EXACTO COMO PIDIÓ EL USUARIO)
-            // =========================================================================
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = if (isDark) RallySurface else Color(0xFFF1F5F9),
-                border = BorderStroke(1.dp, if (isDark) FredianiGreen.copy(alpha = 0.4f) else Color(0xFFCBD5E1)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = FredianiGreen.copy(alpha = 0.2f),
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            Text(
-                                text = "RALLY ACTUAL",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 9.sp,
-                                color = FredianiGreen,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = activeRally?.nombre ?: "Sin Rally Asignado",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 13.5.sp,
-                                color = textPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "${activeRally?.sede ?: "Sede no definida"} • ${activeRally?.fecha ?: "Fecha"}",
-                                fontSize = 10.5.sp,
-                                color = textSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        IconButton(
-                            onClick = { mostrarModalEditarRally = true },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.Edit, contentDescription = "Editar", modifier = Modifier.size(15.dp), tint = textSecondary)
-                        }
-
-                        OutlinedButton(
-                            onClick = onCambiarRally,
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                            border = BorderStroke(1.dp, if (isDark) RallyCyan.copy(alpha = 0.5f) else FredianiCyan)
-                        ) {
-                            Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.size(13.dp), tint = if (isDark) RallyCyan else FredianiCyanText)
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Text("Cambiar", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = if (isDark) RallyCyan else FredianiCyanText)
-                        }
-                    }
-                }
-            }
-
-            // =========================================================================
-            // 2. MÓDULOS DE OPERACIÓN EN CUADRÍCULA (INCLUYE EL BOTÓN CUADRADO DE SYNC)
-            // =========================================================================
-            Text(
-                text = "PANEL DE CONTROL & MÓDULOS",
-                fontWeight = FontWeight.Bold,
-                fontSize = 11.5.sp,
-                color = if (isDark) RallyCyan else FredianiCyanText,
-                letterSpacing = 1.sp
-            )
-
-            // FILA 1: BOTÓN CUADRADO DE SINCRONISMO (IDA Y VUELTA) + TRAMOS Y TRAZADO
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                // BOTÓN CUADRADO DE SINCRONISMO
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(138.dp)
-                        .clickable(enabled = !isSyncing) { viewModel.sincronizarConWeb() },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) Color(0xFF0F2236) else Color(0xFFF0F9FF)
-                    ),
-                    border = BorderStroke(1.5.dp, if (isSyncing) FredianiGreen else (if (isDark) RallyCyan else Color(0xFF0284C7))),
-                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(14.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = (if (isDark) RallyCyan else Color(0xFF0284C7)).copy(alpha = 0.18f),
-                                modifier = Modifier.size(42.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    if (isSyncing) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(24.dp),
-                                            strokeWidth = 2.5.dp,
-                                            color = if (isDark) RallyCyan else Color(0xFF0284C7)
-                                        )
-                                    } else {
-                                        Icon(
-                                            Icons.Default.CloudSync,
-                                            contentDescription = "Sincronizar",
-                                            tint = if (isDark) RallyCyan else Color(0xFF0284C7),
-                                            modifier = Modifier.size(26.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (isSyncing) FredianiGreen.copy(alpha = 0.2f) else (if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0))
-                            ) {
-                                Text(
-                                    text = if (isSyncing) "SINCRONIZANDO" else "IDA Y VUELTA",
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = if (isSyncing) FredianiGreen else textSecondary,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-
-                        Column {
-                            Text(
-                                text = "Sincronizar Web",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.5.sp,
-                                color = if (isDark) Color.White else Color(0xFF0F172A)
-                            )
-                            Text(
-                                text = if (isSyncing) "Enviando & bajando..." else "Enviar y bajar datos nube",
-                                fontSize = 10.5.sp,
-                                color = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-
-                // TRAMOS Y TRAZADO
-                BotonModuloMenu(
-                    titulo = "Tramos y Trazado",
-                    subtitulo = "Relevar PE y Enlaces",
-                    badge = "${estadisticas.totalTramos} tramos",
-                    icono = Icons.Default.DirectionsCar,
-                    colorIcono = FredianiGreen,
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToTramos
-                )
-            }
-
-            // FILA 2: ITINERARIO OFICIAL + MAPA LIBRE
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                BotonModuloMenu(
-                    titulo = "Itinerario Oficial",
-                    subtitulo = "Cronograma y horarios",
-                    badge = "Secuencia",
-                    icono = Icons.Default.Schedule,
-                    colorIcono = RallyAccentYellow,
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToTramos
-                )
-
-                BotonModuloMenu(
-                    titulo = "Mapa Libre & POIs",
-                    subtitulo = "Explorar y marcar puntos",
-                    badge = "Satélite",
-                    icono = Icons.Default.Map,
-                    colorIcono = RallyCyan,
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToMapaLibre
-                )
-            }
-
-            // FILA 3: AJUSTES Y SENSORES (Integra Calibrador 1.000m, RaceBox 25Hz y Servidor)
-            Card(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onNavigateToAjustes() },
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = cardBg),
-                border = BorderStroke(1.dp, cardBorder)
+                    .height(if (chico) 200.dp else 280.dp)
+                    .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF0B3A5C), Color(0xFF0A0E17), Color(0x660284C7))))
             ) {
+                Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0x80000000), Color.Transparent, Color(0xFF0A0E17)))))
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text(
+                        r.estadoRally.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.Black,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(c.verde.copy(alpha = 0.9f))
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                    // En la tablet el rally no se edita: en su lugar, bajar lo último de la plataforma
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                            .clickable(enabled = !isSyncing) { viewModel.sincronizarConWeb() }
+                            .padding(horizontal = 10.dp, vertical = 7.dp)
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = (if (isDark) RallyCyan else FredianiCyanText).copy(alpha = 0.15f),
-                            modifier = Modifier.size(42.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.Settings,
-                                    contentDescription = "Ajustes y Sensores",
-                                    tint = if (isDark) RallyCyan else FredianiCyanText,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
+                        if (isSyncing) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
+                        else Icon(Icons.Default.Sync, contentDescription = "Sincronizar", tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (isSyncing) "SINCRONIZANDO" else "SINCRONIZAR", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    }
+                }
+                Column(modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+                    val linea = listOf(r.campeonato.ifBlank { r.fiscalizador }, r.sede).filter { it.isNotBlank() }.joinToString("  •  ")
+                    if (linea.isNotBlank()) Text(linea, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = c.celeste)
+                    Text(r.nombre, fontSize = if (chico) 24.sp else 36.sp, fontWeight = FontWeight.Black, color = Color.White, lineHeight = if (chico) 28.sp else 40.sp)
+                    val fechas = if (r.fechaFin.isNotBlank()) "${r.fecha} al ${r.fechaFin}" else r.fecha
+                    if (fechas.isNotBlank()) Text(fechas, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFCBD5E1))
+                }
+            }
+            if (r.descripcion.isNotBlank()) {
+                Column(
+                    modifier = Modifier
+                        .padding(20.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(c.superficie())
+                        .border(1.dp, c.borde(), RoundedCornerShape(16.dp))
+                        .padding(16.dp)
+                ) {
+                    Text("RESEÑA OFICIAL DEL EVENTO:", fontSize = 10.sp, fontWeight = FontWeight.Black, color = c.celeste, letterSpacing = 0.6.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(r.descripcion, fontSize = 12.sp, color = c.apagado(), lineHeight = 18.sp)
+                }
+            }
+        }
+
+        // ZONAS Y PUNTOS DE INTERÉS (acceso rápido)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(c.tarjeta())
+                .border(1.dp, c.borde(), RoundedCornerShape(24.dp))
+                .padding(if (chico) 16.dp else 24.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Groups, contentDescription = null, tint = Color(0xFF34D399), modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("ZONAS Y PUNTOS DE INTERÉS", fontSize = if (chico) 14.sp else 18.sp, fontWeight = FontWeight.Black, color = c.texto())
+                    }
+                    Text("Áreas seguras autorizadas para el público y zonas de exclusión", fontSize = 12.sp, color = c.apagado())
+                }
+                TextButton(onClick = onVerZonas) {
+                    Text("Ver todas (${puntos.size}) →", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = c.celeste)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = Color(0x66334155))
+            Spacer(Modifier.height(16.dp))
+            if (puntos.isEmpty()) {
+                Text(
+                    "No hay zonas de espectadores cargadas aún para este rally.",
+                    fontSize = 12.sp, color = Color(0xFF94A3B8), modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            } else {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    puntos.take(3).forEach { p ->
+                        val (fondo, tinta) = when (p.tipo.uppercase()) {
+                            "PUBLICO", "PERMITIDA" -> Color(0x3306D6A0) to Color(0xFF06D6A0)
+                            "PELIGRO", "PROHIBIDA" -> Color(0x33F43F5E) to Color(0xFFFB7185)
+                            else -> Color(0x330EA5E9) to Color(0xFF38BDF8)
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Ajustes y Sensores",
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 14.5.sp,
-                                    color = if (isDark) Color.White else Color(0xFF0F172A)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = RallyAccentAmber.copy(alpha = 0.18f)
-                                ) {
-                                    Text(
-                                        text = "CALIBRADOR & GNSS",
-                                        fontSize = 8.5.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = RallyAccentAmber,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
+                        Column(
+                            modifier = Modifier
+                                .widthIn(min = 220.dp, max = 360.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(c.superficie())
+                                .border(1.dp, c.borde(), RoundedCornerShape(16.dp))
+                                .padding(16.dp)
+                        ) {
                             Text(
-                                text = "Calibrador 1.000m • RaceBox 25Hz • Servidor Web y Mapbox",
-                                fontSize = 11.sp,
-                                color = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                p.tipo.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Black, color = tinta,
+                                modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(fondo).padding(horizontal = 8.dp, vertical = 2.dp)
                             )
+                            Spacer(Modifier.height(8.dp))
+                            Text(p.nombre, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = c.texto())
+                            if (p.descripcion.isNotBlank()) Text(p.descripcion, fontSize = 11.sp, color = Color(0xFF94A3B8), maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "Ir a Ajustes y Sensores",
-                        tint = textSecondary,
-                        modifier = Modifier.size(20.dp)
-                    )
                 }
             }
-
-            // =========================================================================
-            // 3. RESUMEN DE PROGRESO DEL RALLY
-            // =========================================================================
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = cardBg),
-                border = BorderStroke(1.dp, cardBorder)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    EstadisticaItem("Tramos Registrados", "${estadisticas.totalTramos}")
-                    VerticalDivider(modifier = Modifier.height(30.dp), color = cardBorder)
-                    EstadisticaItem("Tramos Completados", "${estadisticas.tramosCompletados}")
-                    VerticalDivider(modifier = Modifier.height(30.dp), color = cardBorder)
-                    EstadisticaItem("Km Relevados", String.format("%.1f km", estadisticas.kmRelevados))
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
-    }
-
-    if (mostrarModalEditarRally && activeRally != null) {
-        DialogoEditarRally(
-            rally = activeRally!!,
-            onDismiss = { mostrarModalEditarRally = false },
-            onGuardar = { nom, camp, club, sede, fIni, fFin, fisc, est, area, desc ->
-                viewModel.editarRally(activeRally!!, nom, camp, club, sede, fIni, fFin, fisc, est, area, desc)
-                mostrarModalEditarRally = false
-            }
-        )
     }
 }
 

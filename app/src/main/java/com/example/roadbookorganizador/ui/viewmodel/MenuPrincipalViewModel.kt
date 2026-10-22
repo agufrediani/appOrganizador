@@ -33,6 +33,12 @@ class MenuPrincipalViewModel(application: Application) : AndroidViewModel(applic
         else flowOf(emptyList())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** Zonas y puntos de interés del rally abierto (para el Panel General). */
+    val puntosRallyActivo = activeRally.flatMapLatest { rally ->
+        if (rally != null) repository.getPuntosInteres(rally.id)
+        else flowOf(emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val estadisticas = tramosRallyActivo.map { list ->
         val total = list.size
         val comp = list.count { it.estadoTrazado == "COMPLETADO" }
@@ -60,18 +66,9 @@ class MenuPrincipalViewModel(application: Application) : AndroidViewModel(applic
                 }
             }
 
+            // Los rallies se crean solo en la plataforma: la tablet no inventa uno en blanco
             val list = repository.getAllRallies().first()
-            if (list.isEmpty()) {
-                // Base vacía: un rally en blanco para poder empezar (se edita o se reemplaza
-                // al sincronizar con la web). Sin sede, fecha ni campeonato inventados.
-                val newRallyId = repository.insertRally(
-                    RallyEntity(
-                        nombre = "Rally nuevo",
-                        esActivo = true
-                    )
-                )
-                repository.setRallyActivo(newRallyId)
-            } else if (repository.getActiveRally().first() == null) {
+            if (list.isNotEmpty() && repository.getActiveRally().first() == null) {
                 repository.setRallyActivo(list.first().id)
             }
         }
@@ -120,20 +117,24 @@ class MenuPrincipalViewModel(application: Application) : AndroidViewModel(applic
     }
 
     private val sessionManager = SessionManager(application)
-    private val webSyncService = com.example.roadbookorganizador.data.remote.WebSyncService(repository)
+    private val webSyncService = com.example.roadbookorganizador.data.remote.WebSyncService(application, repository)
+
+    /** Tramos de un rally (para las tarjetas de "Mis Rallies"). */
+    fun tramosDe(rallyId: Long): Flow<List<TramoEntity>> = repository.getTramosByRally(rallyId)
+
+    private var yaSincronizo = false
+
+    /** Al entrar a "Mis Rallies" se bajan los rallies del servidor una vez, como la plataforma. */
+    fun sincronizarAlEntrar() {
+        if (yaSincronizo) return
+        yaSincronizo = true
+        sincronizarConWeb()
+    }
 
     fun sincronizarConWeb() {
         viewModelScope.launch {
             _isSyncing.value = true
-            val serverUrl = sessionManager.serverUrl.value
-            val result = webSyncService.sincronizarConServidor(serverUrl)
-
-            if (result.success) {
-                val activo = activeRally.value
-                if (activo != null) {
-                    repository.updateRally(activo.copy(sincronizado = true))
-                }
-            }
+            val result = webSyncService.sincronizarConServidor()
 
             _isSyncing.value = false
             _syncMessage.emit(result.message)

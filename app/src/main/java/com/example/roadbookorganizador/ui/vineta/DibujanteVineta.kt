@@ -17,6 +17,7 @@ import com.example.roadbookorganizador.vineta.ALTO_NOTAS
 import com.example.roadbookorganizador.vineta.Biblioteca
 import com.example.roadbookorganizador.vineta.Capa
 import com.example.roadbookorganizador.vineta.Carteles
+import com.example.roadbookorganizador.vineta.CuadroTexto
 import com.example.roadbookorganizador.vineta.Estilo
 import com.example.roadbookorganizador.vineta.FranjaCarteles
 import com.example.roadbookorganizador.vineta.Geometria
@@ -41,8 +42,9 @@ class DibujanteVineta(
 
     /**
      * Dibuja una capa en el rectángulo (left, top, anchoPx × anchoPx·alto/100).
-     * @param alto ALTO_DIBUJO (100) para el dibujo o ALTO_NOTAS (64) para la capa de notas.
-     * @param conPalito true solo en el recuadro de dibujo (el palito no va en la capa de notas).
+     * @param alto alto del recuadro en unidades: 90 en los dos recuadros (formato v3).
+     * @param conPalito true solo en el recuadro de dibujo y si la preferencia "Palito del GPS"
+     *   está prendida (punto 6; por defecto apagada). Apagado no se dibuja, pero el gps no se toca.
      */
     fun dibujarCapa(canvas: Canvas, capa: Capa, left: Float, top: Float, anchoPx: Float, alto: Double, conPalito: Boolean) {
         if (anchoPx <= 0f) return
@@ -59,11 +61,12 @@ class DibujanteVineta(
         }
         capa.strokes.forEach { dibujarTrazo(canvas, it, alto) }
         capa.stamps.forEach { dibujarSello(canvas, it, alto) }
+        capa.texts.forEach { dibujarCuadroTexto(canvas, it, alto) }
         canvas.restore()
     }
 
-    fun dibujarDibujo(canvas: Canvas, capa: Capa, left: Float, top: Float, anchoPx: Float) =
-        dibujarCapa(canvas, capa, left, top, anchoPx, ALTO_DIBUJO, conPalito = true)
+    fun dibujarDibujo(canvas: Canvas, capa: Capa, left: Float, top: Float, anchoPx: Float, conPalito: Boolean = false) =
+        dibujarCapa(canvas, capa, left, top, anchoPx, ALTO_DIBUJO, conPalito)
 
     /**
      * Celda de notas completa (puntos 1, 4, 10 y 12), de abajo hacia arriba: el texto de las
@@ -144,6 +147,14 @@ class DibujanteVineta(
             style = Paint.Style.STROKE; strokeWidth = w; strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND; this.color = color
         }
+
+        // Caminos prohibidos (punto 6 bis): antes que la flecha, así la flecha queda encima
+        f.prohibidos?.forEach { c ->
+            val d = Geometria.prohibido(p, f.width, c)
+            val pp = Paint(trazo).apply { strokeWidth = d.grosor.toFloat() }
+            canvas.drawLine(d.desde.x.toFloat(), d.desde.y.toFloat(), d.hasta.x.toFloat(), d.hasta.y.toFloat(), pp)
+            d.rayitas.forEach { r -> canvas.drawLine(r.desde.x.toFloat(), r.desde.y.toFloat(), r.hasta.x.toFloat(), r.hasta.y.toFloat(), pp) }
+        }
         val curva = Path().apply {
             moveTo(p[0].x.toFloat(), p[0].y.toFloat())
             cubicTo(p[1].x.toFloat(), p[1].y.toFloat(), p[2].x.toFloat(), p[2].y.toFloat(), p[3].x.toFloat(), p[3].y.toFloat())
@@ -207,7 +218,7 @@ class DibujanteVineta(
                     val f = tam / 100f
                     canvas.scale(f, f)
                     canvas.translate(-50f, -50f)
-                    DibujanteSvg.dibujar(canvas, sim.ops)
+                    DibujanteSvg.dibujar(canvas, sim.opsParaColor(s.color))
                 }
             }
         }
@@ -231,6 +242,35 @@ class DibujanteVineta(
             pathEffect = DashPathEffect(floatArrayOf(tam * 0.1f, tam * 0.07f), 0f)
         })
         DibujanteSvg.textoCentrado(canvas, "?", 0f, 0f, tam * 0.6f, gris, 700, "sans-serif")
+    }
+
+    // ---------------------------------------------------------------- cuadros de texto (punto 8 bis)
+
+    /** Roboto negrita. (x, y) arriba a la izquierda; base de la 1.ª línea a 0,8 × size; renglón 1,2 × size. */
+    private fun dibujarCuadroTexto(canvas: Canvas, t: CuadroTexto, alto: Double) {
+        if (t.text.isEmpty() || t.size <= 0.0) return
+        val p = pinturaCuadro(t.size.toFloat(), ColoresSvg.parse(t.color) ?: 0xFF000000.toInt())
+        val x = (t.x * 100).toFloat()
+        val y0 = (t.y * alto + 0.8 * t.size).toFloat()
+        t.text.replace("\r\n", "\n").split('\n').forEachIndexed { i, linea ->
+            if (linea.isNotEmpty()) canvas.drawText(linea, x, y0 + (i * 1.2 * t.size).toFloat(), p)
+        }
+    }
+
+    private fun pinturaCuadro(tam: Float, c: Int) =
+        Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG or Paint.LINEAR_TEXT_FLAG).apply {
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            color = c
+            textSize = tam
+        }
+
+    /** Ancho y alto de un cuadro de texto en unidades (para elegirlo y moverlo en el editor). */
+    fun medidaCuadroTexto(t: CuadroTexto): Pair<Double, Double> {
+        val lineas = t.text.replace("\r\n", "\n").split('\n')
+        val p = pinturaCuadro(100f, 0xFF000000.toInt())
+        val ancho = lineas.maxOfOrNull { p.measureText(it).toDouble() / 100.0 * t.size } ?: 0.0
+        val alto = t.size * (0.8 + 0.2 + 1.2 * (lineas.size - 1)).coerceAtLeast(1.0)
+        return ancho to alto
     }
 
     // ---------------------------------------------------------------- carteles (punto 10)
@@ -347,7 +387,10 @@ object DibujanteSvg {
     /** Relleno primero, borde encima (orden de SVG). */
     private inline fun pintar(e: Estilo, dibujo: (Paint) -> Unit) {
         e.fill?.let { ColoresSvg.parse(it) }?.let { c ->
-            dibujo(Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = c })
+            dibujo(Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL; color = c
+                if (e.fillOpacity < 1.0) alpha = (android.graphics.Color.alpha(c) * e.fillOpacity).toInt().coerceIn(0, 255)
+            })
         }
         trazo(e)?.let(dibujo)
     }

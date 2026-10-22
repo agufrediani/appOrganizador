@@ -197,9 +197,7 @@ fun AjustesScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { ThemeManager.toggleTheme() }) {
-                        Text(text = if (isDark) "☀️" else "🌙", fontSize = 18.sp)
-                    }
+                    com.example.roadbookorganizador.ui.components.BotonTema()
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
@@ -499,15 +497,6 @@ fun AjustesScreen(
                                     Text("Conexión inalámbrica de alta precisión", fontSize = 12.sp, color = textSecondary)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedButton(
-                                        onClick = { raceBoxManager.startSimulation() },
-                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = if (isDark) RallyCyanLight else FredianiCyanText),
-                                        shape = RoundedCornerShape(10.dp)
-                                    ) {
-                                        Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Simular 25Hz", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
                                     Button(
                                         onClick = { startRaceBoxScanWithPermissions() },
                                         colors = ButtonDefaults.buttonColors(containerColor = RallyCyan, contentColor = Color.Black),

@@ -144,6 +144,46 @@
       }
     },
     {
+      "codigo": "izq_codo",
+      "nombre": "Izquierda en ángulo (90°)",
+      "flecha": {
+        "x0": 0.64,
+        "y0": 0.9,
+        "x1": 0.64,
+        "y1": 0.26,
+        "x2": 0.78,
+        "y2": 0.42,
+        "x3": 0.22000000000000003,
+        "y3": 0.42,
+        "width": 6,
+        "color": "#000000",
+        "gps": {
+          "t": 0.42,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_codo",
+      "nombre": "Derecha en ángulo (90°)",
+      "flecha": {
+        "x0": 0.36,
+        "y0": 0.9,
+        "x1": 0.36,
+        "y1": 0.26,
+        "x2": 0.21999999999999997,
+        "y2": 0.42,
+        "x3": 0.78,
+        "y3": 0.42,
+        "width": 6,
+        "color": "#000000",
+        "gps": {
+          "t": 0.42,
+          "lado": -1
+        }
+      }
+    },
+    {
       "codigo": "izq_135",
       "nombre": "Izquierda cerrada (135°)",
       "flecha": {
@@ -219,6 +259,773 @@
         "color": "#000000",
         "gps": {
           "t": 0.22,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "recta_1p",
+      "nombre": "Recta con un camino prohibido",
+      "flecha": {
+        "x0": 0.5,
+        "y0": 0.9,
+        "x1": 0.5,
+        "y1": 0.63,
+        "x2": 0.5,
+        "y2": 0.37,
+        "x3": 0.5,
+        "y3": 0.1,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.5,
+            "ang": -60,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.3,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "izq_leve_1p",
+      "nombre": "Leve a la izquierda con un camino prohibido",
+      "flecha": {
+        "x0": 0.5333333333333333,
+        "y0": 0.9,
+        "x1": 0.5333333333333333,
+        "y1": 0.62,
+        "x2": 0.5433333333333333,
+        "y2": 0.5173205080756887,
+        "x3": 0.33333333333333337,
+        "y3": 0.15358983848622448,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.547,
+            "ang": 45,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_leve_1p",
+      "nombre": "Leve a la derecha con un camino prohibido",
+      "flecha": {
+        "x0": 0.4666666666666667,
+        "y0": 0.9,
+        "x1": 0.4666666666666667,
+        "y1": 0.62,
+        "x2": 0.45666666666666667,
+        "y2": 0.5173205080756887,
+        "x3": 0.6666666666666666,
+        "y3": 0.15358983848622448,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.547,
+            "ang": -45,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "izq_45_1p",
+      "nombre": "Izquierda abierta (45°) con un camino prohibido",
+      "flecha": {
+        "x0": 0.55,
+        "y0": 0.9,
+        "x1": 0.55,
+        "y1": 0.61,
+        "x2": 0.564142135623731,
+        "y2": 0.5041421356237309,
+        "x3": 0.26715728752538104,
+        "y3": 0.20715728752538093,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.549,
+            "ang": 67,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_45_1p",
+      "nombre": "Derecha abierta (45°) con un camino prohibido",
+      "flecha": {
+        "x0": 0.45,
+        "y0": 0.9,
+        "x1": 0.45,
+        "y1": 0.61,
+        "x2": 0.43585786437626906,
+        "y2": 0.5041421356237309,
+        "x3": 0.7328427124746191,
+        "y3": 0.20715728752538093,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.549,
+            "ang": -67,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "izq_90_1p",
+      "nombre": "Izquierda (90°) con un camino prohibido",
+      "flecha": {
+        "x0": 0.6,
+        "y0": 0.9,
+        "x1": 0.6,
+        "y1": 0.5800000000000001,
+        "x2": 0.62,
+        "y2": 0.46,
+        "x3": 0.19999999999999996,
+        "y3": 0.46,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.555,
+            "ang": 44,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_90_1p",
+      "nombre": "Derecha (90°) con un camino prohibido",
+      "flecha": {
+        "x0": 0.4,
+        "y0": 0.9,
+        "x1": 0.4,
+        "y1": 0.5800000000000001,
+        "x2": 0.38,
+        "y2": 0.46,
+        "x3": 0.8,
+        "y3": 0.46,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.555,
+            "ang": -44,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "izq_codo_1p",
+      "nombre": "Izquierda en ángulo (90°) con un camino prohibido",
+      "flecha": {
+        "x0": 0.64,
+        "y0": 0.9,
+        "x1": 0.64,
+        "y1": 0.26,
+        "x2": 0.78,
+        "y2": 0.42,
+        "x3": 0.22000000000000003,
+        "y3": 0.42,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.5,
+            "ang": 41,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_codo_1p",
+      "nombre": "Derecha en ángulo (90°) con un camino prohibido",
+      "flecha": {
+        "x0": 0.36,
+        "y0": 0.9,
+        "x1": 0.36,
+        "y1": 0.26,
+        "x2": 0.21999999999999997,
+        "y2": 0.42,
+        "x3": 0.78,
+        "y3": 0.42,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.5,
+            "ang": -41,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "izq_135_1p",
+      "nombre": "Izquierda cerrada (135°) con un camino prohibido",
+      "flecha": {
+        "x0": 0.7,
+        "y0": 0.9,
+        "x1": 0.7,
+        "y1": 0.42,
+        "x2": 0.7141421356237309,
+        "y2": 0.28585786437626903,
+        "x3": 0.3323044737829952,
+        "y3": 0.6676955262170047,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.552,
+            "ang": 67,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_135_1p",
+      "nombre": "Derecha cerrada (135°) con un camino prohibido",
+      "flecha": {
+        "x0": 0.3,
+        "y0": 0.9,
+        "x1": 0.3,
+        "y1": 0.42,
+        "x2": 0.28585786437626903,
+        "y2": 0.28585786437626903,
+        "x3": 0.6676955262170048,
+        "y3": 0.6676955262170047,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.552,
+            "ang": -67,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "izq_vuelta_1p",
+      "nombre": "Vuelta atrás por la izquierda con un camino prohibido",
+      "flecha": {
+        "x0": 0.67,
+        "y0": 0.9,
+        "x1": 0.67,
+        "y1": 0.12,
+        "x2": 0.32999999999999996,
+        "y2": 0.12,
+        "x3": 0.32999999999999996,
+        "y3": 0.68,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.3,
+            "ang": 113,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_vuelta_1p",
+      "nombre": "Vuelta atrás por la derecha con un camino prohibido",
+      "flecha": {
+        "x0": 0.32999999999999996,
+        "y0": 0.9,
+        "x1": 0.32999999999999996,
+        "y1": 0.12,
+        "x2": 0.67,
+        "y2": 0.12,
+        "x3": 0.67,
+        "y3": 0.68,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.3,
+            "ang": -113,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "recta_2p",
+      "nombre": "Recta con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.5,
+        "y0": 0.9,
+        "x1": 0.5,
+        "y1": 0.63,
+        "x2": 0.5,
+        "y2": 0.37,
+        "x3": 0.5,
+        "y3": 0.1,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.45,
+            "ang": -60,
+            "largo": 30
+          },
+          {
+            "t": 0.62,
+            "ang": 60,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.3,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "izq_leve_2p",
+      "nombre": "Leve a la izquierda con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.5333333333333333,
+        "y0": 0.9,
+        "x1": 0.5333333333333333,
+        "y1": 0.62,
+        "x2": 0.5433333333333333,
+        "y2": 0.5173205080756887,
+        "x3": 0.33333333333333337,
+        "y3": 0.15358983848622448,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.547,
+            "ang": 45,
+            "largo": 30
+          },
+          {
+            "t": 0.547,
+            "ang": 105,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_leve_2p",
+      "nombre": "Leve a la derecha con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.4666666666666667,
+        "y0": 0.9,
+        "x1": 0.4666666666666667,
+        "y1": 0.62,
+        "x2": 0.45666666666666667,
+        "y2": 0.5173205080756887,
+        "x3": 0.6666666666666666,
+        "y3": 0.15358983848622448,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.547,
+            "ang": -45,
+            "largo": 30
+          },
+          {
+            "t": 0.547,
+            "ang": -105,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "izq_45_2p",
+      "nombre": "Izquierda abierta (45°) con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.55,
+        "y0": 0.9,
+        "x1": 0.55,
+        "y1": 0.61,
+        "x2": 0.564142135623731,
+        "y2": 0.5041421356237309,
+        "x3": 0.26715728752538104,
+        "y3": 0.20715728752538093,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.549,
+            "ang": 67,
+            "largo": 30
+          },
+          {
+            "t": 0.549,
+            "ang": 112,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_45_2p",
+      "nombre": "Derecha abierta (45°) con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.45,
+        "y0": 0.9,
+        "x1": 0.45,
+        "y1": 0.61,
+        "x2": 0.43585786437626906,
+        "y2": 0.5041421356237309,
+        "x3": 0.7328427124746191,
+        "y3": 0.20715728752538093,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.549,
+            "ang": -67,
+            "largo": 30
+          },
+          {
+            "t": 0.549,
+            "ang": -112,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "izq_90_2p",
+      "nombre": "Izquierda (90°) con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.6,
+        "y0": 0.9,
+        "x1": 0.6,
+        "y1": 0.5800000000000001,
+        "x2": 0.62,
+        "y2": 0.46,
+        "x3": 0.19999999999999996,
+        "y3": 0.46,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.555,
+            "ang": 44,
+            "largo": 30
+          },
+          {
+            "t": 0.555,
+            "ang": 134,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_90_2p",
+      "nombre": "Derecha (90°) con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.4,
+        "y0": 0.9,
+        "x1": 0.4,
+        "y1": 0.5800000000000001,
+        "x2": 0.38,
+        "y2": 0.46,
+        "x3": 0.8,
+        "y3": 0.46,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.555,
+            "ang": -44,
+            "largo": 30
+          },
+          {
+            "t": 0.555,
+            "ang": -134,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "izq_codo_2p",
+      "nombre": "Izquierda en ángulo (90°) con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.64,
+        "y0": 0.9,
+        "x1": 0.64,
+        "y1": 0.26,
+        "x2": 0.78,
+        "y2": 0.42,
+        "x3": 0.22000000000000003,
+        "y3": 0.42,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.5,
+            "ang": 41,
+            "largo": 30
+          },
+          {
+            "t": 0.5,
+            "ang": 131,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_codo_2p",
+      "nombre": "Derecha en ángulo (90°) con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.36,
+        "y0": 0.9,
+        "x1": 0.36,
+        "y1": 0.26,
+        "x2": 0.21999999999999997,
+        "y2": 0.42,
+        "x3": 0.78,
+        "y3": 0.42,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.5,
+            "ang": -41,
+            "largo": 30
+          },
+          {
+            "t": 0.5,
+            "ang": -131,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "izq_135_2p",
+      "nombre": "Izquierda cerrada (135°) con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.7,
+        "y0": 0.9,
+        "x1": 0.7,
+        "y1": 0.42,
+        "x2": 0.7141421356237309,
+        "y2": 0.28585786437626903,
+        "x3": 0.3323044737829952,
+        "y3": 0.6676955262170047,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.552,
+            "ang": 67,
+            "largo": 30
+          },
+          {
+            "t": 0.552,
+            "ang": 157,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_135_2p",
+      "nombre": "Derecha cerrada (135°) con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.3,
+        "y0": 0.9,
+        "x1": 0.3,
+        "y1": 0.42,
+        "x2": 0.28585786437626903,
+        "y2": 0.28585786437626903,
+        "x3": 0.6676955262170048,
+        "y3": 0.6676955262170047,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.552,
+            "ang": -67,
+            "largo": 30
+          },
+          {
+            "t": 0.552,
+            "ang": -157,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": -1
+        }
+      }
+    },
+    {
+      "codigo": "izq_vuelta_2p",
+      "nombre": "Vuelta atrás por la izquierda con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.67,
+        "y0": 0.9,
+        "x1": 0.67,
+        "y1": 0.12,
+        "x2": 0.32999999999999996,
+        "y2": 0.12,
+        "x3": 0.32999999999999996,
+        "y3": 0.68,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.18,
+            "ang": 101,
+            "largo": 30
+          },
+          {
+            "t": 0.4,
+            "ang": 130,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
+          "lado": 1
+        }
+      }
+    },
+    {
+      "codigo": "der_vuelta_2p",
+      "nombre": "Vuelta atrás por la derecha con dos caminos prohibidos",
+      "flecha": {
+        "x0": 0.32999999999999996,
+        "y0": 0.9,
+        "x1": 0.32999999999999996,
+        "y1": 0.12,
+        "x2": 0.67,
+        "y2": 0.12,
+        "x3": 0.67,
+        "y3": 0.68,
+        "width": 6,
+        "color": "#000000",
+        "prohibidos": [
+          {
+            "t": 0.18,
+            "ang": -101,
+            "largo": 30
+          },
+          {
+            "t": 0.4,
+            "ang": -130,
+            "largo": 30
+          }
+        ],
+        "gps": {
+          "t": 0.2,
           "lado": -1
         }
       }

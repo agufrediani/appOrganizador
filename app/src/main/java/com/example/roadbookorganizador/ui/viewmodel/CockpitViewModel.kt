@@ -17,6 +17,7 @@ import com.example.roadbookorganizador.util.GpxKmzExporter
 import com.example.roadbookorganizador.util.paraPantalla
 import com.example.roadbookorganizador.ui.vineta.BibliotecaVineta
 import com.example.roadbookorganizador.vineta.Capa
+import com.example.roadbookorganizador.vineta.Colocar
 import com.example.roadbookorganizador.vineta.DibujoV1
 import com.example.roadbookorganizador.vineta.VinetaDibujo
 import kotlinx.coroutines.Job
@@ -88,7 +89,70 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
     private val _exportResult = MutableSharedFlow<String>()
     val exportResult: SharedFlow<String> = _exportResult.asSharedFlow()
 
+    /** Avisos cortos para el usuario (igual que los alert de la plataforma). */
+    private val _avisos = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val avisos: SharedFlow<String> = _avisos.asSharedFlow()
+
+    /** Id de la viñeta recién creada desde el mapa (la pantalla la deja elegida, como la web). */
+    private val _vinetaNueva = MutableSharedFlow<Long>(extraBufferCapacity = 4)
+    val vinetaNueva: SharedFlow<Long> = _vinetaNueva.asSharedFlow()
+
     private var simulacionJob: Job? = null
+
+    // ---- Sincronización del tramo con la plataforma (ESPECIFICACION_TAQUEO) ----
+    private val sincroTramo = com.example.roadbookorganizador.data.remote.SincronizacionTramo(application, repository)
+    private var sincroJob: Job? = null
+
+    /** Cuántas viñetas tienen cambios que todavía no llegaron a la plataforma. */
+    val pendientesSubir: StateFlow<Int> = _tramoActivo.flatMapLatest { t ->
+        if (t != null) repository.contarPendientes(t.id) else flowOf(0)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    private val _sincronizando = MutableStateFlow(false)
+    val sincronizando: StateFlow<Boolean> = _sincronizando.asStateFlow()
+
+    /** Sincroniza ahora el tramo abierto (botón). */
+    fun sincronizarTramo() {
+        val t = _tramoActivo.value ?: return
+        viewModelScope.launch {
+            _sincronizando.value = true
+            val r = sincroTramo.sincronizar(t.id)
+            _sincronizando.value = false
+            repository.getTramoById(t.id)?.let { if (_tramoActivo.value?.id == it.id) _tramoActivo.value = it }
+            _avisos.tryEmit(r.mensaje)
+        }
+    }
+
+    /**
+     * Al abrir un tramo que está en la plataforma: se baja lo último y, mientras el tramo esté
+     * abierto, cada minuto se manda lo pendiente (si no hay señal, queda guardado y se reintenta).
+     */
+    private fun arrancarSincronizacion(tramo: TramoEntity) {
+        sincroJob?.cancel()
+        sincroJob = viewModelScope.launch {
+            var primera = true
+            var avisoSinConexion = false
+            while (true) {
+                if (primera || pendientesSubir.value > 0 || repository.contarPendientes(tramo.id).first() > 0) {
+                    // Rally solo en la tablet: no hay nada que sincronizar
+                    if (repository.getRallyById(tramo.rallyId)?.webId == null) return@launch
+                    _sincronizando.value = true
+                    val r = sincroTramo.sincronizar(tramo.id)
+                    _sincronizando.value = false
+                    // El tramo pudo haberse creado en la plataforma o cambiado allá
+                    repository.getTramoById(tramo.id)?.let { if (_tramoActivo.value?.id == it.id) _tramoActivo.value = it }
+                    when {
+                        r.enviadas > 0 -> _avisos.tryEmit(r.mensaje)
+                        !r.ok && r.sinConexion -> { if (!avisoSinConexion) _avisos.tryEmit(r.mensaje); avisoSinConexion = true }
+                        !r.ok && primera -> _avisos.tryEmit(r.mensaje)
+                    }
+                    if (r.ok) avisoSinConexion = false
+                    primera = false
+                }
+                kotlinx.coroutines.delay(60_000)
+            }
+        }
+    }
 
     init {
         viewModelScope.launch {
@@ -117,7 +181,11 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
                         informacion = "WP Auto ($tipoPc)",
                         peligro = "",
                         esPuntoControl = true,
-                        tipoPuntoControl = tipoPc
+                        tipoPuntoControl = tipoPc,
+                        origenCoordenada = "TABLET",
+                        coordenadaFechaUtc = VinetaEntity.ahoraUtc(),
+                        precisionGpsM = s.precisionMetros.takeIf { it > 0f }?.toDouble(),
+                        verificadaTerreno = true
                     )
                     repository.insertVineta(entidad)
                     odometerEngine.resetParcial()
@@ -170,6 +238,7 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
             _tramoActivo.value = tramo
 
             if (tramo != null) {
+                arrancarSincronizacion(tramo)
                 if (!yaActivo) {
                     val guardado = persistencia.leer()
                     if (guardado != null && guardado.tramoId == tramoId) {
@@ -229,7 +298,8 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
         val bib = BibliotecaVineta.obtener(getApplication<Application>())
         val armada = bib.flechasArmadas[dlg.tulipaSeleccionada]
         val (dibujoJson, peligroCalculado) = VinetaDibujo.paraGuardar(
-            if (armada != null) DibujoV1(dibujo = Capa(arrows = listOf(armada.flecha))) else DibujoV1()
+            // La flecha armada se pone como un cuadrado de 29 mm en el recuadro de 50 × 45 (punto 8)
+            if (armada != null) DibujoV1(dibujo = Capa(arrows = listOf(Colocar.armadaEnCaja(armada.flecha)))) else DibujoV1()
         )
 
         viewModelScope.launch {
@@ -246,7 +316,12 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
                 tulipTipo = dlg.tulipaSeleccionada,
                 dibujo = dibujoJson,
                 informacion = dlg.nota,
-                peligro = peligroCalculado
+                peligro = peligroCalculado,
+                // Coordenada tomada con el GPS arriba del auto (taqueo)
+                origenCoordenada = "TABLET",
+                coordenadaFechaUtc = VinetaEntity.ahoraUtc(),
+                precisionGpsM = odometerEngine.state.value.precisionMetros.takeIf { it > 0f }?.toDouble(),
+                verificadaTerreno = true
             )
 
             repository.insertVineta(entidad)
@@ -304,7 +379,11 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
                 informacion = "WP $tipo",
                 peligro = "",
                 esPuntoControl = true,
-                tipoPuntoControl = tipo
+                tipoPuntoControl = tipo,
+                origenCoordenada = "TABLET",
+                coordenadaFechaUtc = VinetaEntity.ahoraUtc(),
+                precisionGpsM = s.precisionMetros.takeIf { it > 0f }?.toDouble(),
+                verificadaTerreno = true
             )
             repository.insertVineta(entidad)
             odometerEngine.resetParcial()
@@ -374,6 +453,178 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
         return file
     }
 
+    /**
+     * "+ Indicación" de la plataforma: viñeta vacía después de la elegida (o al final), parcial 0,
+     * sin coordenada (se carga a mano o se taquea después).
+     */
+    fun insertarVinetaVacia(previaId: Long?) {
+        val tId = _tramoActivo.value?.id ?: return
+        val lista = vinetas.value
+        val previa = lista.firstOrNull { it.id == previaId } ?: lista.lastOrNull()
+        viewModelScope.launch {
+            val idNueva = repository.insertVineta(
+                VinetaEntity(
+                    tramoId = tId,
+                    numero = (previa?.numero ?: 0) + 1,
+                    distanciaTotal = previa?.distanciaTotal ?: 0.0,
+                    distanciaParcial = 0.0,
+                    latitud = 0.0,
+                    longitud = 0.0,
+                    altitud = 0.0,
+                    rumbo = 0f,
+                    velocidadKmh = 0f
+                )
+            )
+            _vinetaNueva.tryEmit(idNueva)
+        }
+    }
+
+    /**
+     * Duplicar (como la plataforma): copia completa de la viñeta, puesta justo después, con
+     * parcial 0 y su propio uid. Las que siguen no se mueven.
+     */
+    fun duplicarVineta(v: VinetaEntity) {
+        viewModelScope.launch {
+            val idNueva = repository.insertVineta(
+                v.copy(
+                    id = 0,
+                    uid = VinetaEntity.nuevoUid(),
+                    numero = v.numero + 1,
+                    distanciaParcial = 0.0,
+                    // Es una viñeta nueva: todavía no está en la plataforma
+                    webId = null,
+                    datosServidor = null
+                )
+            )
+            _vinetaNueva.tryEmit(idNueva)
+        }
+    }
+
+    // =========================================================================
+    // TAQUEO EN EL TERRENO (ESPECIFICACION_TAQUEO punto 3 y 4)
+    // =========================================================================
+
+    /** Parcial medido con el odómetro desde la viñeta anterior (km, 3 decimales). */
+    private fun parcialMedido(previa: VinetaEntity?): Double {
+        val total = odoState.value.odometroTotalKm
+        return (Math.round((total - (previa?.distanciaTotal ?: 0.0)).coerceAtLeast(0.0) * 1000.0) / 1000.0)
+    }
+
+    private fun previaDe(v: VinetaEntity): VinetaEntity? =
+        vinetas.value.let { l -> l.getOrNull(l.indexOfFirst { it.id == v.id } - 1) }
+
+    private fun siguienteDe(v: VinetaEntity): VinetaEntity? =
+        vinetas.value.let { l -> l.getOrNull(l.indexOfFirst { it.id == v.id } + 1) }
+
+    /** Viñeta (que no sea [excluirId]) a menos de [radioM] metros del auto, para no repetir. */
+    fun vinetaCercana(excluirId: Long?, radioM: Double = 30.0): VinetaEntity? {
+        val o = odoState.value
+        if (o.latitud == 0.0 && o.longitud == 0.0) return null
+        return vinetas.value
+            .filter { it.id != excluirId && !(it.latitud == 0.0 && it.longitud == 0.0) }
+            .map { it to calcularDistanciaMetros(o.latitud, o.longitud, it.latitud, it.longitud) }
+            .filter { it.second < radioM }
+            .minByOrNull { it.second }?.first
+    }
+
+    /** Después de taquear: la distancia nueva corre las siguientes y el odómetro queda en la viñeta. */
+    private suspend fun acomodarDistancias(v: VinetaEntity, parcialNuevo: Double) {
+        val delta = parcialNuevo - v.distanciaParcial
+        if (kotlin.math.abs(delta) >= 0.0005) repository.propagarDiferenciaKilometrica(v.tramoId, v.numero, delta)
+        val totalNuevo = (previaDe(v)?.distanciaTotal ?: 0.0) + parcialNuevo
+        odometerEngine.resetTotalYParcial(totalNuevo)
+    }
+
+    /** "Taquear acá": la coordenada del auto reemplaza a la de la plataforma (la anterior queda guardada). */
+    fun taquearAca(v: VinetaEntity) {
+        val o = odoState.value
+        if (o.latitud == 0.0 && o.longitud == 0.0) { _avisos.tryEmit("Sin señal de GPS: no se puede taquear."); return }
+        viewModelScope.launch {
+            val parcial = parcialMedido(previaDe(v))
+            val total = (previaDe(v)?.distanciaTotal ?: 0.0) + parcial
+            acomodarDistancias(v, parcial) // primero se corren las siguientes, así no cambia el orden
+            repository.updateVineta(
+                v.copy(
+                    latitudAnterior = if (v.latitud == 0.0 && v.longitud == 0.0) v.latitudAnterior else v.latitud,
+                    longitudAnterior = if (v.latitud == 0.0 && v.longitud == 0.0) v.longitudAnterior else v.longitud,
+                    latitud = Math.round(o.latitud * 1e7) / 1e7,
+                    longitud = Math.round(o.longitud * 1e7) / 1e7,
+                    origenCoordenada = "TABLET",
+                    coordenadaFechaUtc = VinetaEntity.ahoraUtc(),
+                    coordenadaPor = sessionManager.sesion.value.username.ifBlank { null },
+                    precisionGpsM = o.precisionMetros.toDouble().takeIf { it > 0 },
+                    verificadaTerreno = true,
+                    distanciaParcial = parcial,
+                    distanciaTotal = total
+                )
+            )
+            siguienteDe(v)?.let { _vinetaNueva.tryEmit(it.id) }
+        }
+    }
+
+    /** "Está bien": se deja la coordenada de la plataforma y se confirma en el terreno. */
+    fun estaBien(v: VinetaEntity) {
+        viewModelScope.launch {
+            val parcial = parcialMedido(previaDe(v))
+            val total = (previaDe(v)?.distanciaTotal ?: 0.0) + parcial
+            acomodarDistancias(v, parcial)
+            repository.updateVineta(v.copy(verificadaTerreno = true, distanciaParcial = parcial, distanciaTotal = total))
+            siguienteDe(v)?.let { _vinetaNueva.tryEmit(it.id) }
+        }
+    }
+
+    /** Volver a la coordenada anterior (la que había antes de la última). */
+    fun volverCoordenadaAnterior(v: VinetaEntity) {
+        val lat = v.latitudAnterior ?: return
+        val lng = v.longitudAnterior ?: return
+        viewModelScope.launch {
+            repository.updateVineta(
+                v.copy(
+                    latitud = lat, longitud = lng,
+                    latitudAnterior = v.latitud, longitudAnterior = v.longitud,
+                    origenCoordenada = "MAPA",
+                    coordenadaFechaUtc = VinetaEntity.ahoraUtc(),
+                    precisionGpsM = null
+                )
+            )
+        }
+    }
+
+    /**
+     * "Nueva viñeta" en el terreno: va después de [previa] (la última que se pasó), en la
+     * posición del auto, con el parcial del odómetro y un uid de la tablet.
+     */
+    fun nuevaVinetaTaqueo(previa: VinetaEntity?) {
+        val tId = _tramoActivo.value?.id ?: return
+        val o = odoState.value
+        if (o.latitud == 0.0 && o.longitud == 0.0) { _avisos.tryEmit("Sin señal de GPS: no se puede marcar la viñeta."); return }
+        viewModelScope.launch {
+            val parcial = parcialMedido(previa)
+            val total = (previa?.distanciaTotal ?: 0.0) + parcial
+            if (previa != null && parcial > 0) repository.propagarDiferenciaKilometrica(tId, previa.numero, parcial)
+            val idNueva = repository.insertVineta(
+                VinetaEntity(
+                    tramoId = tId,
+                    numero = (previa?.numero ?: 0) + 1,
+                    distanciaTotal = total,
+                    distanciaParcial = parcial,
+                    latitud = Math.round(o.latitud * 1e7) / 1e7,
+                    longitud = Math.round(o.longitud * 1e7) / 1e7,
+                    altitud = o.altitud,
+                    rumbo = 0f, // CAP: nunca se calcula solo
+                    velocidadKmh = o.velocidadKmh,
+                    origenCoordenada = "TABLET",
+                    coordenadaFechaUtc = VinetaEntity.ahoraUtc(),
+                    coordenadaPor = sessionManager.sesion.value.username.ifBlank { null },
+                    precisionGpsM = o.precisionMetros.toDouble().takeIf { it > 0 },
+                    verificadaTerreno = true
+                )
+            )
+            odometerEngine.resetTotalYParcial(total)
+            _vinetaNueva.tryEmit(idNueva)
+        }
+    }
+
     fun eliminarVineta(vineta: VinetaEntity) {
         viewModelScope.launch {
             repository.deleteVineta(vineta)
@@ -403,6 +654,73 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
     // =========================================================================
     // TRACKEO MANUAL: CREACIÓN DE PUNTOS DE PASO POR CLIC EN MAPA
     // =========================================================================
+
+    /**
+     * Tocar el mapa crea la viñeta al instante, como el doble clic de la plataforma: sin cartel.
+     * - Se inserta después de la viñeta elegida (si no hay ninguna elegida, al final).
+     * - El parcial se mide desde ESA viñeta: por camino si se encuentra ruta; si no (o fuera de
+     *   camino), en línea recta, y se avisa.
+     * - Las viñetas que siguen se corren esa misma distancia (conservan su parcial).
+     * - La viñeta nueva queda vacía (sin dibujo ni texto), con la coordenada marcada en el mapa.
+     */
+    fun insertarDesdeMapa(lat: Double, lng: Double, esOffRoad: Boolean = false, previaId: Long? = null) {
+        val tId = _tramoActivo.value?.id ?: return
+        val lista = vinetas.value
+        val previa = lista.firstOrNull { it.id == previaId } ?: lista.lastOrNull()
+        val latR = Math.round(lat * 1e6) / 1e6
+        val lngR = Math.round(lng * 1e6) / 1e6
+        viewModelScope.launch {
+            var parcialKm = 0.0
+            if (previa != null) {
+                val conCoord = !(previa.latitud == 0.0 && previa.longitud == 0.0)
+                if (!conCoord) {
+                    _avisos.tryEmit("La viñeta anterior no tiene coordenadas: la nueva se inserta con parcial 0. Cargá la distancia a mano.")
+                } else {
+                    val recta = calcularDistanciaMetros(previa.latitud, previa.longitud, latR, lngR) / 1000.0
+                    parcialKm = recta
+                    if (!esOffRoad) {
+                        val token = sessionManager.mapboxToken.value
+                        val ruta = try {
+                            roadSnappingService.snapTraceToRoad(
+                                points = listOf(Pair(previa.latitud, previa.longitud), Pair(latR, lngR)),
+                                mapboxToken = token.takeIf { it.isNotBlank() }
+                            )
+                        } catch (e: Exception) { null }
+                        if (ruta != null && ruta.distanciaMetros > 0) parcialKm = ruta.distanciaMetros / 1000.0
+                        else _avisos.tryEmit("No se encontró camino: el parcial (" +
+                            String.format(java.util.Locale.US, "%.3f", recta).replace('.', ',') +
+                            " km) se calculó en línea recta. Verificalo.")
+                    }
+                }
+            }
+            parcialKm = Math.round(parcialKm * 1000.0) / 1000.0
+            val total = (previa?.distanciaTotal ?: 0.0) + parcialKm
+
+            // Las que siguen a la elegida se corren el parcial nuevo (así el orden se mantiene)
+            if (previa != null) repository.propagarDiferenciaKilometrica(tId, previa.numero, parcialKm)
+
+            val idNueva = repository.insertVineta(
+                VinetaEntity(
+                    tramoId = tId,
+                    numero = (previa?.numero ?: 0) + 1,
+                    distanciaTotal = total,
+                    distanciaParcial = parcialKm,
+                    latitud = latR,
+                    longitud = lngR,
+                    altitud = 0.0,
+                    rumbo = 0f, // CAP: nunca se calcula solo (punto 12)
+                    velocidadKmh = 0f,
+                    esOffRoad = esOffRoad,
+                    // Punto marcado tocando el mapa: sin verificar en el terreno
+                    origenCoordenada = "MAPA",
+                    coordenadaFechaUtc = VinetaEntity.ahoraUtc()
+                )
+            )
+            val ultimoTotal = repository.getUltimaVineta(tId)?.distanciaTotal ?: total
+            repository.updateDistanciaYEstado(tId, ultimoTotal, "EN_TRAZADO")
+            _vinetaNueva.tryEmit(idNueva)
+        }
+    }
 
     fun iniciarCreacionPuntoManual(lat: Double, lng: Double, roadName: String = "", esOffRoad: Boolean = false) {
         val lista = vinetas.value
@@ -534,7 +852,10 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
                 tulipTipo = dlg.dibujoTipo,
                 informacion = if (dlg.nota.isNotBlank()) "${dlg.tipoPunto}: ${dlg.nota}" else dlg.tipoPunto,
                 peligro = dlg.peligro,
-                esOffRoad = dlg.esOffRoad
+                esOffRoad = dlg.esOffRoad,
+                // Punto marcado tocando el mapa: sin verificar en el terreno
+                origenCoordenada = "MAPA",
+                coordenadaFechaUtc = VinetaEntity.ahoraUtc()
             )
 
             repository.insertVineta(entidad)

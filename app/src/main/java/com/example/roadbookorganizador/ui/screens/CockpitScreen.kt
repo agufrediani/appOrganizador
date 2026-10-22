@@ -1,5 +1,10 @@
 package com.example.roadbookorganizador.ui.screens
 
+import com.example.roadbookorganizador.ui.components.PanelTaqueo
+import com.example.roadbookorganizador.ui.components.TamanoPantalla
+import com.example.roadbookorganizador.ui.components.tamanoPantalla
+import androidx.compose.runtime.saveable.rememberSaveable
+
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -53,6 +58,8 @@ fun CockpitScreen(
     val tramo by viewModel.tramoActivo.collectAsState()
     val odoState by viewModel.odoState.collectAsState()
     val vinetas by viewModel.vinetas.collectAsState()
+    val pendientesSubir by viewModel.pendientesSubir.collectAsState()
+    val sincronizando by viewModel.sincronizando.collectAsState()
     val dialogoMarcado by viewModel.dialogoMarcado.collectAsState()
     val dialogoPuntoManual by viewModel.dialogoPuntoManual.collectAsState()
 
@@ -64,6 +71,9 @@ fun CockpitScreen(
 
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // Cómo se acomoda la pantalla (cambia sola al girar el equipo)
+    val tamano = tamanoPantalla()
+    var pestanaCelular by rememberSaveable { mutableStateOf(1) } // 0 = mapa, 1 = hoja
     val isDark = ThemeManager.isDarkTheme
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -75,6 +85,14 @@ fun CockpitScreen(
     val cardBorder = if (isDark) RallySurface else Color(0xFFE2E8F0)
     val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
     val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+
+    // Avisos (como los alert de la plataforma) y viñeta nueva creada desde el mapa
+    LaunchedEffect(viewModel) {
+        viewModel.avisos.collect { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.vinetaNueva.collect { vinetaSeleccionadaId = it }
+    }
 
     // Si no hay viñeta seleccionada, predeterminar la última
     LaunchedEffect(vinetas) {
@@ -113,7 +131,7 @@ fun CockpitScreen(
                             }
                         }
 
-                        if (isLandscape) {
+                        if (tamano == TamanoPantalla.GRANDE) {
                             Spacer(modifier = Modifier.width(4.dp))
                             CockpitTelemetryStrip(
                                 odoState = odoState,
@@ -131,6 +149,41 @@ fun CockpitScreen(
                     }
                 },
                 actions = {
+                    if (tamano == TamanoPantalla.CHICO) {
+                        // Celular: "Añadir" a la vista y lo demás en el menú de los tres puntitos
+                        IconButton(
+                            onClick = { viewModel.presionarMarcarVineta() },
+                            modifier = Modifier.size(38.dp).background(FredianiGreen, RoundedCornerShape(8.dp))
+                        ) { Icon(Icons.Default.AddLocation, contentDescription = "Añadir Indicación", tint = Color.White, modifier = Modifier.size(18.dp)) }
+                        Spacer(Modifier.width(4.dp))
+                        com.example.roadbookorganizador.ui.components.BotonTema()
+                        var menuAbierto by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { menuAbierto = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Más") }
+                            DropdownMenu(expanded = menuAbierto, onDismissRequest = { menuAbierto = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(if (odoState.modoReverso) "Modo reverso: ACTIVO" else "Modo reverso") },
+                                    leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null) },
+                                    onClick = { menuAbierto = false; viewModel.toggleModoReverso() }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("WayPoints") },
+                                    leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) },
+                                    onClick = { menuAbierto = false; mostrarDialogoPcs = true }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Telemetría y odómetro") },
+                                    leadingIcon = { Icon(Icons.Default.Speed, contentDescription = null) },
+                                    onClick = { menuAbierto = false; mostrarDialogoTelemetria = true }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Exportar") },
+                                    leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
+                                    onClick = { menuAbierto = false; onNavigateToExportar(tramoId) }
+                                )
+                            }
+                        }
+                    } else {
                     // BOTÓN VERDE + AÑADIR INDICACIÓN (COMPACTO)
                     Button(
                         onClick = { viewModel.presionarMarcarVineta() },
@@ -246,36 +299,9 @@ fun CockpitScreen(
 
                     Spacer(modifier = Modifier.width(3.dp))
 
-                    // SIMULAR GPS
-                    IconButton(
-                        onClick = { viewModel.toggleSimulacion() },
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(
-                                if (odoState.modoSimulacion) FredianiGreen.copy(alpha = 0.2f) else Color.Transparent,
-                                CircleShape
-                            )
-                    ) {
-                        Icon(
-                            imageVector = if (odoState.modoSimulacion) Icons.Default.Sensors else Icons.Default.SensorsOff,
-                            contentDescription = "Simular GPS",
-                            tint = if (odoState.modoSimulacion) FredianiGreen else textSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    // TEMA CLARO / OSCURO
-                    IconButton(
-                        onClick = { ThemeManager.isDarkTheme = !ThemeManager.isDarkTheme },
-                        modifier = Modifier.size(34.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
-                            contentDescription = "Cambiar tema",
-                            tint = if (isDark) RallyAccentYellow else FredianiAmberText,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                    // TEMA CLARO / OSCURO (el mismo botón en toda la app)
+                    com.example.roadbookorganizador.ui.components.BotonTema()
+                    Spacer(modifier = Modifier.width(3.dp))
 
                     // EXPORTAR
                     IconButton(
@@ -288,6 +314,7 @@ fun CockpitScreen(
                             tint = if (isDark) RallyCyan else FredianiCyanText,
                             modifier = Modifier.size(18.dp)
                         )
+                    }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -306,11 +333,10 @@ fun CockpitScreen(
             val density = LocalDensity.current
             val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
 
-            if (isLandscape) {
+            when (tamano) {
+                TamanoPantalla.GRANDE -> {
                 // =========================================================================
-                // SPLIT SCREEN HORIZONTAL (RALLY NAVIGATOR PRO):
-                // IZQUIERDA: MAPA SATELITAL FINO (DEFAULT 28%), REDIMENSIONABLE Y MINIMIZABLE
-                // DERECHA: GRILLA ROADBOOK OFICIAL CON PALETA DE SÍMBOLOS LATERAL
+                // GRANDE (tablet en horizontal): MAPA | HOJA + PALETA, como la plataforma
                 // =========================================================================
                 Row(
                     modifier = Modifier.fillMaxSize(),
@@ -336,10 +362,32 @@ fun CockpitScreen(
                                     snapToRoadInitial = snapToRoad,
                                     vinetaSeleccionadaId = vinetaSeleccionadaId,
                                     onMapClickWithRoadAndMode = { lat, lng, road, isOffRoad ->
-                                        viewModel.iniciarCreacionPuntoManual(lat, lng, road, isOffRoad)
+                                        viewModel.insertarDesdeMapa(lat, lng, isOffRoad, vinetaSeleccionadaId)
                                     },
                                     modifier = Modifier.fillMaxSize()
                                 )
+
+                                // Taqueo en el terreno: solo para tramos que están en la plataforma
+                                if (tramo?.webId != null) {
+                                    PanelTaqueo(
+                                        vinetas = vinetas,
+                                        seleccionadaId = vinetaSeleccionadaId,
+                                        odo = odoState,
+                                        pendientes = pendientesSubir,
+                                        sincronizando = sincronizando,
+                                        vinetaCercana = { excluir -> viewModel.vinetaCercana(excluir) },
+                                        onTaquear = { v -> viewModel.taquearAca(v) },
+                                        onEstaBien = { v -> viewModel.estaBien(v) },
+                                        onNueva = { previa -> viewModel.nuevaVinetaTaqueo(previa) },
+                                        onVolverAnterior = { v -> viewModel.volverCoordenadaAnterior(v) },
+                                        onElegir = { v -> vinetaSeleccionadaId = v.id },
+                                        onSincronizar = { viewModel.sincronizarTramo() },
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .fillMaxWidth()
+                                            .padding(8.dp)
+                                    )
+                                }
 
                                 // Botón flotante para minimizar el mapa
                                 IconButton(
@@ -439,15 +487,16 @@ fun CockpitScreen(
                             onPropagarDiferencia = { desdeNum, deltaKm ->
                                 viewModel.propagarDiferenciaKilometrica(desdeNum, deltaKm)
                             },
+                            onInsertarIndicacion = { previaId -> viewModel.insertarVinetaVacia(previaId) },
+                            onDuplicarIndicacion = { v -> viewModel.duplicarVineta(v) },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
                 }
-            } else {
+                }
+                TamanoPantalla.MEDIANO -> {
                 // =========================================================================
-                // SPLIT SCREEN VERTICAL (PORTRAIT):
-                // ARRIBA: MAPA SATELITAL (MINIMIZABLE)
-                // ABAJO: GRILLA ROADBOOK
+                // MEDIANO (tablet en vertical / celular en horizontal): MAPA ARRIBA, HOJA ABAJO
                 // =========================================================================
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -484,10 +533,32 @@ fun CockpitScreen(
                                     snapToRoadInitial = snapToRoad,
                                     vinetaSeleccionadaId = vinetaSeleccionadaId,
                                     onMapClickWithRoadAndMode = { lat, lng, road, isOffRoad ->
-                                        viewModel.iniciarCreacionPuntoManual(lat, lng, road, isOffRoad)
+                                        viewModel.insertarDesdeMapa(lat, lng, isOffRoad, vinetaSeleccionadaId)
                                     },
                                     modifier = Modifier.fillMaxSize()
                                 )
+
+                                // Taqueo en el terreno: solo para tramos que están en la plataforma
+                                if (tramo?.webId != null) {
+                                    PanelTaqueo(
+                                        vinetas = vinetas,
+                                        seleccionadaId = vinetaSeleccionadaId,
+                                        odo = odoState,
+                                        pendientes = pendientesSubir,
+                                        sincronizando = sincronizando,
+                                        vinetaCercana = { excluir -> viewModel.vinetaCercana(excluir) },
+                                        onTaquear = { v -> viewModel.taquearAca(v) },
+                                        onEstaBien = { v -> viewModel.estaBien(v) },
+                                        onNueva = { previa -> viewModel.nuevaVinetaTaqueo(previa) },
+                                        onVolverAnterior = { v -> viewModel.volverCoordenadaAnterior(v) },
+                                        onElegir = { v -> vinetaSeleccionadaId = v.id },
+                                        onSincronizar = { viewModel.sincronizarTramo() },
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .fillMaxWidth()
+                                            .padding(8.dp)
+                                    )
+                                }
 
                                 IconButton(
                                     onClick = { mapExpanded = false },
@@ -570,9 +641,109 @@ fun CockpitScreen(
                             onPropagarDiferencia = { desdeNum, deltaKm ->
                                 viewModel.propagarDiferenciaKilometrica(desdeNum, deltaKm)
                             },
+                            onInsertarIndicacion = { previaId -> viewModel.insertarVinetaVacia(previaId) },
+                            onDuplicarIndicacion = { v -> viewModel.duplicarVineta(v) },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
+                }
+                }
+                TamanoPantalla.CHICO -> {
+                // =========================================================================
+                // CHICO (celular en vertical): una cosa por vez, con pestañas abajo
+                // =========================================================================
+                Column(modifier = Modifier.fillMaxSize()) {
+                    CockpitTelemetryStrip(
+                        odoState = odoState,
+                        isDark = isDark,
+                        cardBorder = cardBorder,
+                        textPrimary = textPrimary,
+                        textSecondary = textSecondary,
+                        modifier = Modifier.fillMaxWidth(),
+                        compacta = true
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        if (pestanaCelular == 0) {
+                            Card(
+                                modifier = Modifier.fillMaxSize(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = cardBg),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, cardBorder)
+                            ) {
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    RallyMapView(
+                                        latitud = odoState.latitud,
+                                        longitud = odoState.longitud,
+                                        rumbo = odoState.rumbo,
+                                        indicaciones = vinetas,
+                                        mapboxToken = mapboxToken,
+                                        snapToRoadInitial = snapToRoad,
+                                        vinetaSeleccionadaId = vinetaSeleccionadaId,
+                                        onMapClickWithRoadAndMode = { lat, lng, road, isOffRoad ->
+                                            viewModel.insertarDesdeMapa(lat, lng, isOffRoad, vinetaSeleccionadaId)
+                                        },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                    if (tramo?.webId != null) {
+                                        PanelTaqueo(
+                                            vinetas = vinetas,
+                                            seleccionadaId = vinetaSeleccionadaId,
+                                            odo = odoState,
+                                            pendientes = pendientesSubir,
+                                            sincronizando = sincronizando,
+                                            vinetaCercana = { excluir -> viewModel.vinetaCercana(excluir) },
+                                            onTaquear = { v -> viewModel.taquearAca(v) },
+                                            onEstaBien = { v -> viewModel.estaBien(v) },
+                                            onNueva = { previa -> viewModel.nuevaVinetaTaqueo(previa) },
+                                            onVolverAnterior = { v -> viewModel.volverCoordenadaAnterior(v) },
+                                            onElegir = { v -> vinetaSeleccionadaId = v.id },
+                                            onSincronizar = { viewModel.sincronizarTramo() },
+                                            modifier = Modifier
+                                                .align(Alignment.BottomCenter)
+                                                .fillMaxWidth()
+                                                .padding(6.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            RoadbookMasterView(
+                                tramo = tramo,
+                                vinetas = vinetas,
+                                vinetaSeleccionadaId = vinetaSeleccionadaId,
+                                onSeleccionarVineta = { v -> vinetaSeleccionadaId = v.id },
+                                onGuardarVineta = { v -> viewModel.actualizarVineta(v) },
+                                onEliminarVineta = { v -> viewModel.eliminarVineta(v) },
+                                onEliminarVinetas = { ids -> viewModel.eliminarVinetasPorIds(ids) },
+                                onGuardarTramo = { t -> viewModel.actualizarTramo(t) },
+                                onPropagarDiferencia = { desdeNum, deltaKm -> viewModel.propagarDiferenciaKilometrica(desdeNum, deltaKm) },
+                                onInsertarIndicacion = { previaId -> viewModel.insertarVinetaVacia(previaId) },
+                                onDuplicarIndicacion = { v -> viewModel.duplicarVineta(v) },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                    // Pestañas de abajo: Mapa (con el taqueo) y Hoja (la paleta se abre desde la hoja)
+                    NavigationBar(
+                        containerColor = if (isDark) RallyCardBg else Color.White,
+                        tonalElevation = 0.dp,
+                        modifier = Modifier.height(64.dp)
+                    ) {
+                        NavigationBarItem(
+                            selected = pestanaCelular == 0,
+                            onClick = { pestanaCelular = 0 },
+                            icon = { Icon(Icons.Default.Map, contentDescription = null) },
+                            label = { Text("MAPA", fontWeight = FontWeight.Black, fontSize = 11.sp) }
+                        )
+                        NavigationBarItem(
+                            selected = pestanaCelular == 1,
+                            onClick = { pestanaCelular = 1 },
+                            icon = { Icon(Icons.Default.MenuBook, contentDescription = null) },
+                            label = { Text("HOJA", fontWeight = FontWeight.Black, fontSize = 11.sp) }
+                        )
+                    }
+                }
                 }
             }
         }
@@ -757,7 +928,9 @@ private fun CockpitTelemetryStrip(
     cardBorder: Color,
     textPrimary: Color,
     textSecondary: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Celular: sin las coordenadas, para que entre en una línea. */
+    compacta: Boolean = false
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
@@ -834,6 +1007,7 @@ private fun CockpitTelemetryStrip(
 
             Text(text = "•", color = textSecondary, fontSize = 10.sp)
 
+            if (!compacta) {
             // COORDENADAS
             Text(
                 text = "${String.format("%.4f", odoState.latitud)}, ${String.format("%.4f", odoState.longitud)}",
@@ -846,6 +1020,7 @@ private fun CockpitTelemetryStrip(
             )
 
             Text(text = "•", color = textSecondary, fontSize = 10.sp)
+            }
 
             // BADGE GNSS / RACEBOX
             Row(

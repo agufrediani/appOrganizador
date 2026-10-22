@@ -4,6 +4,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -54,12 +59,17 @@ import com.example.roadbookorganizador.data.model.PointData
 import com.example.roadbookorganizador.data.model.StampData
 import com.example.roadbookorganizador.data.model.StrokeData
 import com.example.roadbookorganizador.ui.theme.*
-import com.example.roadbookorganizador.ui.vineta.ANCHO_FLECHA
+import com.example.roadbookorganizador.ui.vineta.ANCHOS_LAPIZ
+import com.example.roadbookorganizador.ui.vineta.COLORES_PLATAFORMA
+import com.example.roadbookorganizador.vineta.CuadroTexto
+import com.example.roadbookorganizador.vineta.Colocar
+import com.example.roadbookorganizador.data.local.PreferenciasVista
+import com.example.roadbookorganizador.data.local.Preferencias
+import com.example.roadbookorganizador.data.local.preferenciasVista
 import com.example.roadbookorganizador.ui.vineta.ArrastreSimbolo
 import com.example.roadbookorganizador.ui.vineta.BibliotecaVineta
 import com.example.roadbookorganizador.ui.vineta.CapaEditada
 import com.example.roadbookorganizador.ui.vineta.DibujanteVineta
-import com.example.roadbookorganizador.ui.vineta.ESCALA_NUEVA
 import com.example.roadbookorganizador.ui.vineta.EditorCapa
 import com.example.roadbookorganizador.ui.vineta.ItemPaleta
 import com.example.roadbookorganizador.ui.vineta.SeleccionEditor
@@ -88,8 +98,15 @@ enum class NavigatorTab(val titulo: String) {
 enum class ActiveDrawTool {
     SELECT,
     PEN,
-    RULER
+    RULER,
+    TEXT,
+    GOMA
 }
+
+/** Escala de un símbolo puesto en la capa de notas (punto 8: 40 / 72). */
+
+/** Cuadro de texto que se está escribiendo: recuadro, índice (null = nuevo) y lugar. */
+private data class TextoPendiente(val capa: CapaEditada, val indice: Int?, val x: Double, val y: Double, val texto: String)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -103,6 +120,9 @@ fun RoadbookMasterView(
     onEliminarVinetas: ((Set<Long>) -> Unit)? = null,
     onGuardarTramo: ((TramoEntity) -> Unit)? = null,
     onPropagarDiferencia: ((desdeNumero: Int, deltaKm: Double) -> Unit)? = null,
+    /** "+ Indicación": viñeta vacía después de la elegida (id) o al final (null). */
+    onInsertarIndicacion: ((previaId: Long?) -> Unit)? = null,
+    onDuplicarIndicacion: ((VinetaEntity) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isDark = ThemeManager.isDarkTheme
@@ -117,12 +137,19 @@ fun RoadbookMasterView(
     var activeTab by remember { mutableStateOf(NavigatorTab.ROAD_RALLY) }
     var selectedStrokeColor by remember { mutableStateOf("#000000") }
     var selectedStrokeWidth by remember { mutableStateOf(7f) }
+    var anchoLapiz by remember { mutableStateOf(ANCHOS_LAPIZ[1]) }
+    var textoPendiente by remember { mutableStateOf<TextoPendiente?>(null) }
+    /** Tamaño de las viñetas (0,5 a 1), como el control de zoom de la plataforma. */
+    var zoomVinetas by remember { mutableFloatStateOf(1f) }
+    val focoTeclado = remember { androidx.compose.ui.focus.FocusRequester() }
 
     // Dibujo de la viñeta en edición (formato versión 1 de la especificación)
     val context = LocalContext.current
     val bib = remember { BibliotecaVineta.obtener(context) }
     val dibujante = remember(bib) { DibujanteVineta(bib) }
     val arrastre = remember { ArrastreSimbolo() }
+    val prefs = preferenciasVista()
+    var mostrarPreferencias by remember { mutableStateOf(false) }
     var borrador by remember { mutableStateOf(DibujoV1()) }
     var cargadoId by remember { mutableStateOf<Long?>(null) }
     var capaActiva by remember { mutableStateOf(CapaEditada.DIBUJO) }
@@ -148,7 +175,10 @@ fun RoadbookMasterView(
     var datosPropagacionPendiente by remember { mutableStateOf<Triple<VinetaEntity, Double, Int>?>(null) }
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    var sidebarExpanded by remember(isLandscape) { mutableStateOf(isLandscape) }
+    // Cómo se acomoda (cambia sola al girar): GRANDE = paleta al costado; MEDIANO = paleta como
+    // panel desde la derecha; CHICO (celular) = paleta desde abajo y el dibujo se edita en grande.
+    val tamano = tamanoPantalla()
+    var sidebarExpanded by remember(tamano) { mutableStateOf(tamano == TamanoPantalla.GRANDE) }
     var sidebarWidthDp by remember { mutableFloatStateOf(290f) }
     val density = LocalDensity.current
 
@@ -189,6 +219,7 @@ fun RoadbookMasterView(
 
     /** Abre la viñeta para editar (cargando su dibujo en el momento) y elige el recuadro. */
     fun abrirEdicion(v: VinetaEntity, capa: CapaEditada) {
+        try { focoTeclado.requestFocus() } catch (_: Exception) {}
         if (vinetaEnEdicionId != v.id || cargadoId != v.id) {
             borrador = v.dibujoV1(bib)
             cargadoId = v.id
@@ -215,6 +246,40 @@ fun RoadbookMasterView(
     fun conCapa(d: DibujoV1, c: CapaEditada, capa: Capa): DibujoV1 =
         if (c == CapaEditada.DIBUJO) d.copy(dibujo = capa) else d.copy(notasCapa = capa)
 
+    /** Deshacer en el dibujo seleccionado: saca lo último que se agregó. */
+    val deshacer: () -> Unit = {
+        val c = capaDe(borrador, capaActiva)
+        val cc = when {
+            c.strokes.isNotEmpty() -> c.copy(strokes = c.strokes.dropLast(1))
+            c.texts.isNotEmpty() -> c.copy(texts = c.texts.dropLast(1))
+            c.arrows.isNotEmpty() -> c.copy(arrows = c.arrows.dropLast(1))
+            c.stamps.isNotEmpty() -> c.copy(stamps = c.stamps.dropLast(1))
+            else -> null
+        }
+        if (cc != null) {
+            seleccion = SeleccionEditor()
+            persistir(conCapa(borrador, capaActiva, cc))
+        }
+    }
+
+    /** Borrar la flecha, el símbolo o el texto seleccionado (tecla Supr). Sin selección, nada. */
+    val borrarSeleccion: () -> Unit = {
+        val c = capaDe(borrador, capaActiva)
+        val si = seleccion.sello
+        val fi = seleccion.flecha
+        val ti = seleccion.texto
+        val cc = when {
+            si != null && si in c.stamps.indices -> c.copy(stamps = c.stamps.filterIndexed { j, _ -> j != si })
+            fi != null && fi in c.arrows.indices -> c.copy(arrows = c.arrows.filterIndexed { j, _ -> j != fi })
+            ti != null && ti in c.texts.indices -> c.copy(texts = c.texts.filterIndexed { j, _ -> j != ti })
+            else -> null
+        }
+        if (cc != null) {
+            seleccion = SeleccionEditor()
+            persistir(conCapa(borrador, capaActiva, cc))
+        }
+    }
+
     val distanciaTotalEstimada = tramo?.distanciaTotalEstimada ?: 10.0
     val tableListState = androidx.compose.foundation.lazy.rememberLazyListState()
 
@@ -235,13 +300,23 @@ fun RoadbookMasterView(
         val c = capaDe(borrador, capa)
         val nueva = when (item) {
             is ItemPaleta.SimboloItem -> {
-                val cc = c.copy(stamps = c.stamps + Sello(item.codigo, x, y, ESCALA_NUEVA, 0.0))
+                // Punto 8: scale 0,58 en los dos recuadros; el color, solo si se puede pintar
+                val pintable = bib.simbolo(item.codigo)?.colorable == true
+                val nuevo = Sello(
+                    item.codigo, Colocar.posicion(x), Colocar.posicion(y), Colocar.ESCALA_SIMBOLO, 0.0,
+                    color = if (pintable) selectedStrokeColor else null
+                )
+                val cc = c.copy(stamps = c.stamps + nuevo)
                 seleccion = SeleccionEditor(sello = cc.stamps.lastIndex)
                 cc
             }
             is ItemPaleta.ArmadaItem -> {
-                // La flecha armada se usa tal cual; en la capa de notas va sin palito del GPS
-                val f = if (capa == CapaEditada.NOTAS) item.flecha.copy(gps = null) else item.flecha
+                // Las flechas armadas se ponen como un cuadrado de 29 mm, centradas donde se
+                // soltaron, con el color elegido. El gps va solo si es la primera flecha del
+                // dibujo; en la capa de notas, nunca.
+                val conGps = capa == CapaEditada.DIBUJO && c.arrows.isEmpty()
+                val base = item.flecha.copy(gps = if (conGps) item.flecha.gps else null, color = selectedStrokeColor)
+                val f = Colocar.armadaEnCaja(base, x, y)
                 val cc = c.copy(arrows = c.arrows + f)
                 seleccion = SeleccionEditor(flecha = cc.arrows.lastIndex)
                 cc
@@ -254,7 +329,8 @@ fun RoadbookMasterView(
     /** Tocar un símbolo de la barra: va al centro del recuadro que se está editando. */
     val insertarTocando: (ItemPaleta) -> Unit = { item ->
         val destino = vinetas.find { it.id == vinetaEnEdicionId } ?: vinetas.firstOrNull()
-        if (destino != null) insertarEn(destino, capaActiva, item, 0.5, 0.5)
+        // Como la plataforma: en el dibujo un poco arriba del centro (0,5; 0,45), en las notas al centro
+        if (destino != null) insertarEn(destino, capaActiva, item, 0.5, if (capaActiva == CapaEditada.DIBUJO) 0.45 else 0.5)
     }
 
     val appendNoteAction: (String) -> Unit = { noteShortcut ->
@@ -272,266 +348,150 @@ fun RoadbookMasterView(
                 .fillMaxSize()
                 .padding(8.dp)
         ) {
-            // 1. CABECERA TRAMO + CAPAS + BOTÓN BORRAR SELECCIONADAS
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(if (isDark) RallySurface else Color(0xFFF8FAFC), RoundedCornerShape(10.dp))
-                    .border(1.dp, cardBorder, RoundedCornerShape(10.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (tramo?.tipo == "PE") RallyRed else RallyAccentAmber
-                    ) {
-                        Text(
-                            text = tramo?.tipo ?: "PE",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 11.sp,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (isLandscape) "ROADBOOK OFICIAL • ${vinetas.size} INDICACIONES" else "ROADBOOK • ${vinetas.size} IND.",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 12.sp,
-                        color = textPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // Chip de Regularidad y Velocidad Máxima del Tramo
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) RallyCyan.copy(alpha = 0.5f) else Color(0xFF94A3B8)),
-                        modifier = Modifier.clickable { mostrarDialogoVelocidadesTramo = true }
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            val velPromObj = tramo?.velocidadPromedioObjetivoKmh ?: 0.0
-                            val velMaxObj = tramo?.velocidadMaximaPermitidaKmh ?: 110.0
-                            Text(
-                                text = if (isLandscape) {
-                                    "⚡ PROM: ${if (velPromObj > 0) "${velPromObj.toInt()} km/h" else "SIN DEF."} | 🔴 TOPE: ${velMaxObj.toInt()} km/h ⚙️"
-                                } else {
-                                    "⚡ ${if (velPromObj > 0) "${velPromObj.toInt()}k" else "-"} | 🔴 ${velMaxObj.toInt()}k ⚙️"
-                                },
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isDark) RallyCyan else FredianiCyanText,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // BOTÓN DE BORRADO MASIVO
-                    if (vinetasSeleccionadasParaBorrar.isNotEmpty()) {
-                        Button(
-                            onClick = { mostrarDialogoConfirmarBorrado = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = RallyRed),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp),
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "BORRAR (${vinetasSeleccionadasParaBorrar.size})",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 11.sp,
-                                color = Color.White
-                            )
-                        }
-                    }
-
-                    if (vinetaEnEdicionId != null) {
-                        val editandoNum = vinetas.find { it.id == vinetaEnEdicionId }?.numero ?: 1
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = FredianiCyan.copy(alpha = 0.2f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, FredianiCyan)
-                        ) {
-                            Text(
-                                text = if (isLandscape) "✏️ EDITANDO INDICACIÓN #$editandoNum" else "✏️ #$editandoNum",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                color = if (isDark) RallyCyan else FredianiCyanText,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                                maxLines = 1
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(6.dp))
-                    IconButton(
-                        onClick = { sidebarExpanded = !sidebarExpanded },
-                        modifier = Modifier
-                            .size(28.dp)
-                            .background(
-                                if (sidebarExpanded) (if (isDark) RallyCyan.copy(alpha = 0.15f) else FredianiCyan.copy(alpha = 0.15f)) else Color.Transparent,
-                                RoundedCornerShape(6.dp)
-                            )
-                    ) {
-                        Icon(
-                            imageVector = if (sidebarExpanded) Icons.Default.ViewSidebar else Icons.Default.VerticalSplit,
-                            contentDescription = if (sidebarExpanded) "Minimizar Símbolos" else "Mostrar Símbolos",
-                            tint = if (sidebarExpanded) (if (isDark) RallyCyan else FredianiCyanText) else textSecondary,
-                            modifier = Modifier.size(17.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-            // Perfil de elevación omitido temporalmente a pedido del usuario para maximizar espacio vertical
-
-            // 3. BARRA UNIVERSAL SUPERIOR DE DIBUJO Y EDICIÓN
-            RoadbookDrawingToolbar(
-                vinetaEnEdicion = vinetas.find { it.id == vinetaEnEdicionId },
+            // BARRAS DE EDICIÓN COPIADAS DE LA PLATAFORMA (RoadbookWorkstation):
+            // 1) dock: + Indicación, Duplicar, Eliminar … Guardado
+            // 2) dibujo: Mover, Flecha, Lápiz, Goma, Texto, Deshacer, Borrar, Prohibido · A↓ Auto A↑ ·
+            //    colores · grosor · tamaño de las viñetas
+            val enEdicion = vinetas.find { it.id == vinetaEnEdicionId }
+            BarrasEdicionPlataforma(
+                hayVineta = enEdicion != null,
                 activeTool = activeTool,
-                selectedStrokeColor = selectedStrokeColor,
-                strokeWidth = selectedStrokeWidth,
-                asistenteTrazo = asistenteTrazoActivo,
-                capaActiva = capaActiva,
-                onCapaChange = { c -> vinetas.find { it.id == vinetaEnEdicionId }?.let { abrirEdicion(it, c) } },
+                onToolChange = { activeTool = it },
+                colorActual = run {
+                    // Con algo pintable elegido, se marca su color (como la web)
+                    val c = capaDe(borrador, capaActiva)
+                    seleccion.flecha?.let { c.arrows.getOrNull(it)?.color }
+                        ?: seleccion.texto?.let { c.texts.getOrNull(it)?.color }
+                        ?: seleccion.sello?.let { c.stamps.getOrNull(it)?.color }
+                        ?: selectedStrokeColor
+                },
                 letraNotasAuto = borrador.notasLetra == null,
-                letraNotasValor = vinetas.find { it.id == vinetaEnEdicionId }?.let {
+                letraNotasValor = enEdicion?.let {
                     dibujante.letraNotas(LetraNotas.textoCompleto(it.informacion), borrador.notasLetra, franjas[it.id] != null)
                 },
                 onLetraNotas = { nueva -> persistir(borrador.copy(notasLetra = nueva)) },
-                onToggleAsistente = { asistenteTrazoActivo = !asistenteTrazoActivo },
-                onAddArrow = {
-                    val c = capaDe(borrador, capaActiva)
-                    val nueva = Flecha(
-                        x0 = 0.5, y0 = 0.85, x1 = 0.5, y1 = 0.60,
-                        x2 = 0.65, y2 = 0.40, x3 = 0.80, y3 = 0.25,
-                        width = ANCHO_FLECHA, color = selectedStrokeColor
-                    )
-                    val cc = c.copy(arrows = c.arrows + nueva)
-                    seleccion = SeleccionEditor(flecha = cc.arrows.lastIndex)
-                    activeTool = ActiveDrawTool.SELECT
-                    persistir(conCapa(borrador, capaActiva, cc))
-                },
-                onToolChange = { activeTool = it },
-                onColorChange = { selectedStrokeColor = it },
-                onStrokeWidthChange = { selectedStrokeWidth = it },
-                onUndo = {
-                    val c = capaDe(borrador, capaActiva)
-                    val cc = when {
-                        c.strokes.isNotEmpty() -> c.copy(strokes = c.strokes.dropLast(1))
-                        c.arrows.isNotEmpty() -> c.copy(arrows = c.arrows.dropLast(1))
-                        c.stamps.isNotEmpty() -> c.copy(stamps = c.stamps.dropLast(1))
-                        else -> null
-                    }
-                    if (cc != null) {
-                        seleccion = SeleccionEditor()
-                        persistir(conCapa(borrador, capaActiva, cc))
-                    }
-                },
-                onClear = {
+                onColorChange = { hex ->
+                    selectedStrokeColor = hex
+                    // Si hay algo elegido que se puede pintar, se pinta con ese color
                     val c = capaDe(borrador, capaActiva)
                     val si = seleccion.sello
                     val fi = seleccion.flecha
+                    val ti = seleccion.texto
                     val cc = when {
-                        si != null && si in c.stamps.indices -> c.copy(stamps = c.stamps.filterIndexed { j, _ -> j != si })
-                        fi != null && fi in c.arrows.indices -> c.copy(arrows = c.arrows.filterIndexed { j, _ -> j != fi })
-                        else -> Capa()
+                        fi != null && fi in c.arrows.indices ->
+                            c.copy(arrows = c.arrows.toMutableList().also { it[fi] = it[fi].copy(color = hex) })
+                        ti != null && ti in c.texts.indices ->
+                            c.copy(texts = c.texts.toMutableList().also { it[ti] = it[ti].copy(color = hex) })
+                        si != null && si in c.stamps.indices && bib.simbolo(c.stamps[si].type)?.colorable == true ->
+                            c.copy(stamps = c.stamps.toMutableList().also { it[si] = it[si].copy(color = hex) })
+                        else -> null
                     }
-                    seleccion = SeleccionEditor()
-                    persistir(conCapa(borrador, capaActiva, cc))
+                    if (cc != null) persistir(conCapa(borrador, capaActiva, cc))
                 },
+                anchoLapiz = anchoLapiz,
+                onAnchoLapiz = { g ->
+                    anchoLapiz = g
+                    // La flecha elegida toma un ancho acorde (fino, medio, grueso), como en la web
+                    val c = capaDe(borrador, capaActiva)
+                    val fi = seleccion.flecha
+                    if (fi != null && fi in c.arrows.indices) {
+                        val cc = c.copy(arrows = c.arrows.toMutableList().also { it[fi] = it[fi].copy(width = Colocar.anchoFlechaParaGrosor(g)) })
+                        persistir(conCapa(borrador, capaActiva, cc))
+                    }
+                },
+                hayFlechaElegida = seleccion.flecha != null,
+                onAgregarProhibido = {
+                    val c = capaDe(borrador, capaActiva)
+                    val fi = seleccion.flecha
+                    if (fi != null && fi in c.arrows.indices) {
+                        val f = c.arrows[fi]
+                        val cc = c.copy(arrows = c.arrows.toMutableList().also {
+                            it[fi] = f.copy(prohibidos = f.prohibidos.orEmpty() + Colocar.nuevoProhibido(f))
+                        })
+                        seleccion = SeleccionEditor(flecha = fi)
+                        activeTool = ActiveDrawTool.SELECT
+                        persistir(conCapa(borrador, capaActiva, cc))
+                    }
+                },
+                onUndo = deshacer,
+                onBorrar = borrarSeleccion,
+                zoom = zoomVinetas,
+                onZoom = { zoomVinetas = it.coerceIn(0.5f, 1f) },
+                onNuevaIndicacion = { onInsertarIndicacion?.invoke(vinetaEnEdicionId ?: vinetaSeleccionadaId) },
+                onDuplicar = { enEdicion?.let { onDuplicarIndicacion?.invoke(it) } },
+                onEliminar = {
+                    if (vinetasSeleccionadasParaBorrar.isEmpty()) enEdicion?.let { vinetasSeleccionadasParaBorrar = setOf(it.id) }
+                    if (vinetasSeleccionadasParaBorrar.isNotEmpty()) mostrarDialogoConfirmarBorrado = true
+                },
+                cantidadParaBorrar = vinetasSeleccionadasParaBorrar.size,
                 onGuardar = {
                     val cur = vinetas.find { it.id == vinetaEnEdicionId }
-                    if (cur != null && cargadoId == cur.id) {
-                        onGuardarVineta(cur.conDibujo(borrador))
-                    }
-                    vinetaEnEdicionId = null
+                    if (cur != null && cargadoId == cur.id) onGuardarVineta(cur.conDibujo(borrador))
                 },
-                onCerrar = {
-                    vinetaEnEdicionId = null
-                }
+                paletaVisible = sidebarExpanded,
+                onPaleta = { sidebarExpanded = !sidebarExpanded },
+                compacto = tamano == TamanoPantalla.CHICO,
+                onDatosTramo = { mostrarDialogoVelocidadesTramo = true },
+                onPreferencias = { mostrarPreferencias = true }
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // 4. SUB-CABECERA DE COLUMNAS CON CASILLA SELECCIONAR TODAS
-            Surface(
-                color = if (isDark) Color.Black else Color(0xFF0F172A),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp, horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            // CELULAR: la viñeta que se edita se dibuja en grande (en la hoja queda muy chica)
+            val editorGrande = tamano == TamanoPantalla.CHICO && enEdicion != null && cargadoId == enEdicion.id
+            if (editorGrande && enEdicion != null) {
+                EditorGrandeCelular(
+                    vineta = enEdicion,
+                    capaActiva = capaActiva,
+                    onCapa = { c -> abrirEdicion(enEdicion, c) },
+                    onCerrar = { vinetaEnEdicionId = null },
+                    isDark = isDark
                 ) {
-                    // Cabecera N° con checkbox para seleccionar todas
-                    Box(
-                        modifier = Modifier.width(44.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = "N°",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 11.sp,
-                                maxLines = 1,
-                                softWrap = false,
-                                color = if (capaNumeroVisible) Color.White else Color.Gray,
-                                modifier = Modifier.clickable { capaNumeroVisible = !capaNumeroVisible }
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Checkbox(
-                                checked = vinetas.isNotEmpty() && vinetas.all { it.id in vinetasSeleccionadasParaBorrar },
-                                onCheckedChange = { checked ->
-                                    vinetasSeleccionadasParaBorrar = if (checked) {
-                                        vinetas.map { it.id }.toSet()
-                                    } else {
-                                        emptySet()
-                                    }
-                                },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = RallyRed,
-                                    uncheckedColor = Color.White.copy(alpha = 0.8f),
-                                    checkmarkColor = Color.White
-                                ),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                    HeaderColumnaToggle("TOTAL", capaTotalVisible, { capaTotalVisible = !capaTotalVisible }, Modifier.width(58.dp))
-                    HeaderColumnaToggle("PARCIAL", capaParcialVisible, { capaParcialVisible = !capaParcialVisible }, Modifier.width(54.dp))
-                    HeaderColumnaToggle("DIBUJO", capaIndicacionVisible, { capaIndicacionVisible = !capaIndicacionVisible }, Modifier.width(TAM_DIBUJO + 6.dp))
-                    HeaderColumnaToggle("NOTAS", capaAnotacionesVisible, { capaAnotacionesVisible = !capaAnotacionesVisible }, Modifier.weight(1f))
-                    HeaderColumnaToggle("REG.", capaRegresivaVisible, { capaRegresivaVisible = !capaRegresivaVisible }, Modifier.width(52.dp))
+                    RecuadroCapa(
+                        clave = "grande-${enEdicion.id}-${capaActiva.name}",
+                        capa = capaDe(borrador, capaActiva),
+                        esNotas = capaActiva == CapaEditada.NOTAS,
+                        franja = if (capaActiva == CapaEditada.NOTAS) franjas[enEdicion.id] else null,
+                        dibujante = dibujante,
+                        editando = true,
+                        seleccion = seleccion,
+                        activeTool = activeTool,
+                        colorHex = selectedStrokeColor,
+                        asistente = asistenteTrazoActivo,
+                        arrastre = arrastre,
+                        onCambio = { persistir(conCapa(borrador, capaActiva, it)) },
+                        onSeleccion = { seleccion = it },
+                        onHerramienta = { activeTool = it },
+                        onActivar = {},
+                        onDobleToque = { if (capaActiva == CapaEditada.NOTAS) vinetaParaEditarNotas = enEdicion },
+                        onSoltar = { item, x, y -> insertarEn(enEdicion, capaActiva, item, x, y) },
+                        anchoLapiz = anchoLapiz,
+                        onPedirTexto = { x, y -> textoPendiente = TextoPendiente(capaActiva, null, x, y, "") },
+                        onEditarTexto = { i ->
+                            capaDe(borrador, capaActiva).texts.getOrNull(i)?.let { t ->
+                                textoPendiente = TextoPendiente(capaActiva, i, t.x, t.y, t.text)
+                            }
+                        },
+                        textoNotas = if (capaActiva == CapaEditada.NOTAS) LetraNotas.textoCompleto(enEdicion.informacion.trim()) else "",
+                        notasLetra = if (capaActiva == CapaEditada.NOTAS) borrador.notasLetra else null,
+                        palito = capaActiva == CapaEditada.DIBUJO && prefs.mostrarPalitoGps,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // 5. LISTADO DE INDICACIONES CON EDICIÓN IN-PLACE DIRECTA
+            // 4 y 5. LA HOJA: encabezado y viñetas con las medidas de la plataforma (punto 1)
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.TopCenter) {
+            val mm = mmParaAncho(maxWidth * zoomVinetas)
+            Column(modifier = Modifier.fillMaxHeight().width(maxWidth * zoomVinetas)) {
+            EncabezadoVinetas(mm) {
+                Checkbox(
+                    checked = vinetas.isNotEmpty() && vinetas.all { it.id in vinetasSeleccionadasParaBorrar },
+                    onCheckedChange = { checked ->
+                        vinetasSeleccionadasParaBorrar = if (checked) vinetas.map { it.id }.toSet() else emptySet()
+                    },
+                    colors = CheckboxDefaults.colors(checkedColor = RallyRed, uncheckedColor = Color.Gray, checkmarkColor = Color.White),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             if (vinetas.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -543,7 +503,7 @@ fun RoadbookMasterView(
                         Icon(Icons.Default.MenuBook, contentDescription = null, tint = textSecondary, modifier = Modifier.size(42.dp))
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Sin indicaciones registradas. Pulse '+ AÑADIR INDICACIÓN' para registrar la primera.",
+                            text = "Sin indicaciones registradas. Tocá el mapa o «+ Indicación» para cargar la primera.",
                             fontSize = 12.sp,
                             color = textSecondary,
                             textAlign = TextAlign.Center
@@ -555,8 +515,7 @@ fun RoadbookMasterView(
                     state = tableListState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                        .weight(1f)
                 ) {
                     items(vinetas, key = { it.id }) { v ->
                         val distRegresiva = (distanciaTotalEstimada - v.distanciaTotal).coerceAtLeast(0.0)
@@ -568,6 +527,9 @@ fun RoadbookMasterView(
                             vineta = v,
                             distanciaRegresiva = distRegresiva,
                             isEditing = isEditingThis,
+                            editarEnFila = !editorGrande,
+                            mm = mm,
+                            prefs = prefs,
                             estaSeleccionadaParaBorrar = v.id in vinetasSeleccionadasParaBorrar,
                             onToggleSeleccionBorrar = {
                                 vinetasSeleccionadasParaBorrar = if (v.id in vinetasSeleccionadasParaBorrar) {
@@ -613,17 +575,42 @@ fun RoadbookMasterView(
                             },
                             onSoltar = { c, item, x, y ->
                                 insertarEn(v, c, item, x, y)
+                            },
+                            anchoLapiz = anchoLapiz,
+                            onPedirTexto = { c, x, y ->
+                                textoPendiente = TextoPendiente(c, null, x, y, "")
+                            },
+                            onEditarTexto = { c, i ->
+                                capaDe(borrador, c).texts.getOrNull(i)?.let { t ->
+                                    textoPendiente = TextoPendiente(c, i, t.x, t.y, t.text)
+                                }
                             }
                         )
                     }
                 }
             }
+            }
+            }
         }
     }
 
     val raizCoords = remember { arrayOfNulls<androidx.compose.ui.layout.LayoutCoordinates>(1) }
-    Box(modifier = modifier.fillMaxSize().onGloballyPositioned { raizCoords[0] = it }) {
-    if (isLandscape) {
+    Box(modifier = modifier
+        .fillMaxSize()
+        .onGloballyPositioned { raizCoords[0] = it }
+        .focusRequester(focoTeclado)
+        .onKeyEvent { e ->
+            // Mismos atajos que la plataforma (InteractiveCroquisCanvas): Supr / Retroceso borra
+            // lo seleccionado y Esc suelta la selección. Un campo de texto con el foco los usa antes.
+            if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown || vinetaEnEdicionId == null) return@onKeyEvent false
+            when (e.key) {
+                androidx.compose.ui.input.key.Key.Delete, androidx.compose.ui.input.key.Key.Backspace -> { borrarSeleccion(); true }
+                androidx.compose.ui.input.key.Key.Escape -> { seleccion = SeleccionEditor(); true }
+                else -> false
+            }
+        }
+        .focusable()) {
+    if (tamano == TamanoPantalla.GRANDE) {
         Row(modifier = Modifier.fillMaxSize()) {
             Card(
                 modifier = Modifier
@@ -701,14 +688,13 @@ fun RoadbookMasterView(
         }
     } else {
         // =========================================================================
-        // PORTRAIT: TABLA 100% ANCHO COMPLETO SIN DEFORMACIONES
-        // PALETA DE SÍMBOLOS DOCKADA ABAJO SI EL USUARIO LA ABRE
+        // MEDIANO y CHICO: la hoja ocupa todo; la paleta se abre encima (desde la derecha en la
+        // tablet parada, desde abajo en el celular). Mientras se arrastra un símbolo se vuelve
+        // transparente, para ver dónde se suelta.
         // =========================================================================
-        Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize()) {
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = cardBg),
                 border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
@@ -718,17 +704,25 @@ fun RoadbookMasterView(
             }
 
             if (sidebarExpanded) {
-                Spacer(modifier = Modifier.height(4.dp))
-                SidebarSymbolsPalette(
-                    onInsertar = insertarTocando,
-                    onAppendNoteText = appendNoteAction,
-                    onCollapse = { sidebarExpanded = false },
-                    vinetaNumeroActiva = vinetas.find { it.id == vinetaEnEdicionId }?.numero,
-                    arrastre = arrastre,
+                val enCelular = tamano == TamanoPantalla.CHICO
+                Surface(
+                    shape = if (enCelular) RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp) else RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp),
+                    shadowElevation = 12.dp,
+                    color = Color.Transparent,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(260.dp)
-                )
+                        .align(if (enCelular) Alignment.BottomCenter else Alignment.CenterEnd)
+                        .then(if (enCelular) Modifier.fillMaxWidth().fillMaxHeight(0.55f) else Modifier.width(320.dp).fillMaxHeight())
+                        .alpha(if (arrastre.item != null) 0.15f else 1f)
+                ) {
+                    SidebarSymbolsPalette(
+                        onInsertar = insertarTocando,
+                        onAppendNoteText = appendNoteAction,
+                        onCollapse = { sidebarExpanded = false },
+                        vinetaNumeroActiva = vinetas.find { it.id == vinetaEnEdicionId }?.numero,
+                        arrastre = arrastre,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
     }
@@ -754,6 +748,56 @@ fun RoadbookMasterView(
             MuestraItemPaleta(item, bib, dibujante, Modifier.fillMaxSize().padding(4.dp))
         }
     }
+    }
+
+    // Preferencias (como el engranaje de la plataforma)
+    if (mostrarPreferencias) {
+        DialogoPreferencias(onCerrar = { mostrarPreferencias = false })
+    }
+
+    // Cuadro de texto nuevo o editado (punto 8 bis)
+    textoPendiente?.let { tp ->
+        var texto by remember(tp) { mutableStateOf(tp.texto) }
+        AlertDialog(
+            onDismissRequest = { textoPendiente = null },
+            title = { Text(if (tp.indice == null) "Texto nuevo" else "Editar texto", fontWeight = FontWeight.Black) },
+            text = {
+                OutlinedTextField(
+                    value = texto,
+                    onValueChange = { texto = it },
+                    label = { Text("Texto (puede tener varias líneas)") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val c = capaDe(borrador, tp.capa)
+                        val i = tp.indice
+                        val cc = when {
+                            i == null && texto.isNotBlank() -> {
+                                val tam = Colocar.TAMANO_TEXTO // 4,5 en los dos recuadros (punto 8 bis)
+                                c.copy(texts = c.texts + CuadroTexto(tp.x, tp.y, texto, tam, selectedStrokeColor))
+                            }
+                            i != null && i in c.texts.indices && texto.isBlank() ->
+                                c.copy(texts = c.texts.filterIndexed { j, _ -> j != i })
+                            i != null && i in c.texts.indices ->
+                                c.copy(texts = c.texts.toMutableList().also { it[i] = it[i].copy(text = texto) })
+                            else -> null
+                        }
+                        if (cc != null) {
+                            seleccion = if (texto.isNotBlank()) SeleccionEditor(texto = i ?: cc.texts.lastIndex) else SeleccionEditor()
+                            activeTool = ActiveDrawTool.SELECT
+                            persistir(conCapa(borrador, tp.capa, cc))
+                        }
+                        textoPendiente = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = FredianiGreen)
+                ) { Text("Listo", color = Color.White, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { TextButton(onClick = { textoPendiente = null }) { Text("Cancelar") } }
+        )
     }
 
     // Modal de edición de texto y notas si se pulsa la columna de anotaciones
@@ -903,12 +947,78 @@ fun RoadbookMasterView(
     }
 }
 
+/**
+ * Medidas de la hoja (ESPECIFICACION_VINETA.md, punto 1), en milímetros, como la plataforma:
+ * Total 25 | Parcial 25 | Dirección 50 | Informaciones 50 | Regresiva 25 — alto 45.
+ * En pantalla se dibuja todo con un "milímetro" en dp que sale del ancho disponible.
+ */
+val COLUMNAS_MM = listOf(25f, 25f, 50f, 50f, 25f)
+const val ANCHO_HOJA_MM = 175f
+const val ALTO_FILA_MM = 45f
+/** Columna propia de la app (casilla para borrar), a la izquierda de la hoja. */
+val ANCHO_COLUMNA_APP = 30.dp
+
+/** Tamaño de letra de la hoja: n puntos tipográficos a mm (1 pt = 0,35278 mm). */
+private fun ptEnMm(pt: Float) = pt * 0.35278f
+
+/** "Milímetro" en dp para que la hoja entre en [ancho] (entre 2,6 y 4,6 dp). */
+fun mmParaAncho(ancho: androidx.compose.ui.unit.Dp): androidx.compose.ui.unit.Dp =
+    ((ancho - ANCHO_COLUMNA_APP) / ANCHO_HOJA_MM).coerceIn(2.6.dp, 4.6.dp)
+
+/** Encabezado de las columnas, como en la hoja del rally mundial (blanco, con rayas). */
+@Composable
+fun EncabezadoVinetas(mm: androidx.compose.ui.unit.Dp, borde: Color = Color(0xFF0F172A), columnaApp: @Composable () -> Unit = {}) {
+    val density = LocalDensity.current
+    fun pt(n: Float) = with(density) { (mm * ptEnMm(n)).toSp() }
+    val raya = 1.dp
+    Row(
+        modifier = Modifier
+            .height(mm * 11f)
+            .background(Color.White)
+    ) {
+        Box(Modifier.width(ANCHO_COLUMNA_APP).fillMaxHeight().background(Color(0xFFF8FAFC)), contentAlignment = Alignment.Center) { columnaApp() }
+        Column(Modifier.width(mm * 50f).fillMaxHeight().border(raya, borde)) {
+            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Text("DISTANCIA", fontSize = pt(7f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1)
+            }
+            HorizontalDivider(color = borde, thickness = raya)
+            Row(Modifier.fillMaxWidth().weight(1f)) {
+                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                    Text("TOTAL", fontSize = pt(6.5f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1)
+                }
+                VerticalDivider(color = borde, thickness = raya)
+                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                    Text("PARCIAL", fontSize = pt(6.5f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1)
+                }
+            }
+        }
+        Box(Modifier.width(mm * 50f).fillMaxHeight().border(raya, borde), contentAlignment = Alignment.Center) {
+            Text("DIRECCIÓN", fontSize = pt(10f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1)
+        }
+        Box(Modifier.width(mm * 50f).fillMaxHeight().border(raya, borde), contentAlignment = Alignment.Center) {
+            Text("INFORMACIONES", fontSize = pt(10f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1)
+        }
+        Box(Modifier.width(mm * 25f).fillMaxHeight().border(raya, borde), contentAlignment = Alignment.Center) {
+            Text("DIST. TOTAL\nREGRESIVA", fontSize = pt(6.5f), fontWeight = FontWeight.Bold, color = Color.Black,
+                textAlign = TextAlign.Center, lineHeight = pt(7.5f))
+        }
+    }
+}
+
+/**
+ * UNA VIÑETA COMO EN LA HOJA DE RUTA, igual que la plataforma (FilaVineta.tsx): el dibujo ocupa
+ * toda la celda de Dirección con el número en una cajita abajo a la izquierda; la celda de
+ * Informaciones tiene el texto de las notas, encima la capa de notas y encima los carteles.
+ * Las distancias van arriba, centradas. A la izquierda, la casilla de la app para borrar.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FilaRoadbookInPlace(
     vineta: VinetaEntity,
     distanciaRegresiva: Double,
     isEditing: Boolean,
+    mm: androidx.compose.ui.unit.Dp,
+    prefs: PreferenciasVista,
     estaSeleccionadaParaBorrar: Boolean = false,
     onToggleSeleccionBorrar: () -> Unit = {},
     dibujo: DibujoV1,
@@ -933,354 +1043,281 @@ fun FilaRoadbookInPlace(
     onCambioCapa: (CapaEditada, Capa) -> Unit,
     onSeleccion: (SeleccionEditor) -> Unit,
     onToolChange: (ActiveDrawTool) -> Unit,
-    onSoltar: (CapaEditada, ItemPaleta, Double, Double) -> Unit
+    onSoltar: (CapaEditada, ItemPaleta, Double, Double) -> Unit,
+    anchoLapiz: Double = ANCHOS_LAPIZ[1],
+    onPedirTexto: (CapaEditada, Double, Double) -> Unit = { _, _, _ -> },
+    onEditarTexto: (CapaEditada, Int) -> Unit = { _, _ -> },
+    /** false = la fila solo muestra (en el celular el dibujo se edita en grande, arriba). */
+    editarEnFila: Boolean = true
 ) {
-    val isDark = ThemeManager.isDarkTheme
-    val cardBg = if (isEditing) {
-        if (isDark) Color(0xFF0F2338) else Color(0xFFF0F9FF)
-    } else {
-        if (isDark) RallyCardBg else Color.White
-    }
-    val cardBorder = if (isEditing) FredianiCyan else (if (isDark) RallySurface else Color(0xFFE2E8F0))
-    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
-    val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
+    val density = LocalDensity.current
+    fun pt(n: Float) = with(density) { (mm * ptEnMm(n)).toSp() }
+    val borde = Color(0xFF0F172A)
+    val raya = 1.dp
+    val oculta = vineta.distanciaOculta
 
-    Card(
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
-        border = androidx.compose.foundation.BorderStroke(if (isEditing) 2.dp else 1.dp, cardBorder),
+    // Etiquetas propias de la app (no son parte de la hoja), chiquitas debajo de las distancias
+    val etiquetas = buildList {
+        if (vineta.esReinicioCero) add("0,00" to Color(0xFF059669))
+        if (oculta) add("X.XX" to Color(0xFFD97706))
+        if (vineta.esOffRoad) add("OFF-ROAD" to Color(0xFF78350F))
+        if (vineta.esOcultaOrg) add("OCUL" to Color(0xFF831843))
+        if (vineta.esTierra) add("DIRT" to Color(0xFF713F12))
+        if (vineta.esPuntoControl) add("WP ${vineta.tipoPuntoControl.ifBlank { "PASO" }}" to Color(0xFF581C87))
+        if (vineta.radioCapturaMetros != 30) add("WPV ${vineta.radioCapturaMetros}m" to Color(0xFF475569))
+        if (prefs.mostrarRumboCap && vineta.rumbo != 0f) add("CAP ${String.format("%.0f°", vineta.rumbo)}" to Color(0xFF334155))
+    }
+
+    @Composable
+    fun Distancia(valor: String, visible: Boolean, extra: @Composable ColumnScope.() -> Unit = {}) {
+        Column(
+            modifier = Modifier
+                .width(mm * 25f)
+                .fillMaxHeight()
+                .border(raya, borde)
+                .padding(top = mm * 3f, start = 2.dp, end = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (visible) {
+                Text(
+                    text = valor,
+                    fontSize = pt(13f),
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+            extra()
+        }
+    }
+
+    Row(
         modifier = Modifier
-            .fillMaxWidth()
+            .height(mm * ALTO_FILA_MM)
+            .background(Color.White)
+            .border(if (isEditing) 2.dp else 0.dp, if (isEditing) FredianiCyan else Color.Transparent)
             .combinedClickable(
                 onClick = { onTocarFila() },
                 onDoubleClick = { onEditarIndicacion() },
                 onLongClick = { onEditarIndicacion() }
             )
     ) {
-        Row(
+        // Columna de la app: casilla para borrar
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(ALTO_FILA)
-                .padding(4.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .width(ANCHO_COLUMNA_APP)
+                .fillMaxHeight()
+                .background(if (isEditing) FredianiCyan.copy(alpha = 0.15f) else Color(0xFFF8FAFC)),
+            contentAlignment = Alignment.Center
         ) {
-            // 1. NÚMERO Y CASILLA DE BORRADO DEBAJO
-            Box(
-                modifier = Modifier
-                    .width(44.dp)
-                    .fillMaxHeight(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+            Checkbox(
+                checked = estaSeleccionadaParaBorrar,
+                onCheckedChange = { onToggleSeleccionBorrar() },
+                colors = CheckboxDefaults.colors(checkedColor = RallyRed, uncheckedColor = Color.Gray, checkmarkColor = Color.White),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        // TOTAL
+        Distancia(if (oculta) "" else prefs.km(vineta.distanciaTotal), capaTotalVisible) {
+            Spacer(Modifier.height(mm * 1.5f))
+            etiquetas.forEach { (texto, color) ->
+                Surface(shape = RoundedCornerShape(3.dp), color = color, modifier = Modifier.padding(bottom = 2.dp)) {
+                    Text(texto, fontSize = 7.sp, fontWeight = FontWeight.Black, color = Color.White, maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 3.dp))
+                }
+            }
+        }
+
+        // PARCIAL
+        Distancia(if (oculta) "" else prefs.km(vineta.distanciaParcial), capaParcialVisible)
+
+        // DIRECCIÓN: el dibujo ocupa toda la celda (100 × 90) y el número va abajo a la izquierda
+        Box(
+            modifier = Modifier
+                .width(mm * 50f)
+                .fillMaxHeight()
+                .border(raya, borde)
+        ) {
+            if (capaIndicacionVisible) {
+                RecuadroCapa(
+                    clave = "${vineta.id}-D",
+                    capa = dibujo.dibujo,
+                    esNotas = false,
+                    franja = null,
+                    dibujante = dibujante,
+                    editando = editarEnFila && isEditing && capaActiva == CapaEditada.DIBUJO,
+                    seleccion = seleccion,
+                    activeTool = activeTool,
+                    colorHex = selectedColorHex,
+                    asistente = asistenteTrazoActivo,
+                    arrastre = arrastre,
+                    onCambio = { onCambioCapa(CapaEditada.DIBUJO, it) },
+                    onSeleccion = onSeleccion,
+                    onHerramienta = onToolChange,
+                    onActivar = { onActivarCapa(CapaEditada.DIBUJO) },
+                    onDobleToque = onEditarIndicacion,
+                    onSoltar = { item, x, y -> onSoltar(CapaEditada.DIBUJO, item, x, y) },
+                    anchoLapiz = anchoLapiz,
+                    onPedirTexto = { x, y -> onPedirTexto(CapaEditada.DIBUJO, x, y) },
+                    onEditarTexto = { i -> onEditarTexto(CapaEditada.DIBUJO, i) },
+                    palito = prefs.mostrarPalitoGps,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            if (capaNumeroVisible) {
+                // Cajita del número: borde negro, abajo a la izquierda (1 mm del borde), encima del dibujo
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = mm, bottom = mm)
+                        .defaultMinSize(minWidth = mm * 6f, minHeight = mm * 5f)
+                        .border(1.dp, borde)
+                        .background(Color.White)
+                        .padding(horizontal = mm * 0.8f),
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (capaNumeroVisible) {
-                        Surface(
-                            shape = CircleShape,
-                            color = if (isDark) FredianiCyan else Color(0xFF0F172A),
-                            modifier = Modifier.size(30.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = "${vineta.numero}",
-                                    color = if (isDark) Color.Black else Color.White,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Checkbox(
-                        checked = estaSeleccionadaParaBorrar,
-                        onCheckedChange = { onToggleSeleccionBorrar() },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = RallyRed,
-                            uncheckedColor = if (isDark) Color.White.copy(alpha = 0.6f) else Color.Gray,
-                            checkmarkColor = Color.White
-                        ),
-                        modifier = Modifier.size(22.dp)
+                    Text("${vineta.numero}", fontSize = pt(10f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1)
+                }
+            }
+        }
+
+        // INFORMACIONES: texto de las notas, encima la capa de notas y encima los carteles (toda la celda)
+        Box(
+            modifier = Modifier
+                .width(mm * 50f)
+                .fillMaxHeight()
+                .border(raya, borde)
+        ) {
+            if (capaAnotacionesVisible) {
+                RecuadroCapa(
+                    clave = "${vineta.id}-N",
+                    capa = dibujo.notasCapa,
+                    esNotas = true,
+                    franja = franja,
+                    dibujante = dibujante,
+                    editando = editarEnFila && isEditing && capaActiva == CapaEditada.NOTAS,
+                    seleccion = seleccion,
+                    activeTool = activeTool,
+                    colorHex = selectedColorHex,
+                    asistente = asistenteTrazoActivo,
+                    arrastre = arrastre,
+                    onCambio = { onCambioCapa(CapaEditada.NOTAS, it) },
+                    onSeleccion = onSeleccion,
+                    onHerramienta = onToolChange,
+                    onActivar = { onActivarCapa(CapaEditada.NOTAS) },
+                    onDobleToque = onTocarAnotaciones,
+                    onSoltar = { item, x, y -> onSoltar(CapaEditada.NOTAS, item, x, y) },
+                    anchoLapiz = anchoLapiz,
+                    onPedirTexto = { x, y -> onPedirTexto(CapaEditada.NOTAS, x, y) },
+                    onEditarTexto = { i -> onEditarTexto(CapaEditada.NOTAS, i) },
+                    // Punto 12: la app tiene un solo texto, que es la descripción
+                    textoNotas = LetraNotas.textoCompleto(vineta.informacion.trim()),
+                    notasLetra = dibujo.notasLetra,
+                    modifier = Modifier.fillMaxSize()
+                )
+                // Coordenada explícita: chica, abajo a la izquierda, encima del texto (punto 12)
+                if (vineta.mostrarWpt && !(vineta.latitud == 0.0 && vineta.longitud == 0.0)) {
+                    Text(
+                        text = String.format(java.util.Locale.US, "%.5f, %.5f", vineta.latitud, vineta.longitud),
+                        fontSize = pt(7f),
+                        color = Color.Black,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = 4.dp, bottom = if (franja != null) mm * 10.5f else 2.dp)
+                            .background(Color.White.copy(alpha = 0.8f))
+                            .padding(horizontal = 2.dp)
                     )
                 }
             }
+        }
 
-            VerticalDivider(color = cardBorder, modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
-
-            // 2. TOTAL KM
-            Box(
-                modifier = Modifier
-                    .width(58.dp)
-                    .fillMaxHeight(),
-                contentAlignment = Alignment.Center
-            ) {
-                if (capaTotalVisible) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        if (vineta.esReinicioCero) {
-                            Surface(
-                                shape = RoundedCornerShape(3.dp),
-                                color = Color(0xFF059669),
-                                modifier = Modifier.padding(bottom = 2.dp)
-                            ) {
-                                Text(
-                                    text = "0,00",
-                                    fontSize = 7.5.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
-                                )
-                            }
-                        }
-                        Text(
-                            text = if (vineta.distanciaOculta) "X.XX" else String.format(java.util.Locale.US, "%.2f", vineta.distanciaTotal),
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            color = if (vineta.distanciaOculta) Color(0xFFF59E0B) else textPrimary
-                        )
-                        Text(
-                            text = "KM TOT",
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = textSecondary,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                }
+        // REGRESIVA (y abajo, el acceso a los datos de la viñeta)
+        Box(
+            modifier = Modifier
+                .width(mm * 25f)
+                .fillMaxHeight()
+                .border(raya, borde)
+        ) {
+            if (capaRegresivaVisible && !oculta) {
+                Text(
+                    text = prefs.km(distanciaRegresiva),
+                    fontSize = pt(13f),
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = mm * 3f)
+                )
             }
-
-            VerticalDivider(color = cardBorder, modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
-
-            // 3. PARCIAL KM
-            Box(
-                modifier = Modifier
-                    .width(54.dp)
-                    .fillMaxHeight(),
-                contentAlignment = Alignment.Center
+            Surface(
+                onClick = onTocarAnotaciones,
+                shape = RoundedCornerShape(6.dp),
+                color = FredianiCyanBg,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
             ) {
-                if (capaParcialVisible) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = String.format(java.util.Locale.US, "%.2f", vineta.distanciaParcial),
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            color = textPrimary
-                        )
-                        Text(
-                            text = "PARC",
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = textSecondary,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                }
-            }
-
-            VerticalDivider(color = cardBorder, modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
-
-            // 4. RECUADRO DE DIBUJO (cuadrado, 100 × 100 unidades) CON EDICIÓN EN EL LUGAR
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .padding(horizontal = 3.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (capaIndicacionVisible) {
-                    RecuadroCapa(
-                        clave = "${vineta.id}-D",
-                        capa = dibujo.dibujo,
-                        esNotas = false,
-                        franja = null,
-                        dibujante = dibujante,
-                        editando = isEditing && capaActiva == CapaEditada.DIBUJO,
-                        seleccion = seleccion,
-                        activeTool = activeTool,
-                        colorHex = selectedColorHex,
-                        asistente = asistenteTrazoActivo,
-                        arrastre = arrastre,
-                        onCambio = { onCambioCapa(CapaEditada.DIBUJO, it) },
-                        onSeleccion = onSeleccion,
-                        onHerramienta = onToolChange,
-                        onActivar = { onActivarCapa(CapaEditada.DIBUJO) },
-                        onDobleToque = onEditarIndicacion,
-                        onSoltar = { item, x, y -> onSoltar(CapaEditada.DIBUJO, item, x, y) },
-                        modifier = Modifier.size(TAM_DIBUJO)
-                    )
-                } else {
-                    Spacer(modifier = Modifier.size(TAM_DIBUJO))
-                }
-            }
-
-            VerticalDivider(color = cardBorder, modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
-
-            // 5. NOTAS: capa de notas (100 × 64 unidades) con la franja de carteles y la nota escrita
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .padding(horizontal = 3.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (isDark) RallySurface else Color(0xFFF8FAFC))
-                    .border(1.dp, cardBorder, RoundedCornerShape(8.dp))
-                    .padding(4.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                if (capaAnotacionesVisible) {
-                    // Etiquetas de la viñeta (no son parte del dibujo)
-                    val neutroBg = if (isDark) Color.Black else Color(0xFFE2E8F0)
-                    val etiquetas = buildList {
-                        if (vineta.esOffRoad) add(Triple("🏜️ OFF-ROAD", Color(0xFF78350F), Color(0xFFFEF3C7)))
-                        if (vineta.esReinicioCero) add(Triple("0,00 REINICIO", Color(0xFF065F46), Color(0xFFA7F3D0)))
-                        if (vineta.distanciaOculta) add(Triple("X.XX OCULTA", Color(0xFF7C2D12), Color(0xFFFED7AA)))
-                        if (vineta.esOcultaOrg) add(Triple("🔒 OCUL", Color(0xFF831843), Color(0xFFFBCFE8)))
-                        if (vineta.esTierra) add(Triple("DIRT", Color(0xFF713F12), Color(0xFFFEF08A)))
-                        if (vineta.esPuntoControl) {
-                            val tipo = if (vineta.tipoPuntoControl.isNotBlank()) vineta.tipoPuntoControl else "PASO"
-                            add(Triple("🎯 WP $tipo", Color(0xFF581C87), Color(0xFFE9D5FF)))
-                        }
-                        if (vineta.mostrarWpt) add(Triple(String.format(java.util.Locale.US, "WPT %.4f, %.4f", vineta.latitud, vineta.longitud), neutroBg, if (isDark) RallyCyan else FredianiCyanText))
-                        if (vineta.radioCapturaMetros != 30) add(Triple("WPV ${vineta.radioCapturaMetros}m", neutroBg, textSecondary))
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        etiquetas.forEach { (texto, fondo, colorTexto) ->
-                            Surface(shape = RoundedCornerShape(4.dp), color = fondo) {
-                                Text(
-                                    text = texto,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 7.5.sp,
-                                    color = colorTexto,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    // Recuadro de la capa de notas, con su proporción fija
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        RecuadroCapa(
-                            clave = "${vineta.id}-N",
-                            capa = dibujo.notasCapa,
-                            esNotas = true,
-                            franja = franja,
-                            dibujante = dibujante,
-                            editando = isEditing && capaActiva == CapaEditada.NOTAS,
-                            seleccion = seleccion,
-                            activeTool = activeTool,
-                            colorHex = selectedColorHex,
-                            asistente = asistenteTrazoActivo,
-                            arrastre = arrastre,
-                            onCambio = { onCambioCapa(CapaEditada.NOTAS, it) },
-                            onSeleccion = onSeleccion,
-                            onHerramienta = onToolChange,
-                            onActivar = { onActivarCapa(CapaEditada.NOTAS) },
-                            onDobleToque = onTocarAnotaciones,
-                            onSoltar = { item, x, y -> onSoltar(CapaEditada.NOTAS, item, x, y) },
-                            modifier = Modifier.aspectRatio((100.0 / ALTO_NOTAS).toFloat(), matchHeightConstraintsFirst = true),
-                            // Punto 12: la app tiene un solo texto, que es la descripción
-                            textoNotas = LetraNotas.textoCompleto(vineta.informacion),
-                            notasLetra = dibujo.notasLetra
-                        )
-                    }
-
-                    // Nota escrita y acceso a los datos de la viñeta
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(4.dp))
-                            .clickable { onTocarAnotaciones() },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (vineta.informacion.isNotBlank()) "Editar nota y datos" else "Tocar para escribir la nota...",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 9.sp,
-                            color = textSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(
-                            Icons.Default.EditNote,
-                            contentDescription = "Datos de la viñeta",
-                            tint = if (isDark) RallyCyan else FredianiCyanText,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
-
-            VerticalDivider(color = cardBorder, modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp))
-
-            // 6. REGRESIVA
-            Box(
-                modifier = Modifier
-                    .width(52.dp)
-                    .fillMaxHeight(),
-                contentAlignment = Alignment.Center
-            ) {
-                if (capaRegresivaVisible) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = String.format(java.util.Locale.US, "%.2f", distanciaRegresiva),
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            color = if (isDark) RallyCyanLight else FredianiCyanText
-                        )
-                        Text(
-                            text = "REGRESIVA",
-                            fontSize = 7.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = textSecondary,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)) {
+                    Icon(Icons.Default.EditNote, contentDescription = "Datos de la viñeta", tint = FredianiCyanText, modifier = Modifier.size(14.dp))
+                    Text("DATOS", fontSize = 8.sp, fontWeight = FontWeight.Black, color = FredianiCyanText)
                 }
             }
         }
     }
 }
 
-/** Lado del recuadro de dibujo (cuadrado) y alto de cada fila del roadbook. */
-private val TAM_DIBUJO = 160.dp
-private val ALTO_FILA = TAM_DIBUJO + 8.dp
+/**
+ * Celular: la viñeta que se edita, en grande, con las pestañas DIBUJO / NOTAS.
+ * El recuadro mantiene la proporción de la hoja (100 × 90).
+ */
+@Composable
+private fun EditorGrandeCelular(
+    vineta: VinetaEntity,
+    capaActiva: CapaEditada,
+    onCapa: (CapaEditada) -> Unit,
+    onCerrar: () -> Unit,
+    isDark: Boolean,
+    recuadro: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (isDark) Color(0xFF131B2A) else Color(0xFFF1F5F9))
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("#${vineta.numero}", fontSize = 16.sp, fontWeight = FontWeight.Black, color = if (isDark) Color.White else Color(0xFF0F172A))
+            Spacer(Modifier.width(10.dp))
+            listOf(CapaEditada.DIBUJO to "DIBUJO", CapaEditada.NOTAS to "NOTAS").forEach { (c, nombre) ->
+                val sel = c == capaActiva
+                Text(
+                    nombre, fontSize = 12.sp, fontWeight = FontWeight.Black,
+                    color = if (sel) Color.White else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155)),
+                    modifier = Modifier
+                        .padding(end = 6.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (sel) Color(0xFF0284C7) else Color.Transparent)
+                        .border(1.dp, if (sel) Color(0xFF0284C7) else Color(0xFF94A3B8), RoundedCornerShape(10.dp))
+                        .clickable { onCapa(c) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = onCerrar, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "Terminar de editar", tint = Color(0xFF94A3B8))
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 360.dp)
+                .aspectRatio(100f / 90f)
+                .align(Alignment.CenterHorizontally)
+                .border(1.dp, Color(0xFF0F172A))
+        ) { recuadro() }
+    }
+}
 
 /**
  * Un recuadro de la viñeta (dibujo o capa de notas). Si es el que se está editando muestra el
@@ -1308,12 +1345,16 @@ private fun RecuadroCapa(
     onSoltar: (ItemPaleta, Double, Double) -> Unit,
     modifier: Modifier = Modifier,
     textoNotas: String = "",
-    notasLetra: Double? = null
+    notasLetra: Double? = null,
+    anchoLapiz: Double = ANCHOS_LAPIZ[1],
+    onPedirTexto: (Double, Double) -> Unit = { _, _ -> },
+    onEditarTexto: (Int) -> Unit = {},
+    palito: Boolean = false
 ) {
     val onSoltarAct by rememberUpdatedState(onSoltar)
     DisposableEffect(clave) { onDispose { arrastre.quitar(clave) } }
     val resaltado = arrastre.item != null && arrastre.destinoBajoDedo == clave
-    val forma = RoundedCornerShape(6.dp)
+    val forma = androidx.compose.ui.graphics.RectangleShape
     Box(
         modifier = modifier
             .clip(forma)
@@ -1324,11 +1365,12 @@ private fun RecuadroCapa(
                 arrastre.registrar(clave, c.boundsInWindow(), completo) { item, x, y -> onSoltarAct(item, x, y) }
             }
             .border(
-                width = if (editando || resaltado) 2.dp else 1.dp,
+                // La raya de la celda la pone la fila; acá solo se marca el recuadro que se edita
+                width = if (editando || resaltado) 2.dp else 0.dp,
                 color = when {
                     resaltado -> Color(0xFFF59E0B)
                     editando -> FredianiCyan
-                    else -> Color(0xFFCBD5E1)
+                    else -> Color.Transparent
                 },
                 shape = forma
             )
@@ -1348,7 +1390,11 @@ private fun RecuadroCapa(
                 onHerramienta = onHerramienta,
                 modifier = Modifier.fillMaxSize(),
                 textoNotas = textoNotas,
-                notasLetra = notasLetra
+                notasLetra = notasLetra,
+                anchoLapiz = anchoLapiz,
+                onPedirTexto = onPedirTexto,
+                onEditarTexto = onEditarTexto,
+                palito = palito
             )
         } else {
             VistaCapa(
@@ -1364,7 +1410,8 @@ private fun RecuadroCapa(
                         onLongClick = onDobleToque
                     ),
                 textoNotas = textoNotas,
-                notasLetra = notasLetra
+                notasLetra = notasLetra,
+                palito = palito
             )
         }
     }
@@ -1619,293 +1666,329 @@ fun ElevationProfileView(
     }
 }
 
+private val AZUL_PLATAFORMA = Color(0xFF0284C7)
+private val CELESTE_PLATAFORMA = Color(0xFF00B4D8)
+
 /**
- * BARRA UNIVERSAL SUPERIOR DE DIBUJO Y EDICIÓN
- * Proporciona acceso a herramientas (Seleccionar, Pluma, Regla, Deshacer, Borrar, Paleta, Guardar)
- * sin quitar espacio a la casilla de dibujo de la grilla.
+ * BARRAS DE EDICIÓN, copiadas de la plataforma (RoadbookWorkstation):
+ *
+ * 1. Dock: [+ Indicación] [Duplicar] [Eliminar] … [Datos del tramo] [Paleta] [⚙] [Guardado]
+ * 2. Dibujo (se aplica a la viñeta seleccionada):
+ *    MOVER · FLECHA · LÁPIZ · GOMA · TEXTO · Deshacer · Borrar (Supr) · PROHIBIDO
+ *    | A↓ Auto A↑ | colores | grosor | tamaño de las viñetas (− barra +)
  */
 @Composable
-fun RoadbookDrawingToolbar(
-    vinetaEnEdicion: VinetaEntity?,
+fun BarrasEdicionPlataforma(
+    hayVineta: Boolean,
     activeTool: ActiveDrawTool,
-    selectedStrokeColor: String,
-    strokeWidth: Float,
-    asistenteTrazo: Boolean = true,
-    capaActiva: CapaEditada = CapaEditada.DIBUJO,
-    onCapaChange: (CapaEditada) -> Unit = {},
-    letraNotasAuto: Boolean = true,
-    letraNotasValor: Double? = null,
-    onLetraNotas: (Double?) -> Unit = {},
-    onToggleAsistente: () -> Unit = {},
-    onAddArrow: () -> Unit = {},
     onToolChange: (ActiveDrawTool) -> Unit,
+    colorActual: String,
+    letraNotasAuto: Boolean,
+    letraNotasValor: Double?,
+    onLetraNotas: (Double?) -> Unit,
     onColorChange: (String) -> Unit,
-    onStrokeWidthChange: (Float) -> Unit,
+    anchoLapiz: Double,
+    onAnchoLapiz: (Double) -> Unit,
+    hayFlechaElegida: Boolean,
+    onAgregarProhibido: () -> Unit,
     onUndo: () -> Unit,
-    onClear: () -> Unit,
+    onBorrar: () -> Unit,
+    zoom: Float,
+    onZoom: (Float) -> Unit,
+    onNuevaIndicacion: () -> Unit,
+    onDuplicar: () -> Unit,
+    onEliminar: () -> Unit,
+    cantidadParaBorrar: Int,
     onGuardar: () -> Unit,
-    onCerrar: () -> Unit,
+    paletaVisible: Boolean,
+    onPaleta: () -> Unit,
+    onDatosTramo: () -> Unit,
+    onPreferencias: () -> Unit,
+    /** Celular: el dock se puede deslizar y algunos botones quedan solo con el ícono. */
+    compacto: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val isDark = ThemeManager.isDarkTheme
-    val barBg = if (isDark) RallySurface else Color(0xFFF8FAFC)
-    val barBorder = if (isDark) RallyCardBg else Color(0xFFE2E8F0)
+    val fondo = if (isDark) Color(0xFF131B2A) else Color.White
+    val borde = if (isDark) Color(0xFF2A374D) else Color(0xFFCBD5E1)
+    val texto = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+    val fondoBoton = if (isDark) Color(0xFF1C273A) else Color(0xFFF1F5F9)
 
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = barBg,
-        border = androidx.compose.foundation.BorderStroke(1.dp, barBorder),
-        modifier = modifier.fillMaxWidth()
-    ) {
-        if (vinetaEnEdicion != null) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // SECCIÓN IZQUIERDA: BADGE WPT + HERRAMIENTAS DE DIBUJO
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .horizontalScroll(rememberScrollState()),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = FredianiCyan.copy(alpha = 0.2f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, FredianiCyan)
-                    ) {
-                        Text(
-                            text = "✏️ #${vinetaEnEdicion.numero} (${String.format("%.2f", vinetaEnEdicion.distanciaTotal)} km)",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 10.sp,
-                            color = if (isDark) RallyCyan else FredianiCyanText,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                        )
-                    }
+    @Composable
+    fun BotonIcono(icono: androidx.compose.ui.graphics.vector.ImageVector, ayuda: String, color: Color = texto,
+                   fondoB: Color = fondoBoton, bordeB: Color = borde, habilitado: Boolean = true, onClick: () -> Unit) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(30.dp)
+                .alpha(if (habilitado) 1f else 0.4f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(fondoB)
+                .border(1.dp, bordeB, RoundedCornerShape(8.dp))
+                .clickable(enabled = habilitado) { onClick() }
+        ) { Icon(icono, contentDescription = ayuda, tint = color, modifier = Modifier.size(15.dp)) }
+    }
 
-                    // Recuadro que se edita: dibujo o capa de notas
-                    listOf(CapaEditada.DIBUJO to "DIBUJO", CapaEditada.NOTAS to "NOTAS").forEach { (c, nombre) ->
-                        val sel = capaActiva == c
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (sel) FredianiCyan else Color.Transparent,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (sel) FredianiCyan else barBorder),
-                            modifier = Modifier.clickable { onCapaChange(c) }
-                        ) {
-                            Text(
-                                text = nombre,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 9.sp,
-                                color = if (sel) Color.Black else (if (isDark) Color.White else Color(0xFF334155)),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-
-                    VerticalDivider(modifier = Modifier.height(20.dp).padding(horizontal = 2.dp), color = barBorder)
-
-                    // Letra del texto de las notas (punto 12): A↓ · Auto · A↑
-                    if (letraNotasValor != null) {
-                        val textoBoton = if (isDark) Color.White else Color(0xFF334155)
-                        TextButton(
-                            onClick = { onLetraNotas(LetraNotas.menos(letraNotasValor)) },
-                            contentPadding = PaddingValues(horizontal = 4.dp),
-                            modifier = Modifier.height(26.dp)
-                        ) { Text("A↓", fontSize = 10.sp, fontWeight = FontWeight.Black, color = textoBoton) }
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (letraNotasAuto) FredianiCyan else Color.Transparent,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (letraNotasAuto) FredianiCyan else barBorder),
-                            modifier = Modifier.clickable { onLetraNotas(null) }
-                        ) {
-                            val valor = String.format(java.util.Locale.US, "%.1f", letraNotasValor).removeSuffix(".0").replace('.', ',')
-                            Text(
-                                text = if (letraNotasAuto) "Auto $valor" else valor,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 9.sp,
-                                color = if (letraNotasAuto) Color.Black else textoBoton,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            )
-                        }
-                        TextButton(
-                            onClick = { onLetraNotas(LetraNotas.mas(letraNotasValor)) },
-                            contentPadding = PaddingValues(horizontal = 4.dp),
-                            modifier = Modifier.height(26.dp)
-                        ) { Text("A↑", fontSize = 10.sp, fontWeight = FontWeight.Black, color = textoBoton) }
-
-                        VerticalDivider(modifier = Modifier.height(20.dp).padding(horizontal = 2.dp), color = barBorder)
-                    }
-
-                    // Botón SELECT
-                    ToolIconButton(
-                        icon = Icons.Default.NearMe,
-                        label = "Seleccionar",
-                        selected = activeTool == ActiveDrawTool.SELECT,
-                        onClick = { onToolChange(ActiveDrawTool.SELECT) }
-                    )
-
-                    // Botón PEN
-                    ToolIconButton(
-                        icon = Icons.Default.Edit,
-                        label = "Pluma",
-                        selected = activeTool == ActiveDrawTool.PEN,
-                        onClick = { onToolChange(ActiveDrawTool.PEN) }
-                    )
-
-                    // Botón RULER (Línea Recta)
-                    ToolIconButton(
-                        icon = Icons.Default.HorizontalRule,
-                        label = "Regla",
-                        selected = activeTool == ActiveDrawTool.RULER,
-                        onClick = { onToolChange(ActiveDrawTool.RULER) }
-                    )
-
-                    // Botón CURVA FLEX (Flecha Bézier paramétrica FIA)
-                    ToolIconButton(
-                        icon = Icons.Default.CallSplit,
-                        label = "+ Curva Flex",
-                        selected = false,
-                        tint = FredianiCyan,
-                        onClick = onAddArrow
-                    )
-
-                    // El palito del GPS siempre está en la flecha: se mueve arrastrando su punta.
-
-
-                    // Botón ASISTENTE DE TRAZO
-                    ToolIconButton(
-                        icon = Icons.Default.AutoFixHigh,
-                        label = if (asistenteTrazo) "Asistente Activo" else "Asistente Inactivo",
-                        selected = asistenteTrazo,
-                        tint = if (asistenteTrazo) Color(0xFFF59E0B) else null,
-                        onClick = onToggleAsistente
-                    )
-
-                    VerticalDivider(modifier = Modifier.height(20.dp).padding(horizontal = 2.dp), color = barBorder)
-
-                    // CHIPS DE COLOR
-                    val colores = listOf(
-                        "#000000" to Color.Black,
-                        "#EF4444" to Color(0xFFEF4444),
-                        "#0284C7" to Color(0xFF0284C7),
-                        "#F59E0B" to Color(0xFFF59E0B),
-                        "#10B981" to Color(0xFF10B981)
-                    )
-                    colores.forEach { (hex, col) ->
-                        val sel = selectedStrokeColor.equals(hex, ignoreCase = true)
-                        Box(
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .background(col)
-                                .border(
-                                    width = if (sel) 2.dp else 1.dp,
-                                    color = if (sel) (if (isDark) Color.White else Color.Black) else Color.Gray.copy(alpha = 0.5f),
-                                    shape = CircleShape
-                                )
-                                .clickable { onColorChange(hex) }
-                        )
-                    }
-
-                    VerticalDivider(modifier = Modifier.height(20.dp).padding(horizontal = 2.dp), color = barBorder)
-
-                    // DESHACER
-                    ToolIconButton(
-                        icon = Icons.Default.Undo,
-                        label = "Deshacer",
-                        selected = false,
-                        onClick = onUndo
-                    )
-
-                    // BORRAR
-                    ToolIconButton(
-                        icon = Icons.Default.Delete,
-                        label = "Borrar",
-                        selected = false,
-                        tint = RallyRed,
-                        onClick = onClear
-                    )
-                }
-
-                // SECCIÓN DERECHA: BOTONES GUARDAR Y CERRAR
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Button(
-                        onClick = onGuardar,
-                        colors = ButtonDefaults.buttonColors(containerColor = FredianiGreen),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp),
-                        modifier = Modifier.defaultMinSize(minWidth = 78.dp)
-                    ) {
-                        Icon(Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text(
-                            text = "GUARDAR",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color.White,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onCerrar,
-                        modifier = Modifier.size(26.dp)
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = if (isDark) Color.White else Color(0xFF64748B), modifier = Modifier.size(16.dp))
-                    }
-                }
-            }
-        } else {
-            // Cuando no hay edición activa, mensaje claro
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "💡 Toque una indicación del roadbook para dibujar directamente en su celda o estampar símbolos FIA.",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
-                )
+    @Composable
+    fun BotonHerramienta(icono: androidx.compose.ui.graphics.vector.ImageVector, nombre: String, activo: Boolean,
+                         habilitado: Boolean = true, onClick: () -> Unit) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .height(30.dp)
+                .alpha(if (habilitado) 1f else 0.4f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (activo) AZUL_PLATAFORMA else Color.Transparent)
+                .border(1.dp, if (activo) AZUL_PLATAFORMA else borde, RoundedCornerShape(8.dp))
+                .clickable(enabled = habilitado) { onClick() }
+                .padding(horizontal = if (compacto) 7.dp else 8.dp)
+        ) {
+            Icon(icono, contentDescription = nombre, tint = if (activo) Color.White else texto, modifier = Modifier.size(if (compacto) 17.dp else 15.dp))
+            if (!compacto) {
+                Spacer(Modifier.width(4.dp))
+                Text(nombre.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Black, color = if (activo) Color.White else texto, maxLines = 1, softWrap = false)
             }
         }
     }
-}
 
-@Composable
-private fun ToolIconButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    selected: Boolean,
-    tint: Color? = null,
-    onClick: () -> Unit
-) {
-    val isDark = ThemeManager.isDarkTheme
-    Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = if (selected) FredianiCyan else Color.Transparent,
-        modifier = Modifier
-            .size(26.dp)
-            .clickable { onClick() }
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = tint ?: if (selected) Color.Black else (if (isDark) Color.White else Color(0xFF334155)),
-                modifier = Modifier.size(15.dp)
+    // Letra de las notas, colores, grosor y tamaño de las viñetas (en el celular van en otro renglón)
+    val restoBarra: @Composable RowScope.() -> Unit = {
+            Spacer(Modifier.width(8.dp))
+
+            // Tamaño de la letra de las notas: A↓ · Auto · A↑
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .height(30.dp)
+                    .alpha(if (letraNotasValor != null) 1f else 0.4f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, borde, RoundedCornerShape(8.dp))
+            ) {
+                val v = letraNotasValor
+                Text("A↓", fontSize = 11.sp, fontWeight = FontWeight.Black, color = texto,
+                    modifier = Modifier.clickable(enabled = v != null) { v?.let { onLetraNotas(LetraNotas.menos(it)) } }.padding(horizontal = 8.dp))
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .widthIn(min = 52.dp)
+                        .background(if (v != null && letraNotasAuto) AZUL_PLATAFORMA else Color.Transparent)
+                        .border(1.dp, borde)
+                        .clickable(enabled = v != null) { onLetraNotas(null) }
+                        .padding(horizontal = 6.dp)
+                ) {
+                    Text(
+                        if (v == null || letraNotasAuto) "Auto" else String.format(java.util.Locale.US, "%.1f", v).removeSuffix(".0").replace('.', ','),
+                        fontSize = 11.sp, fontWeight = FontWeight.Black,
+                        color = if (v != null && letraNotasAuto) Color.White else texto
+                    )
+                }
+                Text("A↑", fontSize = 11.sp, fontWeight = FontWeight.Black, color = texto,
+                    modifier = Modifier.clickable(enabled = v != null) { v?.let { onLetraNotas(LetraNotas.mas(it)) } }.padding(horizontal = 8.dp))
+            }
+
+            // Colores (para lo nuevo y para lo seleccionado)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier
+                    .height(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, borde, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 6.dp)
+            ) {
+                Icon(Icons.Default.Palette, contentDescription = null, tint = texto, modifier = Modifier.size(14.dp))
+                COLORES_PLATAFORMA.forEach { hex ->
+                    val activo = colorActual.equals(hex, ignoreCase = true)
+                    Box(
+                        modifier = Modifier
+                            .size(if (activo) 20.dp else 18.dp)
+                            .then(if (activo) Modifier.border(2.dp, AZUL_PLATAFORMA, CircleShape).padding(2.dp) else Modifier)
+                            .clip(CircleShape)
+                            .background(Color(android.graphics.Color.parseColor(hex)))
+                            .border(1.dp, if (hex == "#FFFFFF") Color(0xFF94A3B8) else Color.Black.copy(alpha = 0.2f), CircleShape)
+                            .clickable { onColorChange(hex) }
+                    )
+                }
+            }
+
+            // Grosor del lápiz (y de la flecha seleccionada)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .height(30.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, borde, RoundedCornerShape(8.dp))
+            ) {
+                ANCHOS_LAPIZ.forEach { g ->
+                    val sel = anchoLapiz == g
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(28.dp)
+                            .background(if (sel) AZUL_PLATAFORMA else Color.Transparent)
+                            .clickable { onAnchoLapiz(g) }
+                    ) {
+                        Box(
+                            Modifier
+                                .size(width = 16.dp, height = maxOf(1.5, g * 0.6).dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(if (sel) Color.White else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155)))
+                        )
+                    }
+                }
+            }
+
+            // Tamaño de las viñetas (en el celular la hoja ya ocupa todo el ancho)
+            if (!compacto) {
+            Spacer(Modifier.width(8.dp))
+
+            // Tamaño de las viñetas
+            IconButton(onClick = { onZoom(zoom - 0.1f) }, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.ZoomOut, contentDescription = "Viñetas más chicas", tint = texto, modifier = Modifier.size(18.dp))
+            }
+            Slider(
+                value = zoom, onValueChange = onZoom, valueRange = 0.5f..1f, steps = 9,
+                colors = SliderDefaults.colors(thumbColor = AZUL_PLATAFORMA, activeTrackColor = AZUL_PLATAFORMA),
+                modifier = Modifier.width(96.dp)
             )
+            IconButton(onClick = { onZoom(zoom + 0.1f) }, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.ZoomIn, contentDescription = "Viñetas más grandes", tint = texto, modifier = Modifier.size(18.dp))
+            }
+            }
+    }
+
+    Column(modifier = modifier.fillMaxWidth().background(fondo)) {
+        // ---------------- 1. DOCK ----------------
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (compacto) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = if (compacto) Arrangement.spacedBy(6.dp) else Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .height(30.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(CELESTE_PLATAFORMA)
+                        .clickable { onNuevaIndicacion() }
+                        .padding(horizontal = 10.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Insertar nueva indicación", tint = Color.Black, modifier = Modifier.size(16.dp))
+                    if (!compacto) {
+                        Spacer(Modifier.width(3.dp))
+                        Text("Indicación", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color.Black)
+                    }
+                }
+                BotonIcono(Icons.Default.ContentCopy, "Duplicar indicación seleccionada", habilitado = hayVineta, onClick = onDuplicar)
+                BotonIcono(Icons.Default.Delete, "Eliminar indicación seleccionada", color = Color(0xFFFB7185),
+                    fondoB = Color(0x1AF43F5E), bordeB = Color(0x4DF43F5E), habilitado = hayVineta || cantidadParaBorrar > 0, onClick = onEliminar)
+                if (cantidadParaBorrar > 1) {
+                    Text("$cantidadParaBorrar marcadas", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFB7185))
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .height(30.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(fondoBoton)
+                        .border(1.dp, borde, RoundedCornerShape(10.dp))
+                        .clickable { onDatosTramo() }
+                        .padding(horizontal = 10.dp)
+                ) {
+                    Icon(Icons.Default.TextFields, contentDescription = "Datos del tramo", tint = if (isDark) Color.White else Color(0xFF1E293B), modifier = Modifier.size(14.dp))
+                    if (!compacto) {
+                        Spacer(Modifier.width(4.dp))
+                        Text("Datos del tramo", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (isDark) Color.White else Color(0xFF1E293B))
+                    }
+                }
+                BotonIcono(
+                    if (paletaVisible) Icons.Default.ViewSidebar else Icons.Default.VerticalSplit,
+                    if (paletaVisible) "Ocultar la paleta" else "Mostrar la paleta",
+                    color = if (paletaVisible) CELESTE_PLATAFORMA else texto, onClick = onPaleta
+                )
+                BotonIcono(Icons.Default.Settings, "Preferencias", onClick = onPreferencias)
+                // La tablet guarda cada cambio en el momento: siempre "Guardado" (tocarlo vuelve a guardar)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .height(30.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF1C273A))
+                        .border(1.dp, Color(0xFF2A374D), RoundedCornerShape(8.dp))
+                        .clickable { onGuardar() }
+                        .padding(horizontal = 10.dp)
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = "Guardar cambios del tramo", tint = Color(0xFFCBD5E1), modifier = Modifier.size(14.dp))
+                    if (!compacto) {
+                        Spacer(Modifier.width(4.dp))
+                        Text("Guardado", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color(0xFFCBD5E1))
+                    }
+                }
+            }
         }
+        HorizontalDivider(color = borde)
+
+        // ---------------- 2. BARRA DE DIBUJO ----------------
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            BotonHerramienta(Icons.Default.OpenWith, "Mover", activeTool == ActiveDrawTool.SELECT) { onToolChange(ActiveDrawTool.SELECT) }
+            BotonHerramienta(Icons.Default.CallMade, "Flecha", activeTool == ActiveDrawTool.RULER) { onToolChange(ActiveDrawTool.RULER) }
+            BotonHerramienta(Icons.Default.Edit, "Lápiz", activeTool == ActiveDrawTool.PEN) { onToolChange(ActiveDrawTool.PEN) }
+            BotonHerramienta(Icons.Default.AutoFixOff, "Goma", activeTool == ActiveDrawTool.GOMA) { onToolChange(ActiveDrawTool.GOMA) }
+            BotonHerramienta(Icons.Default.TextFields, "Texto", activeTool == ActiveDrawTool.TEXT) { onToolChange(ActiveDrawTool.TEXT) }
+            BotonIcono(Icons.Default.Undo, "Deshacer en el dibujo seleccionado", color = Color(0xFFF59E0B), fondoB = Color.Transparent, habilitado = hayVineta, onClick = onUndo)
+            BotonIcono(Icons.Default.Delete, "Borrar la flecha o el símbolo seleccionado (tecla Supr)", color = Color(0xFFF43F5E), fondoB = Color.Transparent, habilitado = hayVineta, onClick = onBorrar)
+            // Camino prohibido: palito tachado que sale de la flecha seleccionada
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .height(30.dp)
+                    .alpha(if (hayFlechaElegida) 1f else 0.4f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, borde, RoundedCornerShape(8.dp))
+                    .clickable(enabled = hayFlechaElegida) { onAgregarProhibido() }
+                    .padding(horizontal = 8.dp)
+            ) {
+                Canvas(Modifier.size(15.dp)) {
+                    val k = size.width / 16f
+                    fun linea(a: Float, b: Float, c: Float, d: Float) =
+                        drawLine(texto, Offset(a * k, b * k), Offset(c * k, d * k), strokeWidth = 1.6f * k, cap = StrokeCap.Round)
+                    linea(3f, 14f, 13f, 2f); linea(7.5f, 6.5f, 10.5f, 9.5f); linea(9f, 5f, 12f, 8f)
+                }
+                if (!compacto) {
+                    Spacer(Modifier.width(4.dp))
+                    Text("PROHIBIDO", fontSize = 11.sp, fontWeight = FontWeight.Black, color = texto)
+                }
+            }
+
+            if (!compacto) restoBarra()
+        }
+        if (compacto) {
+            // Celular: letra, colores y grosor en un segundo renglón (se puede deslizar)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(start = 10.dp, end = 10.dp, bottom = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) { restoBarra() }
+        }
+        HorizontalDivider(color = borde)
     }
 }
 
@@ -2531,3 +2614,48 @@ private fun HeaderColumnaToggle(
     }
 }
 
+/**
+ * PREFERENCIAS — las mismas de la plataforma (solapa General): se guardan en esta tablet y se
+ * aplican al instante en el editor.
+ */
+@Composable
+fun DialogoPreferencias(onCerrar: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val p = preferenciasVista()
+    @Composable
+    fun Fila(titulo: String, detalle: String, on: Boolean, cambiar: (Boolean) -> Unit) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(titulo, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                Text(detalle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.width(8.dp))
+            Switch(checked = on, onCheckedChange = cambiar)
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onCerrar,
+        title = { Text("PREFERENCIAS", fontWeight = FontWeight.Black) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text("Se guardan en esta tablet y se aplican al editor.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Fila(
+                    "Palito del GPS en las flechas",
+                    "El palito con la bolita que marca en qué punto de la flecha se tomó la coordenada. Apagado no se borra: si lo volvés a prender, aparece donde estaba.",
+                    p.mostrarPalitoGps
+                ) { Preferencias.cambiar(context, p.copy(mostrarPalitoGps = it)) }
+                Fila(
+                    "Rumbo (CAP)",
+                    "Muestra el rumbo de la viñeta cuando lo tiene cargado.",
+                    p.mostrarRumboCap
+                ) { Preferencias.cambiar(context, p.copy(mostrarRumboCap = it)) }
+                Fila(
+                    "Distancias con 3 decimales",
+                    "En el editor de tramos: 0,000 km en lugar de 0,00 km.",
+                    p.decimalesKm == 3
+                ) { Preferencias.cambiar(context, p.copy(decimalesKm = if (it) 3 else 2)) }
+            }
+        },
+        confirmButton = { TextButton(onClick = onCerrar) { Text("Cerrar", fontWeight = FontWeight.Bold) } }
+    )
+}

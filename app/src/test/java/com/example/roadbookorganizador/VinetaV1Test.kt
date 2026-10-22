@@ -33,9 +33,9 @@ class VinetaV1Test {
 
     @Test
     fun cargaLaBibliotecaCompleta() {
-        assertEquals(101, bib.simbolos.size)
-        assertEquals(11, bib.flechasArmadas.size)
-        assertEquals(5, bib.categorias.size)
+        assertEquals(113, bib.simbolos.size)
+        assertEquals(39, bib.flechasArmadas.size)
+        assertEquals(6, bib.categorias.size)
     }
 
     @Test
@@ -77,16 +77,20 @@ class VinetaV1Test {
 
     @Test
     fun ejemploDeLaEspecificacionIdaYVuelta() {
-        val ejemplo = """{"v":1,"arrows":[{"x0":0.5,"y0":0.88,"x1":0.5,"y1":0.55,"x2":0.5,"y2":0.35,"x3":0.5,"y3":0.15,"width":6,"color":"#000000","gps":{"t":0.5,"lado":1},"id":"a1"}],"stamps":[{"type":"GUARDAGANADO","x":0.72,"y":0.4,"scale":1.3,"rot":0,"id":"s1"}],"strokes":[{"color":"#000000","width":3.5,"pts":[{"x":0.2,"y":0.5},{"x":0.25,"y":0.47}]}],"notasCapa":{"arrows":[],"strokes":[],"stamps":[{"type":"EXCL_2","x":0.15,"y":0.75,"scale":1.3,"rot":0}]}}"""
+        val ejemplo = """{"v":3,"arrows":[{"x0":0.5,"y0":0.88,"x1":0.5,"y1":0.55,"x2":0.5,"y2":0.35,"x3":0.5,"y3":0.15,"width":6,"color":"#000000","gps":{"t":0.5,"lado":1,"largo":14},"id":"a1"}],"stamps":[{"type":"GUARDAGANADO","x":0.72,"y":0.4,"scale":1.3,"rot":0,"id":"s1"},{"type":"FORMA_CIRCULO","x":0.3,"y":0.3,"scale":1,"rot":0,"color":"#DC2626"}],"strokes":[{"color":"#000000","width":3.5,"pts":[{"x":0.2,"y":0.5},{"x":0.25,"y":0.47}]}],"texts":[{"x":0.1,"y":0.08,"text":"KM 3","size":8,"color":"#000000"}],"notasCapa":{"arrows":[],"strokes":[],"stamps":[{"type":"EXCL_2","x":0.15,"y":0.75,"scale":1.3,"rot":0}]},"notasLetra":7.5}"""
         val d = DibujoV1.desdeJson(ejemplo)
-        assertTrue(DibujoV1.esFormatoNuevo(ejemplo))
+        assertEquals(3, DibujoV1.versionDe(ejemplo))
         assertEquals(1, d.dibujo.arrows.size)
         assertEquals("a1", d.dibujo.arrows[0].extra["id"]) // el id se conserva
+        assertEquals(14.0, d.dibujo.arrows[0].gps!!.largo!!, 0.0) // gps.largo se conserva (revisión 11)
         assertEquals("s1", d.dibujo.stamps[0].extra["id"])
         assertEquals("EXCL_2", d.notasCapa.stamps[0].type)
-        // Releer lo escrito da lo mismo
+        // v3 se lee tal cual: sin conversión
+        cerca(0.72, d.dibujo.stamps[0].x)
+        assertEquals(7.5, d.notasLetra!!, 0.0)
+        // Releer lo escrito da lo mismo, y se escribe "v": 3
         assertEquals(d, DibujoV1.desdeJson(d.aJson()))
-        assertTrue(d.aJson().startsWith("{\"v\":1,"))
+        assertTrue(d.aJson().startsWith("{\"v\":3,"))
     }
 
     @Test
@@ -109,7 +113,7 @@ class VinetaV1Test {
     @Test
     fun puntaDeFlechaRectaApuntaParaArriba() {
         val recta = bib.flechasArmadas["recta"]!!.flecha
-        val p = Geometria.puntosEnUnidades(recta, ALTO_DIBUJO)
+        val p = Geometria.puntosEnUnidades(recta, ALTO_DIBUJO_V1)
         val t = Geometria.punta(p, 6.0)
         // h = max(10, 1.8·6) = 10.8; el vértice principal queda 10.8 unidades arriba de P3
         cerca(50.0, t[0].x, 1e-9)
@@ -130,10 +134,10 @@ class VinetaV1Test {
     @Test
     fun palitoDelGpsSegunLaFormula() {
         val recta = bib.flechasArmadas["recta"]!!.flecha
-        val p = Geometria.puntosEnUnidades(recta, ALTO_DIBUJO)
+        val p = Geometria.puntosEnUnidades(recta, ALTO_DIBUJO_V1)
         val pal = Geometria.palito(p, 6.0, Gps(0.5, 1))
         // Recta vertical hacia arriba: T = (0,-1), N (lado 1) = (1, 0), D = N cos35 - T sin35
-        val largo = 9.0 // max(7, 1.5·6)
+        val largo = 13.2 // max(11, 2,2·6) (revisión 9)
         cerca(50.0, pal.desde.x, 1e-9)
         cerca(50.0, pal.desde.y, 1e-9)
         cerca(50.0 + largo * Math.cos(Math.toRadians(35.0)), pal.hasta.x, 1e-9)
@@ -153,7 +157,7 @@ class VinetaV1Test {
     @Test
     fun girarFlecha90GradosHorario() {
         val recta = bib.flechasArmadas["recta"]!!.flecha
-        val g = Geometria.girarFlecha(recta, 90.0, ALTO_DIBUJO)
+        val g = Geometria.girarFlecha(recta, 90.0, ALTO_DIBUJO_V1)
         // La punta (0.5, 0.1) girada 90° horario alrededor del centro queda a la derecha (0.9, 0.5)
         cerca(0.9, g.x3, 1e-9)
         cerca(0.5, g.y3, 1e-9)
@@ -320,16 +324,18 @@ class VinetaV1Test {
     }
 
     @Test
-    fun alGuardarSoloLaPrimeraFlechaConGpsLoConservaYNotasSinGps() {
+    fun alGuardarNoSePierdeNingunGps() {
+        // Revisión 11: nunca se pierde un dato. Si hay más de una flecha con gps se conservan
+        // todas (al dibujar vale la primera); el peligro se calcula igual.
         val f = Flecha(0.5, 0.9, 0.5, 0.6, 0.5, 0.4, 0.5, 0.1)
         val d = DibujoV1(
-            dibujo = Capa(arrows = listOf(f, f.copy(gps = Gps(0.3, -1)), f.copy(gps = Gps(0.7, 1)))),
-            notasCapa = Capa(arrows = listOf(f.copy(gps = Gps(0.5, 1))), stamps = listOf(Sello("EXCL_2", 0.1, 0.5)))
+            dibujo = Capa(arrows = listOf(f, f.copy(gps = Gps(0.3, -1)), f.copy(gps = Gps(0.7, 1, 20.0)))),
+            notasCapa = Capa(stamps = listOf(Sello("EXCL_2", 0.1, 0.5)))
         )
         val (json, peligro) = VinetaDibujo.paraGuardar(d)
         val leido = DibujoV1.desdeJson(json)
-        assertEquals(listOf(null, Gps(0.3, -1), null), leido.dibujo.arrows.map { it.gps })
-        assertNull(leido.notasCapa.arrows.single().gps)
+        assertEquals(listOf(null, Gps(0.3, -1), Gps(0.7, 1, 20.0)), leido.dibujo.arrows.map { it.gps })
+        assertEquals(1, Geometria.flechaConGps(leido.dibujo.arrows)!!.first)
         assertEquals("!!", peligro)
     }
 
@@ -342,31 +348,32 @@ class VinetaV1Test {
 
     @Test
     fun notasLetraSeLeeYSeGuarda() {
-        val d = DibujoV1.desdeJson("""{"v":1,"arrows":[],"stamps":[],"strokes":[],"notasLetra":7.5}""")
+        val d = DibujoV1.desdeJson("""{"v":3,"arrows":[],"stamps":[],"strokes":[],"notasLetra":7.5}""")
         assertEquals(7.5, d.notasLetra!!, 0.0)
         assertTrue(d.extra.isEmpty())
         assertEquals(7.5, DibujoV1.desdeJson(d.aJson()).notasLetra!!, 0.0)
         // Sin notasLetra = automático, y no se escribe
-        val auto = DibujoV1.desdeJson("""{"v":1,"arrows":[],"stamps":[],"strokes":[]}""")
+        val auto = DibujoV1.desdeJson("""{"v":3,"arrows":[],"stamps":[],"strokes":[]}""")
         assertNull(auto.notasLetra)
         assertFalse(DibujoV1(dibujo = Capa(stamps = listOf(Sello("STOP", 0.5, 0.5)))).aJson().contains("notasLetra"))
     }
 
     @Test
     fun botonesDeLetraRespetanRangoYPaso() {
-        assertEquals(20.0, LetraNotas.mas(20.0), 0.0)
-        assertEquals(3.0, LetraNotas.menos(3.0), 0.0)
+        // Manual de 4 a 28, de a 0,5
+        assertEquals(28.0, LetraNotas.mas(28.0), 0.0)
+        assertEquals(4.0, LetraNotas.menos(4.0), 0.0)
         assertEquals(8.0, LetraNotas.mas(7.5), 0.0)
         assertEquals(7.5, LetraNotas.ajustar(7.4), 0.0)
     }
 
     @Test
-    fun letraAutomaticaBuscaDe14ParaAbajo() {
+    fun letraAutomaticaBuscaDe20ParaAbajo() {
         // alto del texto = 3 líneas × letra × 1,2
         val alto = { l: Double -> 3 * l * LetraNotas.INTERLINEADO }
-        assertEquals(14.0, LetraNotas.automatica(100.0, alto), 0.0)
+        assertEquals(20.0, LetraNotas.automatica(100.0, alto), 0.0)
         assertEquals(8.0, LetraNotas.automatica(29.0, alto), 0.0)   // 8 → 28,8 entra; 8,5 → 30,6 no
-        assertEquals(4.5, LetraNotas.automatica(5.0, alto), 0.0)    // no entra ni con 4,5
+        assertEquals(6.5, LetraNotas.automatica(5.0, alto), 0.0)    // no entra ni con 6,5
     }
 
     @Test
@@ -381,9 +388,10 @@ class VinetaV1Test {
 
     @Test
     fun lugarDelTextoYTextoCompleto() {
+        // Celda de notas 100 × 90, margen 2; con carteles la franja de abajo es de 20
         assertEquals(96.0, LetraNotas.anchoDisponible(), 0.0)
-        assertEquals(60.0, LetraNotas.altoDisponible(false), 0.0)
-        assertEquals(46.0, LetraNotas.altoDisponible(true), 0.0)
+        assertEquals(86.0, LetraNotas.altoDisponible(false), 0.0)
+        assertEquals(66.0, LetraNotas.altoDisponible(true), 0.0)
         assertEquals("a\nb", LetraNotas.textoCompleto("a", "b"))
         assertEquals("b", LetraNotas.textoCompleto("", "b"))
         assertEquals("a", LetraNotas.textoCompleto("a"))
@@ -394,12 +402,179 @@ class VinetaV1Test {
         // cada letra mide 0,6 × tamaño
         val medir = { t: String, l: Double -> t.length * 0.6 * l }
         assertEquals(8.0, LetraNotas.letra("x", 8.0, false, medir), 0.0)
-        // Texto corto: entra con 14
-        assertEquals(14.0, LetraNotas.letra("BTW", null, false, medir), 0.0)
-        // Con carteles hay menos alto: 4 líneas de 14 (67,2) no entran en 46
+        // Texto corto: entra con 20
+        assertEquals(20.0, LetraNotas.letra("BTW", null, false, medir), 0.0)
+        // Con carteles hay menos alto: 4 líneas de 20 (96) no entran en 66
         val largo = "uno\ndos\ntres\ncuatro"
         val conCarteles = LetraNotas.letra(largo, null, true, medir)
-        assertTrue(conCarteles < 14.0 && 4 * conCarteles * 1.2 <= 46.0 && 4 * (conCarteles + 0.5) * 1.2 > 46.0)
+        assertTrue(conCarteles < 20.0 && 4 * conCarteles * 1.2 <= 66.0 && 4 * (conCarteles + 0.5) * 1.2 > 66.0)
+    }
+
+    // ------------------------------------------------------------ revisión 6: texts y color
+
+    @Test
+    fun cuadrosDeTextoSeLeenYSeGuardanEnLasDosCapas() {
+        val json = """{"v":3,"arrows":[],"stamps":[],"strokes":[],"texts":[{"x":0.1,"y":0.08,"text":"KM 3","size":8,"color":"#000000"}],
+            "notasCapa":{"arrows":[],"stamps":[],"strokes":[],"texts":[{"x":0.2,"y":0.3,"text":"a\nb"}]}}"""
+        val d = DibujoV1.desdeJson(json)
+        assertEquals(CuadroTexto(0.1, 0.08, "KM 3", 8.0, "#000000"), d.dibujo.texts.single())
+        // Sin size: 4,5 en la capa de notas; sin color: negro
+        assertEquals(CuadroTexto(0.2, 0.3, "a\nb", TEXTO_NOTAS, "#000000"), d.notasCapa.texts.single())
+        assertTrue(d.extra.isEmpty())
+        assertEquals(d, DibujoV1.desdeJson(d.aJson()))
+        // Una capa con solo texto no está vacía; sin textos no se escribe "texts"
+        assertFalse(Capa(texts = listOf(CuadroTexto(0.0, 0.0, "x", 8.0))).estaVacia())
+        assertFalse(DibujoV1(dibujo = Capa(stamps = listOf(Sello("STOP", 0.5, 0.5)))).aJson().contains("texts"))
+    }
+
+    @Test
+    fun colorDeSimboloSoloSiSePuedePintar() {
+        val pintables = bib.simbolos.values.filter { it.colorable }.map { it.codigo }.toSet()
+        assertEquals(18, pintables.size)
+        assertTrue(pintables.containsAll(listOf("EXCL_1", "PELIGRO_3", "FORMA_CRUZ")))
+        val forma = bib.simbolo("FORMA_CIRCULO")!!
+        val rojo = forma.opsParaColor("#DC2626")
+        assertTrue(rojo.all { it.estilo.stroke == null || it.estilo.stroke == "#DC2626" })
+        assertTrue(forma.opsParaColor(null).any { it.estilo.stroke == forma.colorPorDefecto })
+        // En uno que no se puede pintar el color se ignora
+        val stop = bib.simbolo("STOP")!!
+        assertEquals(stop.ops, stop.opsParaColor("#DC2626"))
+        // El color del símbolo se guarda y se lee
+        val s = DibujoV1.desdeJson(DibujoV1(dibujo = Capa(stamps = listOf(Sello("FORMA_CIRCULO", 0.3, 0.3, 1.0, 0.0, "#DC2626")))).aJson())
+        assertEquals("#DC2626", s.dibujo.stamps.single().color)
+    }
+
+    @Test
+    fun peligroPintableTieneRellenoAl30PorCiento() {
+        val tri = bib.simbolo("PELIGRO_1")!!.opsParaColor("#16A34A").first()
+        assertEquals("#16A34A", tri.estilo.fill)
+        assertEquals(0.3, tri.estilo.fillOpacity, 1e-9)
+    }
+
+    // ------------------------------------------------------------ formato v3 (revisiones 7 a 13)
+
+    @Test
+    fun deV1SePasaAV3SinCambiarComoSeVe() {
+        val v1 = """{"v":1,"arrows":[{"x0":0.5,"y0":1,"x1":0.5,"y1":0.5,"x2":0.5,"y2":0.5,"x3":0,"y3":0,"width":6,"color":"#000000","gps":{"t":0.5,"lado":1,"largo":10}}],
+            "stamps":[{"type":"STOP","x":0.5,"y":0.5,"scale":1.3,"rot":0}],"strokes":[],
+            "notasCapa":{"arrows":[],"strokes":[],"stamps":[{"type":"EXCL_1","x":0.15,"y":0.56,"scale":0.8,"rot":0}]},"notasLetra":7.5}"""
+        val d = DibujoV1.desdeJson(v1)
+        val a = d.dibujo.arrows.single()
+        // x: 0.16 + 0.68·(0.0735 + 0.8529·x) = 0.21 + 0.58·x ; y: 0.1778 + 0.6444·y
+        cerca(0.5, a.x0, 2e-3); cerca(0.8222, a.y0, 2e-3)
+        cerca(0.21, a.x3, 2e-3); cerca(0.1778, a.y3, 2e-3)
+        cerca(6 * 0.58, a.width, 2e-3)
+        cerca(10 * 0.58, a.gps!!.largo!!, 2e-3)       // gps.largo también se multiplica
+        cerca(1.3 * 0.58, d.dibujo.stamps.single().scale, 2e-3)
+        // Notas: mismo ancho, arriba: y·64/90; tamaños igual
+        val e = d.notasCapa.stamps.single()
+        cerca(0.15, e.x); cerca(0.56 * 64 / 90, e.y, 1e-4); cerca(0.8, e.scale)
+        // notasLetra × 72/50, redondeado a 0,5: 7,5 → 10,8 → 11
+        assertEquals(11.0, d.notasLetra!!, 0.0)
+        // Al guardar va "v": 3 y al releer no se convierte otra vez
+        assertEquals(d, DibujoV1.desdeJson(d.aJson()))
+    }
+
+    @Test
+    fun deV2SoloCambiaElDibujo() {
+        val v2 = """{"v":2,"arrows":[{"x0":0,"y0":0,"x1":1,"y1":1,"x2":1,"y2":1,"x3":1,"y3":1,"width":5,"color":"#000000",
+            "prohibidos":[{"t":0.5,"ang":-60,"largo":20}]}],"stamps":[],"strokes":[],"texts":[{"x":0,"y":0,"text":"A","size":10}],
+            "notasCapa":{"arrows":[],"strokes":[],"stamps":[{"type":"STOP","x":0.3,"y":0.3,"scale":1,"rot":0}]},"notasLetra":9}"""
+        val d = DibujoV1.desdeJson(v2)
+        val a = d.dibujo.arrows.single()
+        cerca(0.16, a.x0, 1e-4); cerca(0.1778, a.y0, 1e-4)
+        cerca(0.84, a.x3, 1e-4); cerca(0.8222, a.y3, 1e-4)
+        cerca(3.4, a.width, 1e-4)
+        cerca(13.6, a.prohibidos!!.single().largo, 1e-4)  // el largo de los prohibidos también
+        cerca(-60.0, a.prohibidos!!.single().ang)
+        cerca(6.8, d.dibujo.texts.single().size, 1e-4)
+        // La capa de notas y notasLetra no cambian
+        cerca(0.3, d.notasCapa.stamps.single().y)
+        assertEquals(9.0, d.notasLetra!!, 0.0)
+    }
+
+    @Test
+    fun formatoViejoDeLaAppLlegaAV3() {
+        val viejo = """{"strokes":[],"stamps":[{"type":"CONTROL_HORARIO","x":0.5,"y":0.5,"scale":1.0,"rot":0}],"arrows":[]}"""
+        val d = VinetaDibujo.leer(bib, null, viejo, "", "BLANCO", "")
+        val s1 = d.dibujo.stamps.single()
+        assertEquals("FIA_CH", s1.type)
+        cerca(0.5, s1.x, 1e-3); cerca(0.5, s1.y, 1e-3)
+        cerca(1.3 * 0.58, s1.scale, 2e-3)
+        assertTrue(d.aJson().startsWith("{\"v\":3,"))
+    }
+
+    @Test
+    fun nadaSePierdeAlGuardar() {
+        val json = """{"v":3,"raro":{"a":1},"arrows":[{"x0":0.5,"y0":0.9,"x1":0.5,"y1":0.6,"x2":0.5,"y2":0.4,"x3":0.5,"y3":0.1,"width":6,"color":"#000000",
+            "gps":{"t":0.4,"lado":-1,"largo":12,"otro":true},"prohibidos":[{"t":0.5,"ang":60,"largo":17.4,"id":"p1"}],"id":"f1"}],
+            "stamps":[],"strokes":[{"color":"#000000","width":4,"pts":[]}],
+            "notasCapa":{"arrows":[],"stamps":[],"strokes":[],"texts":[{"x":0.1,"y":0.1,"text":"N","size":4.5,"color":"#000000"}],"extraNotas":5}}"""
+        val d = DibujoV1.desdeJson(json)
+        @Suppress("UNCHECKED_CAST")
+        val vuelta = JsonLite.parse(d.aJson()) as Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        val original = JsonLite.parse(json) as Map<String, Any?>
+        assertEquals(original, vuelta)
+    }
+
+    @Test
+    fun caminoProhibidoSegunLaFormula() {
+        // Recta vertical hacia arriba (T = (0,-1)), prohibido a 90° a la derecha → D = (1, 0)
+        val f = Flecha(0.5, 0.9, 0.5, 0.6, 0.5, 0.3, 0.5, 0.1, width = 6.0)
+        val p = Geometria.puntosEnUnidades(f, ALTO_DIBUJO)
+        val c = Geometria.prohibido(p, 6.0, Prohibido(0.5, 90.0, 20.0))
+        val q = Geometria.bezier(p, 0.5)
+        cerca(q.x + 20.0, c.hasta.x, 1e-9); cerca(q.y, c.hasta.y, 1e-9)
+        cerca(2.7, c.grosor, 1e-9)                      // max(1,4; 0,45·6)
+        // Rayitas perpendiculares (verticales), a 15 ± 2,25 de Q, de largo 2·6,6
+        val r0 = c.rayitas[0]
+        cerca(q.x + 15.0 - 2.25, r0.desde.x, 1e-9); cerca(q.x + 15.0 - 2.25, r0.hasta.x, 1e-9)
+        cerca(13.2, Math.abs(r0.hasta.y - r0.desde.y), 1e-9)
+        // Y al revés: el ángulo y el largo para llegar a ese punto
+        val (ang, largo) = Geometria.anguloYLargo(p, 0.5, c.hasta)
+        cerca(90.0, ang); cerca(20.0, largo)
+    }
+
+    @Test
+    fun flechasArmadasConProhibidos() {
+        val a = bib.flechasArmadas["der_90_2p"]!!.flecha
+        assertEquals(2, a.prohibidos!!.size)
+        assertNull(bib.flechasArmadas["recta"]!!.flecha.prohibidos)
+        assertTrue(bib.flechasArmadas.keys.containsAll(listOf("izq_codo", "der_codo_1p", "recta_2p")))
+    }
+
+    @Test
+    fun gomaCortaUnTrazoEnDos() {
+        val t = Trazo(listOf(Punto(0.1, 0.5), Punto(0.9, 0.5)), "#000000", 2.5)
+        val r = Goma.borrar(listOf(t), 0.5, 0.5, ALTO_DIBUJO)
+        assertEquals(2, r.size)
+        // El hueco mide unas 2 × (4 + 1,25) unidades alrededor de x = 50
+        assertTrue(r[0].pts.last().x < 0.45 && r[1].pts.first().x > 0.55)
+        assertEquals(0.1, r[0].pts.first().x, 1e-9)
+        assertEquals(0.9, r[1].pts.last().x, 1e-9)
+        // Lejos del trazo no cambia nada
+        assertEquals(listOf(t), Goma.borrar(listOf(t), 0.5, 0.1, ALTO_DIBUJO))
+        // Borrando una punta queda uno solo
+        assertEquals(1, Goma.borrar(listOf(t), 0.1, 0.5, ALTO_DIBUJO).size)
+    }
+
+    @Test
+    fun valoresInicialesV3() {
+        assertEquals(0.58, Colocar.ESCALA_SIMBOLO, 0.0)
+        assertEquals(4.5, Colocar.TAMANO_TEXTO, 0.0)
+        assertEquals(3.5, Colocar.ANCHO_FLECHA, 0.0)
+        // Recta armada como un cuadrado de 29 mm centrado: igual que pasar un dibujo v1 a v3
+        val recta = bib.flechasArmadas["recta"]!!.flecha
+        val puesta = Colocar.armadaEnCaja(recta)
+        cerca(0.5, puesta.x0, 1e-9)
+        cerca(0.5 + (0.9 - 0.5) * 29 / 45, puesta.y0, 1e-9)
+        assertEquals(3.5, puesta.width, 0.0)
+        val con2 = Colocar.armadaEnCaja(bib.flechasArmadas["der_90_2p"]!!.flecha)
+        assertEquals(17.4, con2.prohibidos!![0].largo, 1e-9) // 30 × 0,58
+        // Soltada cerca del borde no se sale del recuadro
+        val borde = Colocar.armadaEnCaja(recta, 0.99, 0.99)
+        assertTrue(listOf(borde.x0, borde.x3, borde.y0, borde.y3).all { it in 0.0..1.0 })
     }
 }
 

@@ -2,7 +2,9 @@ package com.example.roadbookorganizador.vineta
 
 /**
  * Conversión del formato viejo de la app Kotlin (columnas tulipSvgData y notasSvgData,
- * más tulipTipo y peligro) a la versión 1. ESPECIFICACION_VINETA.md, punto 9.
+ * más tulipTipo y peligro) a la versión 1 (dibujo 100 × 100, notas 100 × 64).
+ * ESPECIFICACION_VINETA.md, punto 9. Para llegar a la versión 3 se pasa después por
+ * Formatos.deV1 (lo hace VinetaDibujo.leer).
  */
 object ConversionViejo {
 
@@ -17,14 +19,14 @@ object ConversionViejo {
         tulipTipo: String?,
         peligro: String?
     ): DibujoV1 {
-        var dibujo = if (!tulipSvgData.isNullOrBlank()) capaVieja(bib, tulipSvgData, ALTO_DIBUJO, conGps = true) else Capa()
+        var dibujo = if (!tulipSvgData.isNullOrBlank()) capaVieja(bib, tulipSvgData, ALTO_DIBUJO_V1, conGps = true) else Capa()
 
         // tulipTipo solo si el dibujo viejo estaba vacío
         if (tulipSvgData.isNullOrBlank() && !tulipTipo.isNullOrBlank()) {
             dibujo = desdeTulipTipo(bib, tulipTipo.trim())
         }
 
-        var notas = if (!notasSvgData.isNullOrBlank()) capaVieja(bib, notasSvgData, ALTO_NOTAS, conGps = false) else Capa()
+        var notas = if (!notasSvgData.isNullOrBlank()) capaVieja(bib, notasSvgData, ALTO_NOTAS_V1, conGps = false) else Capa()
 
         // Peligro del campo viejo → EXCL en la capa de notas, salvo que ya haya uno igual o mayor
         val nivelCampo = Peligro.nivelDeTexto(peligro)
@@ -100,7 +102,7 @@ object ConversionViejo {
     private fun desdeTulipTipo(bib: Biblioteca, codigo: String): Capa =
         when (val eq = bib.convertirTulipTipo(codigo)) {
             Equivalencia.Vacio, Equivalencia.PalitoGps -> Capa()
-            is Equivalencia.FlechaArmadaEq -> Capa(arrows = listOfNotNull(armada(bib, eq.codigoArmada, 0.0, ALTO_DIBUJO, true)))
+            is Equivalencia.FlechaArmadaEq -> Capa(arrows = listOfNotNull(armada(bib, eq.codigoArmada, 0.0, ALTO_DIBUJO_V1, true)))
             is Equivalencia.Simbolo -> Capa(stamps = listOf(Sello(eq.codigoOficial, 0.5, 0.5, 1.3, 0.0)))
             is Equivalencia.Nuevo -> Capa(stamps = listOf(Sello(eq.tipoMientrasTanto, 0.5, 0.5, 1.3, 0.0)))
         }

@@ -41,4 +41,23 @@ interface VinetaDao {
 
     @Query("DELETE FROM vinetas WHERE tramoId = :tramoId")
     suspend fun clearVinetasByTramo(tramoId: Long)
+
+    // ---- Sincronización con la plataforma ----
+    @Query("SELECT * FROM vinetas WHERE tramoId = :tramoId AND pendienteSubir = 1 ORDER BY distanciaTotal ASC, numero ASC, id ASC")
+    suspend fun getPendientes(tramoId: Long): List<VinetaEntity>
+
+    @Query("SELECT COUNT(*) FROM vinetas WHERE tramoId = :tramoId AND pendienteSubir = 1")
+    fun contarPendientes(tramoId: Long): Flow<Int>
+
+    @Query("UPDATE vinetas SET pendienteSubir = 0, webId = :webId WHERE id = :id")
+    suspend fun marcarSubida(id: Long, webId: Int?)
+
+    @Insert
+    suspend fun insertBaja(baja: com.example.roadbookorganizador.data.local.entity.BajaPendienteEntity)
+
+    @Query("SELECT * FROM bajas_pendientes WHERE tramoId = :tramoId ORDER BY id ASC")
+    suspend fun getBajas(tramoId: Long): List<com.example.roadbookorganizador.data.local.entity.BajaPendienteEntity>
+
+    @Query("DELETE FROM bajas_pendientes WHERE id = :id")
+    suspend fun borrarBaja(id: Long)
 }

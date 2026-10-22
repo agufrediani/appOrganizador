@@ -11,10 +11,28 @@ data class Simbolo(
     val categoria: String,
     val color: String,
     val velocidadKmh: Double?,
-    val svg: String
+    val svg: String,
+    /** Se puede pintar (punto 8): los !, los PELIGRO y las FORMA_*. */
+    val colorable: Boolean = false,
+    val colorPorDefecto: String? = null,
+    /** El mismo dibujo con currentColor donde va el color. */
+    val svgPintable: String? = null
 ) {
     /** Operaciones de dibujo, calculadas una sola vez. */
     val ops: List<OpSvg> by lazy { SvgSimple.parse(svg) }
+
+    private val opsPorColor = HashMap<String, List<OpSvg>>()
+
+    /**
+     * Operaciones para un símbolo colocado: si se puede pintar, svgPintable con currentColor
+     * reemplazado por [color] (o por colorPorDefecto); si no, el dibujo de siempre.
+     */
+    fun opsParaColor(color: String?): List<OpSvg> {
+        val pintable = svgPintable
+        if (!colorable || pintable == null) return ops
+        val c = color?.takeIf { it.isNotBlank() } ?: colorPorDefecto ?: "#000000"
+        return synchronized(opsPorColor) { opsPorColor.getOrPut(c) { SvgSimple.parse(pintable.replace("currentColor", c)) } }
+    }
 }
 
 data class Categoria(val codigo: String, val nombre: String)
@@ -63,7 +81,10 @@ class Biblioteca(
                     categoria = o.txt("categoria", ""),
                     color = o.txt("color", "#000000"),
                     velocidadKmh = o.numONull("velocidadKmh"),
-                    svg = o.txt("svg", "")
+                    svg = o.txt("svg", ""),
+                    colorable = o.bool("colorable", false),
+                    colorPorDefecto = o["colorPorDefecto"] as? String,
+                    svgPintable = o["svgPintable"] as? String
                 )
                 simbolos[sim.codigo] = sim
             }

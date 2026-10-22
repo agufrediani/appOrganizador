@@ -18,28 +18,12 @@ object VinetaDibujo {
         peligro: String?
     ): DibujoV1 =
         if (dibujo != null) DibujoV1.desdeJson(dibujo)
-        else ConversionViejo.convertir(bib, tulipSvgData, notasSvgData, tulipTipo, peligro)
+        else Formatos.deV1(ConversionViejo.convertir(bib, tulipSvgData, notasSvgData, tulipTipo, peligro))
 
     /**
-     * Deja el dibujo listo para guardar: solo la primera flecha del dibujo con gps lo conserva
-     * y la capa de notas nunca lleva gps (punto 6).
+     * Texto a guardar en la columna `dibujo` (siempre "v": 3) y el peligro calculado.
+     * No se toca nada más: nunca se pierde un dato al guardar (si hubiera más de una flecha
+     * con gps, se conservan; al dibujar vale la primera, punto 6).
      */
-    fun normalizar(d: DibujoV1): DibujoV1 {
-        var visto = false
-        val flechas = d.dibujo.arrows.map { f ->
-            if (f.gps == null) f
-            else if (!visto) { visto = true; f }
-            else f.copy(gps = null)
-        }
-        return d.copy(
-            dibujo = d.dibujo.copy(arrows = flechas),
-            notasCapa = d.notasCapa.copy(arrows = d.notasCapa.arrows.map { if (it.gps != null) it.copy(gps = null) else it })
-        )
-    }
-
-    /** Texto a guardar en la columna `dibujo` y el peligro calculado. */
-    fun paraGuardar(d: DibujoV1): Pair<String, String> {
-        val n = normalizar(d)
-        return n.aJson() to Peligro.texto(n)
-    }
+    fun paraGuardar(d: DibujoV1): Pair<String, String> = d.aJson() to Peligro.texto(d)
 }

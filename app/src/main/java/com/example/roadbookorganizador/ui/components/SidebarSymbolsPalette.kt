@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -36,34 +37,55 @@ import com.example.roadbookorganizador.ui.vineta.BibliotecaVineta
 import com.example.roadbookorganizador.ui.vineta.DibujanteSvg
 import com.example.roadbookorganizador.ui.vineta.DibujanteVineta
 import com.example.roadbookorganizador.ui.vineta.ItemPaleta
-import com.example.roadbookorganizador.vineta.ALTO_DIBUJO
+import com.example.roadbookorganizador.vineta.ALTO_DIBUJO_V1
 import com.example.roadbookorganizador.vineta.Biblioteca
 import com.example.roadbookorganizador.vineta.Capa
+import com.example.roadbookorganizador.vineta.Colocar
 
-/** Pestaña de la barra: las flechas armadas, cada categoría de simbolos.json y las notas de texto. */
-private data class TabPaleta(val clave: String, val titulo: String, val icono: ImageVector)
+/** Pestañas de la paleta, en el orden y con los nombres de la plataforma (RoadbookWorkstation). */
+private data class TabPaleta(val clave: String, val titulo: String, val icono: ImageVector, val categoria: String? = null)
 
-private const val TAB_FLECHAS = "FLECHAS"
-private const val TAB_NOTAS = "NOTAS_TEXTO"
+private val TABS = listOf(
+    TabPaleta("flechas", "Flechas", Icons.Default.CallMade),
+    TabPaleta("landmarks", "Referencias", Icons.Default.Place, "LANDMARKS"),
+    TabPaleta("road_rally", "Caminos", Icons.Default.CallSplit, "ROAD_RALLY"),
+    TabPaleta("terrain", "Terreno", Icons.Default.Terrain, "TERRAIN"),
+    TabPaleta("signs", "Señales", Icons.Default.Warning, "SIGNS"),
+    TabPaleta("speed", "Velocidad", Icons.Default.Speed, "SPEED"),
+    TabPaleta("formas", "Formas", Icons.Default.Category, "SHAPES"),
+    TabPaleta("note", "Notas", Icons.Default.TextFields)
+)
 
-private fun iconoCategoria(codigo: String): ImageVector = when (codigo) {
-    "ROAD_RALLY" -> Icons.Default.CallSplit
-    "LANDMARKS" -> Icons.Default.Place
-    "TERRAIN" -> Icons.Default.Terrain
-    "SIGNS" -> Icons.Default.Warning
-    "SPEED" -> Icons.Default.Speed
-    else -> Icons.Default.Category
-}
+/** Acrónimos FIA de la plataforma (código, nombre, en castellano). */
+private val ACRONIMOS = listOf(
+    Triple("L", "Left", "Izquierda"), Triple("L/R", "Left then Right", "Izq luego Der"), Triple("kpL", "Keep Left", "Mantener Izq"),
+    Triple("onL", "On Left", "A la Izq"), Triple("kpS", "Keep Straight", "Mantener Recto"), Triple("onR", "On Right", "A la Der"),
+    Triple("kpR", "Keep Right", "Mantener Der"), Triple("R/L", "Right then Left", "Der luego Izq"), Triple("R", "Right", "Derecha"),
+    Triple("P", "Piste", "Pista / Huella"), Triple("MP", "Main Piste", "Pista Principal"), Triple("RO", "Road", "Camino / Ruta"),
+    Triple("P//", "Parallel Piste", "Pistas Paralelas"), Triple("OP", "Off-Piste", "Fuera de Pista"), Triple("FMP", "Follow Main Piste", "Seguir Pista Princ."),
+    Triple("FRO", "Follow Road", "Seguir Camino"), Triple("±V", "Visible", "Más / Menos Vis."), Triple("+V", "More Visible", "Huella Más Visible"),
+    Triple("-V", "Less Visible", "Huella Menos Vis."), Triple("N", "Narrow", "Estrecho / Angosto"), Triple("AT", "At", "A la Altura De"),
+    Triple("IN", "In / Into", "Dentro / En"), Triple("B^G", "Bridge", "Puente"), Triple("S^M", "Summit", "Cresta / Cumbre"),
+    Triple("A^W", "After Wadi", "Después del Río"), Triple("M^X", "Max", "Máximo"), Triple("SR^X", "Bumpy", "Muy Roto / Salto"),
+    Triple("SR", "Rough", "Roto / Ondulado"), Triple("QT", "Quit", "Dejar / Abandonar"), Triple("Q^MP", "Quit Main Piste", "Dejar Pista Princ."),
+    Triple("IMP", "Imperative", "Imperativo / Oblig."), Triple("CLP", "Clay / Mud", "Barro / Greda"), Triple("BAD", "Bad Road", "Camino Malo"),
+    Triple("RGH", "Rough", "Muy Roto / Piedras"), Triple("GAR", "Gate", "Tranquera / Portón"), Triple("NR", "Narrow", "Paso Angosto"),
+    Triple("GV", "Gravel", "Ripio / Grava"), Triple("GT", "Cattle Grid", "Guardaganado"), Triple("+", "Cross", "Cruce en Cruz"),
+    Triple("BTW", "Between", "Entre"), Triple("RJ", "Rejoin", "Empalme / Retomar"), Triple("FA", "Fast", "Rápido"),
+    Triple("VAL", "Valley", "Valle / Quebrada"), Triple("DN", "Dune", "Duna / Bajada"), Triple("DN^X", "Broken Dune", "Duna Cortada"),
+    Triple("SA", "Sand", "Arena Suelta"), Triple("ST", "Straight", "Recto"), Triple("VG", "Vegetation", "Vegetación / Pasto")
+)
 
 /**
- * Barra de símbolos: solo los símbolos oficiales de simbolos.json y las flechas armadas
- * de flechas_armadas.json (especificación de la viñeta, puntos 5 y 8).
+ * PALETA DE SÍMBOLOS Y ACRÓNIMOS, igual que la de la plataforma: buscador, pestañas
+ * (Flechas, Referencias, Caminos, Terreno, Señales, Velocidad, Formas, Notas) y una grilla de
+ * 3 columnas con cada dibujo ocupando toda su casilla.
  *
- * - Tocar un símbolo lo inserta en el centro del recuadro que se está editando.
- * - Arrastrarlo con el dedo hacia un costado lo levanta; al soltarlo dentro de un recuadro
- *   de dibujo o de notas queda en ese lugar. Arriba y abajo se desplaza la lista.
+ * - Tocar un símbolo lo pone en la viñeta elegida.
+ * - Arrastrarlo con el dedo hacia un costado lo levanta; al soltarlo dentro de un recuadro de
+ *   dibujo o de notas queda en ese lugar. Arriba y abajo se desplaza la lista.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SidebarSymbolsPalette(
     onInsertar: (ItemPaleta) -> Unit,
@@ -74,218 +96,121 @@ fun SidebarSymbolsPalette(
     modifier: Modifier = Modifier
 ) {
     val isDark = ThemeManager.isDarkTheme
-    val bg = if (isDark) RallyCardBg else Color(0xFFF8FAFC)
-    val borderCol = if (isDark) RallySurface else Color(0xFFCBD5E1)
-    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
-    val textSecondary = if (isDark) Color.White.copy(alpha = 0.65f) else Color(0xFF64748B)
+    val fondo = if (isDark) RallyCardBg else Color.White
+    val borde = if (isDark) Color(0xFF2A374D) else Color(0xFFCBD5E1)
+    val suave = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
 
     val context = LocalContext.current
     val bib: Biblioteca = remember { BibliotecaVineta.obtener(context) }
     val dibujante = remember(bib) { DibujanteVineta(bib) }
 
-    val tabs = remember(bib) {
-        listOf(TabPaleta(TAB_FLECHAS, "FLECHAS", Icons.Default.CallMade)) +
-            bib.categorias.map { TabPaleta(it.codigo, it.nombre.uppercase(), iconoCategoria(it.codigo)) } +
-            TabPaleta(TAB_NOTAS, "NOTAS", Icons.Default.EditNote)
-    }
+    var busqueda by remember { mutableStateOf("") }
+    var tab by remember { mutableStateOf("flechas") }
+    val q = busqueda.trim()
+    fun coincide(vararg textos: String) = q.isEmpty() || textos.any { it.contains(q, ignoreCase = true) }
 
-    val armadas: List<ItemPaleta> = remember(bib) {
-        bib.flechasArmadas.values.map { ItemPaleta.ArmadaItem(it.codigo, it.nombre, it.flecha) }
-    }
-    val simbolos: List<Pair<String, ItemPaleta>> = remember(bib) {
-        bib.listaSimbolos.map { it.categoria to ItemPaleta.SimboloItem(it.codigo, it.nombre) }
-    }
+    val armadas = remember(bib) { bib.flechasArmadas.values.map { ItemPaleta.ArmadaItem(it.codigo, it.nombre, it.flecha) } }
 
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedTab by remember { mutableStateOf(TAB_FLECHAS) }
-
-    // Abreviaturas de texto para la nota escrita de la viñeta (no son símbolos del dibujo)
-    val fiaNoteShortcuts = remember {
-        listOf(
-            "L" to "Left", "R" to "Right", "kpL" to "Keep Left", "kpR" to "Keep Right",
-            "onL" to "On Left", "onR" to "On Right", "kpS" to "Keep Straight", "R/L" to "Right/Left",
-            "+V" to "Faster (+V)", "-V" to "Slower (-V)", "IMP" to "Important", "BAD" to "Bad Ground",
-            "RGH" to "Rough", "GAR" to "Gravel", "NR" to "Narrow Road", "GV" to "Grave",
-            "BTW" to "Between", "RJ" to "Rejoin Road", "FA" to "Fast", "VAL" to "Valley",
-            "DN" to "Downhill", "UP" to "Uphill", "CAP" to "Follow CAP", "PP" to "Main Track",
-            "VADO" to "Water Cross", "WADI" to "Dry Riverbed", "HP" to "Hors Piste", "NBX" to "Many",
-            "CH" to "Time Control", "DZ" to "Danger Zone", "FZ" to "End Zone", "CP" to "Check Point",
-            "DSS" to "Start SS", "ASS" to "Finish SS", "MODIF" to "Opening Car Modif", "SA" to "Sandy", "ET" to "And / Next"
-        )
-    }
-
-    val itemsVisibles: List<ItemPaleta> = remember(searchQuery, selectedTab, bib) {
-        val q = searchQuery.trim()
-        if (q.isNotEmpty()) {
-            fun coincide(nombre: String, codigo: String) =
-                nombre.contains(q, ignoreCase = true) || codigo.contains(q, ignoreCase = true)
-            armadas.filter { val a = it as ItemPaleta.ArmadaItem; coincide(a.nombre, a.codigo) } +
-                simbolos.map { it.second }.filter { val s = it as ItemPaleta.SimboloItem; coincide(s.nombre, s.codigo) }
-        } else when (selectedTab) {
-            TAB_FLECHAS -> armadas
-            TAB_NOTAS -> emptyList()
-            else -> simbolos.filter { it.first == selectedTab }.map { it.second }
-        }
-    }
-
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = bg),
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, borderCol)
+    Column(
+        modifier = modifier
+            .background(fondo)
+            .border(1.dp, borde)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            // 1. CABECERA
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(if (isDark) RallySurface else Color(0xFFE2E8F0), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 8.dp, vertical = 5.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Palette,
-                        contentDescription = null,
-                        tint = if (isDark) RallyCyan else FredianiCyanText,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(text = "SÍMBOLOS", fontWeight = FontWeight.Black, fontSize = 11.sp, color = textPrimary)
-                    if (vinetaNumeroActiva != null) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Surface(shape = RoundedCornerShape(4.dp), color = FredianiCyan.copy(alpha = 0.2f)) {
-                            Text(
-                                text = "#$vinetaNumeroActiva",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 9.sp,
-                                color = if (isDark) RallyCyan else FredianiCyanText,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
-                }
-                IconButton(onClick = onCollapse, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = "Cerrar panel", tint = textSecondary, modifier = Modifier.size(16.dp))
-                }
-            }
-
-            // 2. BUSCADOR
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Buscar símbolo...", fontSize = 10.5.sp) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(14.dp)) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(18.dp)) {
-                            Icon(Icons.Default.Close, contentDescription = "Limpiar", modifier = Modifier.size(12.dp))
-                        }
-                    }
-                },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp),
-                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp)
-            )
-
-            // 3. PESTAÑAS
-            if (searchQuery.isEmpty()) {
-                ScrollableTabRow(
-                    selectedTabIndex = tabs.indexOfFirst { it.clave == selectedTab }.coerceAtLeast(0),
-                    containerColor = Color.Transparent,
-                    divider = {},
-                    edgePadding = 2.dp,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    tabs.forEach { tab ->
-                        val sel = selectedTab == tab.clave
-                        val col = if (sel) (if (isDark) RallyCyan else FredianiCyanText) else textSecondary
-                        Tab(
-                            selected = sel,
-                            onClick = { selectedTab = tab.clave },
-                            icon = { Icon(imageVector = tab.icono, contentDescription = tab.titulo, tint = col, modifier = Modifier.size(19.dp)) },
-                            text = {
-                                Text(
-                                    text = tab.titulo,
-                                    fontSize = 10.sp,
-                                    fontWeight = if (sel) FontWeight.Black else FontWeight.Bold,
-                                    color = col,
-                                    maxLines = 1
-                                )
-                            },
-                            modifier = Modifier.height(48.dp)
-                        )
-                    }
-                }
-            }
-
-            // 4. GRILLA
-            if (searchQuery.isEmpty() && selectedTab == TAB_NOTAS) {
-                Column(modifier = Modifier.fillMaxSize().padding(horizontal = 2.dp)) {
-                    Text(
-                        text = "Toque para insertar texto en la nota:",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textSecondary,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 64.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(fiaNoteShortcuts) { (abr, desc) ->
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (isDark) RallySurface else Color.White,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, borderCol),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onAppendNoteText("$abr ") }
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(text = abr, fontWeight = FontWeight.Black, fontSize = 11.sp, color = if (isDark) RallyCyan else FredianiCyanText)
-                                    Text(text = desc, fontSize = 7.5.sp, color = textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                Text(
-                    text = "Toque para insertar · arrastre hacia el costado y suelte en el recuadro",
-                    fontSize = 8.5.sp,
-                    color = textSecondary,
-                    maxLines = 2
+        // Buscador + pestañas
+        Column(modifier = Modifier.fillMaxWidth().padding(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = busqueda,
+                    onValueChange = { busqueda = it },
+                    placeholder = { Text("Buscar símbolo o acrónimo...", fontSize = 11.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                    modifier = Modifier.weight(1f).height(46.dp)
                 )
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 78.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(itemsVisibles, key = { it.clave }) { item ->
-                        CeldaPaleta(
-                            item = item,
-                            arrastre = arrastre,
-                            bib = bib,
-                            dibujante = dibujante,
-                            borderCol = borderCol,
-                            textPrimary = textPrimary,
-                            onTocar = { onInsertar(item) }
-                        )
+                IconButton(onClick = onCollapse, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Cerrar paleta", tint = suave, modifier = Modifier.size(16.dp))
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            // Pestañas: botones chicos que se acomodan en varias filas, como en la web
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                TABS.forEach { t ->
+                    val sel = tab == t.clave
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (sel) Color(0xFF00B4D8) else (if (isDark) RallySurface else Color(0xFFE2E8F0)))
+                            .clickable { tab = t.clave }
+                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                    ) {
+                        Icon(t.icono, contentDescription = null, tint = if (sel) Color.Black else suave, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(t.titulo.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Black,
+                            color = if (sel) Color.Black else (if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)))
+                    }
+                }
+            }
+        }
+        HorizontalDivider(color = borde)
+
+        val actual = TABS.first { it.clave == tab }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            fun titulo(texto: String, color: Color = suave) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(texto.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Black, color = color,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                }
+            }
+            when {
+                actual.clave == "flechas" -> {
+                    titulo("Flechas armadas (tocala para ponerla en la viñeta elegida, o arrastrala a cualquier viñeta):")
+                    // Una sola lista: primero las flechas solas, después con 1 y con 2 caminos prohibidos
+                    for (n in 0..2) {
+                        val lista = armadas.filter { Colocar.prohibidosDelCodigo(it.codigo) == n && coincide(it.nombre, it.codigo) }
+                        if (lista.isEmpty()) continue
+                        if (n > 0) titulo(if (n == 1) "Con un camino prohibido" else "Con dos caminos prohibidos", Color(0xFF64748B))
+                        items(lista, key = { it.clave }) { item ->
+                            CeldaPaleta(item, arrastre, bib, dibujante, borde, isDark) { onInsertar(item) }
+                        }
+                    }
+                }
+                actual.clave == "note" -> {
+                    val lista = ACRONIMOS.filter { (c, l, d) -> coincide(c, l, d) }
+                    titulo("Acrónimos (tocá para insertar):")
+                    items(lista, key = { "A:" + it.first }) { (codigo, nombre, desc) ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isDark) RallyCardBg else Color.White)
+                                .border(1.dp, borde, RoundedCornerShape(16.dp))
+                                .clickable { onAppendNoteText("$codigo ") }
+                                .padding(6.dp)
+                        ) {
+                            Text(codigo, fontSize = 15.sp, fontWeight = FontWeight.Black, color = if (isDark) Color.White else Color(0xFF0F172A))
+                            Text(nombre, fontSize = 8.5.sp, color = suave, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(desc, fontSize = 8.sp, color = suave, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+                else -> {
+                    val lista = bib.listaSimbolos
+                        .filter { (q.isNotEmpty() || it.categoria == actual.categoria) && coincide(it.nombre, it.codigo) }
+                        .map { ItemPaleta.SimboloItem(it.codigo, it.nombre) }
+                    titulo("${actual.titulo} (${lista.size}):")
+                    items(lista, key = { it.clave }) { item ->
+                        CeldaPaleta(item, arrastre, bib, dibujante, borde, isDark) { onInsertar(item) }
                     }
                 }
             }
@@ -293,29 +218,24 @@ fun SidebarSymbolsPalette(
     }
 }
 
+/** Casilla cuadrada de la paleta: el dibujo ocupa toda la casilla (sin recuadro adentro). */
 @Composable
 private fun CeldaPaleta(
     item: ItemPaleta,
     arrastre: ArrastreSimbolo,
     bib: Biblioteca,
     dibujante: DibujanteVineta,
-    borderCol: Color,
-    textPrimary: Color,
+    borde: Color,
+    isDark: Boolean,
     onTocar: () -> Unit
 ) {
-    val isDark = ThemeManager.isDarkTheme
     val coords = remember { arrayOfNulls<LayoutCoordinates>(1) }
-    val nombre = when (item) {
-        is ItemPaleta.SimboloItem -> item.nombre
-        is ItemPaleta.ArmadaItem -> item.nombre
-    }
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = if (isDark) RallySurface else Color.White,
-        border = androidx.compose.foundation.BorderStroke(1.2.dp, borderCol),
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(78.dp)
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .border(1.dp, borde, RoundedCornerShape(16.dp))
             .onGloballyPositioned { coords[0] = it }
             .pointerInput(item.clave) {
                 // Solo el movimiento hacia los costados levanta el símbolo; arriba/abajo desplaza la lista
@@ -332,35 +252,9 @@ private fun CeldaPaleta(
                 )
             }
             .clickable { onTocar() }
+            .padding(6.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 2.dp, vertical = 3.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(54.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color.White)
-                    .border(0.8.dp, Color(0xFFCBD5E1), RoundedCornerShape(6.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                MuestraItemPaleta(item, bib, dibujante, Modifier.fillMaxSize().padding(2.dp))
-            }
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = nombre,
-                fontSize = 7.5.sp,
-                fontWeight = FontWeight.Bold,
-                color = textPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
-            )
-        }
+        MuestraItemPaleta(item, bib, dibujante, Modifier.fillMaxSize())
     }
 }
 
@@ -382,7 +276,7 @@ fun MuestraItemPaleta(item: ItemPaleta, bib: Biblioteca, dibujante: DibujanteVin
                     nc.restore()
                 }
                 is ItemPaleta.ArmadaItem ->
-                    dibujante.dibujarCapa(nc, Capa(arrows = listOf(item.flecha)), left, top, lado, ALTO_DIBUJO, conPalito = true)
+                    dibujante.dibujarCapa(nc, Capa(arrows = listOf(item.flecha)), left, top, lado, ALTO_DIBUJO_V1, conPalito = false) // las armadas están hechas en un cuadrado
             }
         }
     }

@@ -54,5 +54,38 @@ data class VinetaEntity(
     val esTierra: Boolean = false,          // Opción DIRT: Terreno de tierra (vs asfalto)
     val esPuntoControl: Boolean = false,    // Marca si la viñeta actúa como Punto de Control (PC)
     val tipoPuntoControl: String = "",      // "REGULARIDAD", "PASO", "CH", "RADAR"
-    val timestamp: Long = System.currentTimeMillis()
-)
+    val timestamp: Long = System.currentTimeMillis(),
+
+    // ---- Taqueo (ESPECIFICACION_TAQUEO.md): los mismos datos que la plataforma ----
+    /** Identificador fijo de la viñeta, el mismo en la plataforma y en todas las tablets (32 hex). */
+    val uid: String = nuevoUid(),
+    /** De dónde salió la coordenada: MAPA, ARCHIVO, RUTA o TABLET. */
+    val origenCoordenada: String? = null,
+    /** Cuándo se puso la coordenada actual (UTC, ISO 8601). */
+    val coordenadaFechaUtc: String? = null,
+    /** Usuario que la puso. */
+    val coordenadaPor: String? = null,
+    /** Precisión del GPS en metros (solo si vino de la tablet). */
+    val precisionGpsM: Double? = null,
+    /** true si alguien pasó por ahí con la tablet y la confirmó o la taqueó. */
+    val verificadaTerreno: Boolean = false,
+    /** La coordenada que había antes de la última (para volver atrás). */
+    val latitudAnterior: Double? = null,
+    val longitudAnterior: Double? = null,
+
+    // ---- Sincronización con la plataforma ----
+    /** id numérico de la viñeta en el servidor (para `PUT /api/indicaciones/{id}`). null = todavía no está en la plataforma. */
+    val webId: Int? = null,
+    /** La viñeta tal como vino del servidor la última vez (JSON). Sirve para mandar solo lo que cambió en la tablet. */
+    val datosServidor: String? = null,
+    /** true = tiene cambios hechos en la tablet que todavía no llegaron a la plataforma. */
+    val pendienteSubir: Boolean = false
+) {
+    companion object {
+        /** uid nuevo creado por la tablet: 32 caracteres hexadecimales. */
+        fun nuevoUid(): String = java.util.UUID.randomUUID().toString().replace("-", "")
+
+        /** Fecha UTC en el formato ISO de la plataforma. */
+        fun ahoraUtc(): String = java.time.Instant.now().toString()
+    }
+}

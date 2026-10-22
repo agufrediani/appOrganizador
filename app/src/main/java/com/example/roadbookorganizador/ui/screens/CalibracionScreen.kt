@@ -59,9 +59,7 @@ fun CalibracionScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { ThemeManager.toggleTheme() }) {
-                        Text(text = if (isDark) "☀️" else "🌙", fontSize = 18.sp)
-                    }
+                    com.example.roadbookorganizador.ui.components.BotonTema()
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )

@@ -1,316 +1,151 @@
 package com.example.roadbookorganizador.data.remote
 
-import android.util.Log
+import android.content.Context
 import com.example.roadbookorganizador.data.local.entity.RallyEntity
 import com.example.roadbookorganizador.data.local.entity.TramoEntity
 import com.example.roadbookorganizador.data.repository.RoadbookRepository
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 
 data class SyncResult(
     val success: Boolean,
     val message: String,
-    val tramosDescargados: Int = 0,
-    val tramosSubidos: Int = 0,
-    val indicacionesSubidas: Int = 0
+    val ralliesRecibidos: Int = 0,
+    val tramosRecibidos: Int = 0
 )
 
-class WebSyncService(private val repository: RoadbookRepository) {
+/**
+ * Sincronización con la plataforma, con la forma nueva del servidor (ESPECIFICACION_TAQUEO
+ * punto 0). Las direcciones viejas (`datos_completos`, `sincronizar_indicaciones`,
+ * `crear_rapido`) ya no existen.
+ *
+ * Por ahora solo BAJA: `GET /api/rallies` (los rallies del organizador, cada uno con la lista
+ * liviana de sus tramos) y los guarda en la tablet. Lo que ya está en la tablet no se borra.
+ * La subida (taqueo viñeta por viñeta con `PUT /api/indicaciones/{id}`) va aparte.
+ */
+class WebSyncService(private val contexto: Context, private val repository: RoadbookRepository) {
 
-    private val TAG = "WebSyncService"
+    private val api = ApiCliente(contexto)
 
-    suspend fun sincronizarConServidor(baseUrl: String): SyncResult = withContext(Dispatchers.IO) {
-        val cleanUrl = baseUrl.trim().trimEnd('/')
-        var tramosDescargados = 0
-        var tramosSubidos = 0
-        var totalIndicacionesSubidas = 0
-
-        try {
-            Log.d(TAG, "Iniciando sincronización IDA Y VUELTA con: $cleanUrl")
-
-            // ==========================================
-            // PASO 1: DESCARGA (Web -> Tablet)
-            // ==========================================
-            val endpoint = URL("$cleanUrl/api/organizador/datos_completos")
-            val conn = (endpoint.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 7000
-                readTimeout = 9000
-                setRequestProperty("Accept", "application/json")
-            }
-
-            val responseCode = conn.responseCode
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                return@withContext SyncResult(
-                    success = false,
-                    message = "El servidor respondió HTTP $responseCode. Verifica que rally_web esté iniciado en tu PC."
-                )
-            }
-
-            val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            val sb = StringBuilder()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                sb.append(line)
-            }
-            reader.close()
-            conn.disconnect()
-
-            val jsonResponse = JSONObject(sb.toString())
-            if (jsonResponse.optString("status") != "ok") {
-                return@withContext SyncResult(
-                    success = false,
-                    message = "Respuesta no válida del servidor: ${jsonResponse.optString("message", "Error desconocido")}"
-                )
-            }
-
-            // Sincronizar todos los Rallies disponibles desde la web
-            val todosRalliesArray = jsonResponse.optJSONArray("todos_rallies") ?: JSONArray()
-            for (i in 0 until todosRalliesArray.length()) {
-                val rObj = todosRalliesArray.getJSONObject(i)
-                val webId = rObj.getInt("id")
-                val nombre = rObj.optString("nombre", "Rally Web #$webId")
-                val sede = rObj.optString("localidad", "")
-                val club = rObj.optString("campeonato", "Frediani Competición")
-
+    suspend fun sincronizarConServidor(): SyncResult {
+        // 1) Subida: cada tramo con algo de la tablet sin subir, tramo por tramo y viñeta por viñeta
+        var avisoSubida: String? = null
+        var subidos = 0
+        val sincro = SincronizacionTramo(contexto, repository)
+        for (t in repository.getTodosLosTramos()) {
+            val rally = repository.getRallyById(t.rallyId) ?: continue
+            if (rally.webId == null) continue // rally solo en la tablet: no se sube
+            val hayAlgo = t.webId == null || t.pendienteSubir ||
+                repository.getVinetasPendientes(t.id).isNotEmpty() || repository.getBajasPendientes(t.id).isNotEmpty()
+            if (!hayAlgo) continue
+            val r = sincro.sincronizar(t.id)
+            if (r.ok) subidos += r.enviadas else if (avisoSubida == null) avisoSubida = r.mensaje
+            if (r.sinConexion) break
+        }
+        // 2) Bajada: los rallies y la lista de tramos
+        return try {
+            val lista = api.get("/api/rallies")?.takeIf { it.isJsonArray }?.asJsonArray
+                ?: return SyncResult(false, "El servidor no devolvió la lista de rallies.")
+            var nuevosRallies = 0
+            var nuevosTramos = 0
+            for (el in lista) {
+                val r = el.asJsonObject
+                val webId = r.entero("id") ?: continue
+                val localidad = r.texto("localidad")
+                val provincia = r.texto("provincia")
                 val existente = repository.getRallyByWebId(webId)
-                if (existente == null) {
-                    repository.insertRally(
-                        RallyEntity(
-                            webId = webId,
-                            nombre = nombre,
-                            organizadorClub = club,
-                            sede = sede,
-                            esActivo = false,
-                            sincronizado = true
-                        )
-                    )
-                }
-            }
-
-            // Sincronizar el Rally activo y sus tramos asignados
-            var localActiveRallyId: Long? = null
-            val rallyObj = jsonResponse.optJSONObject("rally")
-            if (rallyObj != null) {
-                val activeWebId = rallyObj.getInt("id")
-                val activeNombre = rallyObj.optString("nombre", "Rally Principal")
-                val activeSede = rallyObj.optString("localidad", "")
-                val activeClub = rallyObj.optString("campeonato", "Frediani Competición")
-                val activeFecha = rallyObj.optString("fecha", "")
-
-                var localRally = repository.getRallyByWebId(activeWebId)
-                localActiveRallyId = if (localRally == null) {
-                    repository.insertRally(
-                        RallyEntity(
-                            webId = activeWebId,
-                            nombre = activeNombre,
-                            organizadorClub = activeClub,
-                            sede = activeSede,
-                            fecha = activeFecha,
-                            esActivo = true,
-                            sincronizado = true
-                        )
-                    )
+                val datos = (existente ?: RallyEntity(nombre = "", esActivo = false)).copy(
+                    webId = webId,
+                    nombre = r.texto("nombre").ifBlank { existente?.nombre ?: "Rally #$webId" },
+                    campeonato = r.texto("federacion"),
+                    organizadorClub = r.texto("organizadorClub"),
+                    sede = listOf(localidad, provincia).filter { it.isNotBlank() }.joinToString(", "),
+                    fecha = r.texto("fechaInicio"),
+                    fechaFin = r.texto("fechaFin"),
+                    fiscalizador = r.texto("fiscalizador"),
+                    estadoRally = r.texto("estado").ifBlank { existente?.estadoRally ?: "ACTIVO" },
+                    areaKm2 = r.decimal("areaKm2") ?: existente?.areaKm2 ?: 350.0,
+                    descripcion = r.texto("descripcionPeriodistica"),
+                    sincronizado = true
+                )
+                val rallyId = if (existente == null) {
+                    nuevosRallies++
+                    repository.insertRally(datos)
                 } else {
-                    repository.setRallyActivo(localRally.id)
-                    localRally.id
+                    repository.updateRally(datos)
+                    existente.id
                 }
 
-                // Descargar / actualizar los Tramos de este Rally
-                val tramosArray = jsonResponse.optJSONArray("tramos") ?: JSONArray()
-                for (j in 0 until tramosArray.length()) {
-                    val tObj = tramosArray.getJSONObject(j)
-                    val tramoWebId = tObj.getInt("id")
-                    val tipo = tObj.optString("tipo", "PE")
-                    val identificador = tObj.optString("identificador", "PE ${j + 1}")
-                    val nombre = tObj.optString("nombre", "Tramo ${j + 1}")
-                    val numeroSector = tObj.optInt("numero_sector", j + 1)
-                    val chInicio = tObj.optString("ch_inicio", "CH")
-                    val chFin = tObj.optString("ch_fin", "CH")
-                    val distanciaEstimada = tObj.optDouble("distancia_total", 0.0)
-
-                    val tramoExistente = repository.getTramoByRallyAndWebId(localActiveRallyId, tramoWebId)
-                    if (tramoExistente == null) {
-                        repository.insertTramo(
-                            TramoEntity(
-                                rallyId = localActiveRallyId,
-                                webId = tramoWebId,
-                                tipo = tipo,
-                                identificador = identificador,
-                                nombre = nombre,
-                                numeroSector = numeroSector,
-                                chInicio = chInicio,
-                                chFin = chFin,
-                                distanciaTotalEstimada = distanciaEstimada,
-                                estadoTrazado = "BORRADOR",
-                                ordenSecuencia = j + 1
+                // Los tramos son del rally; los datos viejos los traen dentro de las etapas
+                val tramos = r.get("tramos")?.takeIf { it.isJsonArray }?.asJsonArray?.toList()
+                    ?: r.get("etapas")?.takeIf { it.isJsonArray }?.asJsonArray
+                        ?.flatMap { e -> e.asJsonObject.get("tramos")?.takeIf { it.isJsonArray }?.asJsonArray?.toList().orEmpty() }
+                    ?: emptyList()
+                tramos.forEachIndexed { i, tEl ->
+                    val t = tEl.asJsonObject
+                    val tWebId = t.entero("id") ?: return@forEachIndexed
+                    val tUid = t.texto("uid")
+                    val tEx = (if (tUid.isNotBlank()) repository.getTramoByUid(rallyId, tUid) else null)
+                        ?: repository.getTramoByRallyAndWebId(rallyId, tWebId)
+                    when {
+                        tEx == null -> {
+                            repository.guardarTramoDesdeServidor(
+                                SincronizacionTramo.tramoDeServidor(t, rallyId, null).copy(ordenSecuencia = i + 1)
                             )
-                        )
-                        tramosDescargados++
-                    }
-                }
-            }
-
-            // ==========================================
-            // PASO 2: SUBIDA (Tablet -> Web)
-            // ==========================================
-            if (localActiveRallyId != null) {
-                val tramosLocales = repository.getTramosByRally(localActiveRallyId).first()
-
-                for (tramo in tramosLocales) {
-                    val indicaciones = repository.getVinetasByTramo(tramo.id).first()
-
-                    // Si el tramo es nuevo creado en la tablet (sin webId), primero registrarlo en la web
-                    var tramoWebId = tramo.webId
-                    if (tramoWebId == null) {
-                        tramoWebId = registrarTramoEnWeb(cleanUrl, localActiveRallyId, tramo)
-                        if (tramoWebId != null) {
-                            repository.updateTramo(tramo.copy(webId = tramoWebId))
+                            nuevosTramos++
                         }
-                    }
-
-                    // Si tiene webId y tiene indicaciones trazadas, subirlas con POST a /sincronizar_indicaciones
-                    if (tramoWebId != null && indicaciones.isNotEmpty()) {
-                        val subidaOk = subirIndicacionesTramo(cleanUrl, tramoWebId, indicaciones)
-                        if (subidaOk) {
-                            repository.updateDistanciaYEstado(tramo.id, tramo.distanciaMedidaReal, "SINCRONIZADO")
-                            tramosSubidos++
-                            totalIndicacionesSubidas += indicaciones.size
+                        // Con cambios de la tablet sin subir: no se pisan (se mandan al sincronizar el tramo)
+                        tEx.pendienteSubir -> Unit
+                        else -> {
+                            // La lista de rallies trae el tramo liviano: se completan los datos que trae
+                            // y se conserva lo demás de la tablet (lo medido, el estado del trazado).
+                            repository.guardarTramoDesdeServidor(mezclarLiviano(t, tEx))
                         }
                     }
                 }
             }
-
-            val mensajeFinal = StringBuilder("¡Sincronización IDA Y VUELTA exitosa!\n")
-            if (tramosDescargados > 0) mensajeFinal.append("• $tramosDescargados tramos recibidos de la web\n")
-            if (tramosSubidos > 0) mensajeFinal.append("• $tramosSubidos tramos enviados a la web ($totalIndicacionesSubidas indicaciones trazadas)\n")
-            if (tramosDescargados == 0 && tramosSubidos == 0) mensajeFinal.append("Todos los tramos e indicaciones están al día.")
-
-            SyncResult(
-                success = true,
-                message = mensajeFinal.toString().trim(),
-                tramosDescargados = tramosDescargados,
-                tramosSubidos = tramosSubidos,
-                indicacionesSubidas = totalIndicacionesSubidas
-            )
+            val msg = buildString {
+                append("Sincronizado con la plataforma: ${lista.size()} rallies.")
+                if (nuevosRallies > 0) append(" $nuevosRallies nuevos.")
+                if (nuevosTramos > 0) append(" $nuevosTramos tramos nuevos.")
+                if (subidos > 0) append(" $subidos cambios de la tablet enviados.")
+                avisoSubida?.let { append("\n").append(it) }
+            }
+            SyncResult(true, msg, nuevosRallies, nuevosTramos)
+        } catch (e: SesionVencida) {
+            SyncResult(false, e.message ?: "La sesión venció.")
+        } catch (e: ErrorServidor) {
+            SyncResult(false, e.message ?: "Error del servidor.")
         } catch (e: Exception) {
-            Log.e(TAG, "Error de sincronización bidireccional", e)
-            SyncResult(
-                success = false,
-                message = "No se pudo conectar a $cleanUrl. Asegurate de que la PC tenga el servidor iniciado (INICIAR_SERVIDOR.bat) y la tablet esté en el mismo Wi-Fi."
-            )
-        }
-    }
-
-    private fun subirIndicacionesTramo(
-        baseUrl: String,
-        tramoWebId: Int,
-        indicaciones: List<com.example.roadbookorganizador.data.local.entity.VinetaEntity>
-    ): Boolean {
-        return try {
-            val url = URL("$baseUrl/api/tramos/$tramoWebId/sincronizar_indicaciones")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = 8000
-                readTimeout = 10000
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json")
-                setRequestProperty("Accept", "application/json")
-            }
-
-            val rootJson = JSONObject()
-            val indArray = JSONArray()
-
-            for (ind in indicaciones) {
-                val item = JSONObject()
-                item.put("kmTotal", ind.distanciaTotal)
-                item.put("kmParcial", ind.distanciaParcial)
-                item.put("tulipa", ind.tulipTipo)
-                item.put("nota", ind.informacion)
-                item.put("peligro", ind.peligro)
-                item.put("lat", ind.latitud)
-                item.put("lng", ind.longitud)
-                item.put("dibujo", null)
-                indArray.put(item)
-            }
-            rootJson.put("indicaciones", indArray)
-
-            val writer = OutputStreamWriter(conn.outputStream)
-            writer.write(rootJson.toString())
-            writer.flush()
-            writer.close()
-
-            val code = conn.responseCode
-            conn.disconnect()
-            code == HttpURLConnection.HTTP_OK
-        } catch (e: Exception) {
-            Log.e(TAG, "Error subiendo indicaciones de tramo $tramoWebId", e)
-            false
-        }
-    }
-
-    private fun registrarTramoEnWeb(
-        baseUrl: String,
-        localRallyId: Long,
-        tramo: TramoEntity
-    ): Int? {
-        return try {
-            val rallyLocal = repository.getAllRallies()
-            val rally = kotlinx.coroutines.runBlocking { repository.getRallyById(localRallyId) }
-            val rallyWebId = rally?.webId ?: 1
-
-            val url = URL("$baseUrl/api/tramos/crear_rapido")
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = 6000
-                readTimeout = 8000
-                doOutput = true
-                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-                setRequestProperty("Accept", "application/json")
-            }
-
-            val postData = StringBuilder()
-            postData.append("rally_id=").append(rallyWebId)
-            postData.append("&identificador=").append(URLEncoder.encode(tramo.identificador, "UTF-8"))
-            postData.append("&nombre=").append(URLEncoder.encode(tramo.nombre, "UTF-8"))
-            postData.append("&tipo=").append(URLEncoder.encode(tramo.tipo, "UTF-8"))
-            postData.append("&distancia_total=").append(tramo.distanciaMedidaReal)
-
-            val writer = OutputStreamWriter(conn.outputStream)
-            writer.write(postData.toString())
-            writer.flush()
-            writer.close()
-
-            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-                val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                val sb = StringBuilder()
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    sb.append(line)
-                }
-                reader.close()
-                conn.disconnect()
-
-                val json = JSONObject(sb.toString())
-                if (json.optString("status") == "ok") {
-                    val tObj = json.optJSONObject("tramo")
-                    return tObj?.optInt("id")
-                }
-            }
-            conn.disconnect()
-            null
-        } catch (e: Exception) {
-            Log.e(TAG, "Error creando tramo en la web", e)
-            null
+            SyncResult(false, "No se pudo conectar con el servidor. Revisá la conexión y la dirección del servidor.")
         }
     }
 }
+
+/** Tramo de la lista liviana: solo se cambian los datos que vienen (lo demás queda como está). */
+private fun mezclarLiviano(t: JsonObject, ex: TramoEntity): TramoEntity {
+    fun tiene(k: String) = t.has(k) && !t.get(k).isJsonNull
+    return ex.copy(
+        webId = t.entero("id") ?: ex.webId,
+        uid = t.texto("uid").ifBlank { ex.uid },
+        tipo = if (tiene("tipo")) t.texto("tipo") else ex.tipo,
+        identificador = if (tiene("identificador")) t.texto("identificador") else ex.identificador,
+        nombre = if (tiene("nombre")) t.texto("nombre") else ex.nombre,
+        numeroSector = t.entero("numeroSector") ?: ex.numeroSector,
+        chInicio = if (tiene("chInicio")) t.texto("chInicio") else ex.chInicio,
+        chFin = if (tiene("chFin")) t.texto("chFin") else ex.chFin,
+        distanciaTotalEstimada = t.decimal("distanciaTotalKm") ?: ex.distanciaTotalEstimada,
+        tiempoOtorgado = if (tiene("tiempoOtorgado")) t.texto("tiempoOtorgado") else ex.tiempoOtorgado,
+        atrasoMaximo = if (tiene("atrasoMaximo")) t.texto("atrasoMaximo") else ex.atrasoMaximo,
+        horaPrimerAuto = if (tiene("horaPrimerAuto")) t.texto("horaPrimerAuto") else ex.horaPrimerAuto,
+        velocidadPromedioObjetivoKmh = t.decimal("velocidadPromedioGeneralKmH") ?: ex.velocidadPromedioObjetivoKmh,
+        velocidadMaximaPermitidaKmh = t.decimal("velocidadMaximaEtapaKmH") ?: ex.velocidadMaximaPermitidaKmh,
+        datosServidor = ex.datosServidor ?: t.toString(),
+        updatedAt = System.currentTimeMillis()
+    )
+}
+
+private fun JsonObject.valor(k: String): JsonElement? = get(k)?.takeIf { !it.isJsonNull }
+private fun JsonObject.texto(k: String): String = try { valor(k)?.asString ?: "" } catch (e: Exception) { "" }
+private fun JsonObject.entero(k: String): Int? = try { valor(k)?.asInt } catch (e: Exception) { null }
+private fun JsonObject.decimal(k: String): Double? = try { valor(k)?.asDouble } catch (e: Exception) { null }

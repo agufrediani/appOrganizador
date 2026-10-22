@@ -27,186 +27,206 @@ import com.example.roadbookorganizador.ui.theme.*
 import com.example.roadbookorganizador.ui.viewmodel.TramosViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * TRAMOS del rally, como la pestaña de la plataforma (ListaTramos.tsx): un cartel con el
+ * título, "Crear tramo" y el resumen (cantidad y km de P.E. y de enlaces), y la lista con
+ * Tipo · Identificador · Nombre · Km · Acciones (Editar, Datos, Eliminar).
+ * En el celular cada tramo va en una tarjeta en lugar de la tabla.
+ *
+ * [conCabeceraPropia] = false cuando va adentro de MarcoRally (la cabecera y las pestañas
+ * las pone el marco).
+ */
 @Composable
 fun TramosScreen(
     viewModel: TramosViewModel,
     onNavigateToCockpit: (Long) -> Unit,
-    onVolver: () -> Unit
+    onVolver: () -> Unit,
+    conCabeceraPropia: Boolean = true
 ) {
     val tramos by viewModel.tramos.collectAsState()
-    val rallyActivo by viewModel.rallyActivo.collectAsState()
+    val contexto = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(viewModel) {
+        viewModel.avisos.collect { android.widget.Toast.makeText(contexto, it, android.widget.Toast.LENGTH_LONG).show() }
+    }
 
     var mostrarModalNuevoTramo by remember { mutableStateOf(false) }
     var tramoParaEditar by remember { mutableStateOf<TramoEntity?>(null) }
+    var tramoParaBorrar by remember { mutableStateOf<TramoEntity?>(null) }
+    val paqueteImportado by viewModel.paqueteImportado.collectAsState()
+    // Elegir el archivo del tramo (de otra tablet, de la SD, de Descargas, de WhatsApp…)
+    val elegirArchivo = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri -> if (uri != null) viewModel.leerArchivo(uri) }
 
-    // Calcular estadísticas de tramos del rally
-    val kmPe = tramos.filter { it.tipo == "PE" }.sumOf { if (it.distanciaMedidaReal > 0.0) it.distanciaMedidaReal else it.distanciaTotalEstimada }
-    val kmEnlace = tramos.filter { it.tipo == "ENLACE" }.sumOf { if (it.distanciaMedidaReal > 0.0) it.distanciaMedidaReal else it.distanciaTotalEstimada }
-    val kmTotal = kmPe + kmEnlace
+    val c = com.example.roadbookorganizador.ui.components.ColoresPlataforma
+    val isDark = ThemeManager.isDarkTheme
+    val chico = com.example.roadbookorganizador.ui.components.tamanoPantalla() == com.example.roadbookorganizador.ui.components.TamanoPantalla.CHICO
+    fun kmDe(t: TramoEntity) = if (t.distanciaMedidaReal > 0.0) t.distanciaMedidaReal else t.distanciaTotalEstimada
+    fun km(v: Double) = String.format(java.util.Locale.US, "%.2f", v).replace('.', ',')
+    val pe = tramos.filter { it.tipo == "PE" }
+    val enlaces = tramos.filter { it.tipo != "PE" }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "CRONOGRAMA & ITINERARIO OFICIAL",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            color = if (ThemeManager.isDarkTheme) FredianiCyan else FredianiCyanText,
-                            letterSpacing = 1.sp
-                        )
-                        Text(
-                            text = "Secuencia cronológica oficial: pruebas especiales y enlaces",
-                            fontSize = 11.sp,
-                            color = if (ThemeManager.isDarkTheme) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onVolver) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver al Menú",
-                            tint = if (ThemeManager.isDarkTheme) Color.White else Color(0xFF0F172A)
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { ThemeManager.toggleTheme() }) {
-                        Text(text = if (ThemeManager.isDarkTheme) "☀️" else "🌙", fontSize = 18.sp)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { mostrarModalNuevoTramo = true },
-                containerColor = FredianiCyan,
-                contentColor = Color.Black,
-                icon = { Icon(Icons.Default.AddLocationAlt, contentDescription = null) },
-                text = { Text("+ NUEVO TRAMO", fontWeight = FontWeight.Black) }
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-        ) {
-            val isDark = ThemeManager.isDarkTheme
-            // Header con información del Rally y Resumen Kilométrico FIA (TODO BLANCO EN TEMA CLARO)
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 10.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = if (isDark) RallyCardBg else Color.White),
-                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) RallySurface else Color(0xFFE2E8F0)),
-                elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 0.dp else 2.dp)
+    Column(modifier = Modifier.fillMaxSize().background(c.fondo())) {
+        if (conCabeceraPropia) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
+                IconButton(onClick = onVolver) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = c.texto())
+                }
+                Spacer(Modifier.weight(1f))
+                com.example.roadbookorganizador.ui.components.BotonTema()
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(if (chico) 12.dp else 20.dp),
+            verticalArrangement = Arrangement.spacedBy(if (chico) 14.dp else 24.dp)
+        ) {
+            // Cartel: título, botón y resumen
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(c.tarjeta())
+                        .border(1.dp, c.borde(), RoundedCornerShape(24.dp))
+                        .padding(if (chico) 16.dp else 24.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Layers, contentDescription = null, tint = c.celeste, modifier = Modifier.size(24.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("TRAMOS", fontSize = if (chico) 18.sp else 24.sp, fontWeight = FontWeight.Black, color = c.texto(), letterSpacing = 0.6.sp)
+                            }
                             Text(
-                                text = rallyActivo?.nombre ?: "Rally Seleccionado",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 18.sp,
-                                color = if (isDark) Color.White else Color(0xFF0F172A)
-                            )
-                            Text(
-                                text = if (rallyActivo != null) "${rallyActivo?.organizadorClub.orEmpty()} • ${rallyActivo?.sede.orEmpty()} • ${rallyActivo?.fecha.orEmpty()}" else "Tramos disponibles para relevamiento",
-                                fontSize = 12.sp,
-                                color = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF64748B)
+                                "Cada trazado se carga una sola vez. Tocá Editar para trazarlo o taquearlo en el terreno.",
+                                fontSize = 12.sp, color = c.apagado()
                             )
                         }
-
-                        // Badges métricas FIA oficiales (idéntico a la web)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = FredianiCyanBg,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, FredianiCyan.copy(alpha = 0.4f))
-                            ) {
-                                Text(
-                                    text = "PE: ${String.format("%.2f", kmPe)} Km",
-                                    color = FredianiCyanText,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Black,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = FredianiAmberBg,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, FredianiAmber.copy(alpha = 0.4f))
-                            ) {
-                                Text(
-                                    text = "Enlaces: ${String.format("%.2f", kmEnlace)} Km",
-                                    color = FredianiAmberText,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Black,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = FredianiGreenBg,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, FredianiGreen.copy(alpha = 0.4f))
-                            ) {
-                                Text(
-                                    text = "Total: ${String.format("%.2f", kmTotal)} Km",
-                                    color = FredianiGreenText,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Black,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
+                        Spacer(Modifier.width(12.dp))
+                        // Importar tramo, como la plataforma (archivo .json de otra tablet o de la web)
+                        OutlinedButton(
+                            onClick = { elegirArchivo.launch(arrayOf("application/json", "text/plain", "application/octet-stream", "*/*")) },
+                            shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, c.borde()),
+                            contentPadding = PaddingValues(horizontal = if (chico) 10.dp else 16.dp, vertical = 12.dp)
+                        ) {
+                            Icon(Icons.Default.Upload, contentDescription = "Importar tramo", tint = c.texto(), modifier = Modifier.size(16.dp))
+                            if (!chico) {
+                                Spacer(Modifier.width(6.dp))
+                                Text("IMPORTAR TRAMO", fontSize = 12.sp, fontWeight = FontWeight.Black, color = c.texto(), letterSpacing = 0.6.sp)
                             }
                         }
+                        Spacer(Modifier.width(8.dp))
+                        Button(
+                            onClick = { mostrarModalNuevoTramo = true },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = c.celeste, contentColor = c.fondoOscuro),
+                            contentPadding = PaddingValues(horizontal = if (chico) 14.dp else 20.dp, vertical = 12.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(if (chico) "CREAR" else "CREAR TRAMO", fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 0.6.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        Text("${pe.size} P.E. · ${km(pe.sumOf { kmDe(it) })} km", fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = c.celeste)
+                        Text("${enlaces.size} enlaces · ${km(enlaces.sumOf { kmDe(it) })} km", fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = c.amarillo)
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "SECUENCIA DE TRAMOS Y PRUEBAS ESPECIALES (${tramos.size})",
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                color = FredianiCyan,
-                letterSpacing = 0.8.sp
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
             if (tramos.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("No hay tramos registrados en este rally. Pulsa '+ Nuevo Tramo' para comenzar.", color = Color.Gray)
+                item {
+                    Text(
+                        "Todavía no hay tramos. Creá el primero con \u201cCrear tramo\u201d.",
+                        fontSize = 14.sp, color = c.apagado(),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(c.tarjeta())
+                            .border(1.dp, c.borde(), RoundedCornerShape(24.dp))
+                            .padding(32.dp)
+                    )
+                }
+            } else if (!chico) {
+                // Tabla, como la plataforma
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(c.tarjeta())
+                            .border(1.dp, c.borde(), RoundedCornerShape(24.dp))
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            listOf("TIPO" to 0.12f, "IDENTIFICADOR" to 0.18f, "NOMBRE" to 0.34f, "KM" to 0.12f, "ACCIONES" to 0.24f).forEach { (t, w) ->
+                                Text(t, fontSize = 12.sp, fontWeight = FontWeight.Black, color = c.apagado(),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(w))
+                            }
+                        }
+                        tramos.forEach { t ->
+                            HorizontalDivider(color = c.borde())
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.weight(0.12f), contentAlignment = Alignment.Center) { ChipTipoTramo(t.tipo) }
+                                Text(t.identificador, fontSize = 13.sp, fontWeight = FontWeight.Black, color = c.texto(),
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(0.18f))
+                                Text(t.nombre, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.texto(),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(0.34f))
+                                Text("${km(kmDe(t))} km", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.texto(),
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(0.12f))
+                                Row(Modifier.weight(0.24f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                    AccionesTramo(
+                                        onEditar = { onNavigateToCockpit(t.id) },
+                                        onDatos = { tramoParaEditar = t },
+                                        onEliminar = { tramoParaBorrar = t }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(tramos, key = { it.id }) { tramo ->
-                        TramoCardWebStyle(
-                            tramo = tramo,
-                            onIniciarTrazado = { onNavigateToCockpit(tramo.id) },
-                            onEditar = { tramoParaEditar = tramo },
-                            onEliminar = { viewModel.eliminarTramo(tramo) }
-                        )
+                // Celular: una tarjeta por tramo
+                items(tramos, key = { it.id }) { t ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(c.tarjeta())
+                            .border(1.dp, c.borde(), RoundedCornerShape(20.dp))
+                            .padding(14.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ChipTipoTramo(t.tipo)
+                            Spacer(Modifier.width(8.dp))
+                            Text(t.identificador, fontSize = 13.sp, fontWeight = FontWeight.Black, color = c.texto(),
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                            Spacer(Modifier.weight(1f))
+                            Text("${km(kmDe(t))} km", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.texto(),
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(t.nombre, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = c.texto())
+                        Spacer(Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AccionesTramo(
+                                onEditar = { onNavigateToCockpit(t.id) },
+                                onDatos = { tramoParaEditar = t },
+                                onEliminar = { tramoParaBorrar = t }
+                            )
+                        }
                     }
-                    item { Spacer(modifier = Modifier.height(80.dp)) }
                 }
             }
         }
@@ -231,6 +251,143 @@ fun TramosScreen(
                 tramoParaEditar = null
             }
         )
+    }
+
+    paqueteImportado?.let { paquete ->
+        DialogoImportarTramo(
+            paquete = paquete,
+            repetido = { tipo, ident, nombre -> viewModel.tramoRepetido(tipo, ident, nombre) != null },
+            onCancelar = { viewModel.cancelarImportacion() },
+            onImportar = { tipo, ident, nombre -> viewModel.confirmarImportacion(tipo, ident, nombre) }
+        )
+    }
+
+    tramoParaBorrar?.let { t ->
+        AlertDialog(
+            onDismissRequest = { tramoParaBorrar = null },
+            title = { Text("¿Eliminar el tramo \"${t.nombre}\"?", fontWeight = FontWeight.Black) },
+            text = { Text("Se borran también todas sus viñetas de esta tablet.") },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.eliminarTramo(t); tramoParaBorrar = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48))
+                ) { Text("ELIMINAR", fontWeight = FontWeight.Black) }
+            },
+            dismissButton = { TextButton(onClick = { tramoParaBorrar = null }) { Text("CANCELAR") } }
+        )
+    }
+}
+
+/**
+ * Importar tramo (como el panel "Importar tramo" de la plataforma): muestra cuántas viñetas
+ * trae y deja elegir tipo, identificador y nombre; avisa si ya hay uno igual en el rally.
+ */
+@Composable
+private fun DialogoImportarTramo(
+    paquete: com.example.roadbookorganizador.util.PaqueteTramo,
+    repetido: (String, String, String) -> Boolean,
+    onCancelar: () -> Unit,
+    onImportar: (String, String, String) -> Unit
+) {
+    var tipo by remember { mutableStateOf(paquete.tramo.tipo) }
+    var identificador by remember { mutableStateOf(paquete.tramo.identificador.uppercase()) }
+    var nombre by remember { mutableStateOf(paquete.tramo.nombre.uppercase()) }
+    val yaEsta = repetido(tipo, identificador, nombre)
+    val c = com.example.roadbookorganizador.ui.components.ColoresPlataforma
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Upload, contentDescription = null, tint = c.celeste)
+                Spacer(Modifier.width(8.dp))
+                Text("IMPORTAR TRAMO", fontWeight = FontWeight.Black)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("${paquete.vinetas.size} viñetas. Se guarda como una copia: el original no se toca.", fontSize = 12.sp, color = c.apagado())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("PE", "ENLACE").forEach { t ->
+                        val sel = tipo == t
+                        Text(
+                            t, fontSize = 12.sp, fontWeight = FontWeight.Black,
+                            color = if (sel) c.fondoOscuro else c.apagado(),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (sel) c.celeste else Color.Transparent)
+                                .border(1.dp, if (sel) c.celeste else c.borde(), RoundedCornerShape(12.dp))
+                                .clickable { tipo = t }
+                                .padding(vertical = 8.dp)
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = identificador, onValueChange = { identificador = it.uppercase() },
+                    label = { Text("Identificador") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = nombre, onValueChange = { nombre = it.uppercase() },
+                    label = { Text("Nombre") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                if (yaEsta) {
+                    Text("Ya hay un tramo $identificador · $nombre en este rally. Cambiale el identificador o el nombre.",
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE11D48))
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onImportar(tipo, identificador, nombre) },
+                enabled = !yaEsta && (identificador.isNotBlank() || nombre.isNotBlank()),
+                colors = ButtonDefaults.buttonColors(containerColor = c.celeste, contentColor = c.fondoOscuro)
+            ) { Text("IMPORTAR", fontWeight = FontWeight.Black) }
+        },
+        dismissButton = { TextButton(onClick = onCancelar) { Text("CANCELAR") } }
+    )
+}
+
+/** "PE" en celeste y "ENLACE" en amarillo, como la plataforma. */
+@Composable
+private fun ChipTipoTramo(tipo: String) {
+    val esPe = tipo == "PE"
+    val color = if (esPe) Color(0xFF0284C7) else Color(0xFFD97706)
+    val borde = if (esPe) Color(0x6600B4D8) else Color(0x66FFB703)
+    val fondo = if (esPe) Color(0x3300B4D8) else Color(0x33FFB703)
+    Text(
+        if (esPe) "PE" else "ENLACE", fontSize = 10.sp, fontWeight = FontWeight.Black, color = color,
+        modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(fondo).border(1.dp, borde, RoundedCornerShape(4.dp))
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+    )
+}
+
+/** Editar (abre el editor), Datos (los datos del tramo) y Eliminar, como la plataforma. */
+@Composable
+private fun AccionesTramo(onEditar: () -> Unit, onDatos: () -> Unit, onEliminar: () -> Unit) {
+    val c = com.example.roadbookorganizador.ui.components.ColoresPlataforma
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(c.celeste).clickable { onEditar() }.padding(horizontal = 12.dp, vertical = 7.dp)
+        ) {
+            Icon(Icons.Default.Description, contentDescription = null, tint = c.fondoOscuro, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("Editar", fontSize = 12.sp, fontWeight = FontWeight.Black, color = c.fondoOscuro)
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clip(RoundedCornerShape(12.dp)).border(1.dp, c.borde(), RoundedCornerShape(12.dp)).clickable { onDatos() }
+                .padding(horizontal = 10.dp, vertical = 7.dp)
+        ) {
+            Icon(Icons.Default.Edit, contentDescription = null, tint = c.apagado(), modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("Datos", fontSize = 12.sp, fontWeight = FontWeight.Black, color = c.apagado())
+        }
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, Color(0x66F43F5E), RoundedCornerShape(12.dp)).clickable { onEliminar() }
+        ) { Icon(Icons.Default.Delete, contentDescription = "Eliminar el tramo", tint = Color(0xFFF43F5E), modifier = Modifier.size(15.dp)) }
     }
 }
 

@@ -29,4 +29,16 @@ interface TramoDao {
 
     @Delete
     suspend fun deleteTramo(tramo: TramoEntity)
+
+    @Query("SELECT * FROM tramos WHERE rallyId = :rallyId AND uid = :uid LIMIT 1")
+    suspend fun getTramoByUid(rallyId: Long, uid: String): TramoEntity?
+
+    @Query("SELECT * FROM tramos ORDER BY rallyId ASC, ordenSecuencia ASC")
+    suspend fun getTodosSync(): List<TramoEntity>
+
+    @Query("UPDATE tramos SET pendienteSubir = 0, webId = :webId WHERE id = :id")
+    suspend fun marcarSubido(id: Long, webId: Int?)
+
+    @Query("UPDATE tramos SET datosServidor = :datos WHERE id = :id")
+    suspend fun guardarDatosServidor(id: Long, datos: String?)
 }

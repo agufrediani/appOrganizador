@@ -33,8 +33,8 @@ data class FranjaCarteles(
 
 object Carteles {
 
-    const val ALTO_FRANJA = 14.0          // unidades de la capa de notas (10 mm)
-    const val MARGEN_CELDA = 1.1          // unidades (0,8 mm)
+    const val ALTO_FRANJA = 20.0          // unidades de la capa de notas (10 mm de 45)
+    const val MARGEN_CELDA = 1.6          // unidades (0,8 mm)
     const val GRIS_CAMBIO = "#d4d4d8"
 
     /** Tiempo en m:ss (por ejemplo 2:05). */

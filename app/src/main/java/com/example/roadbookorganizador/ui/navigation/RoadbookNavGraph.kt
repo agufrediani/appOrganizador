@@ -10,6 +10,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.roadbookorganizador.ui.screens.*
+import com.example.roadbookorganizador.ui.components.MarcoRally
+import com.example.roadbookorganizador.ui.components.PestanaRally
 import com.example.roadbookorganizador.ui.viewmodel.*
 
 @Composable
@@ -17,6 +19,53 @@ fun RoadbookNavGraph() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     val sesion by authViewModel.sesion.collectAsState()
+
+    // Si la sesión se cierra (token vencido o el servidor contestó 401), se vuelve al login
+    androidx.compose.runtime.LaunchedEffect(sesion.isLoggedIn) {
+        if (!sesion.isLoggedIn) {
+            val ruta = navController.currentDestination?.route
+            if (ruta != null && ruta != "login" && ruta != "splash") {
+                navController.navigate("login") { popUpTo(0) { inclusive = true } }
+            }
+        }
+    }
+
+    /** Cambiar de pestaña adentro del rally sin apilar pantallas (atrás vuelve al Panel y después a Mis Rallies). */
+    fun irAPestana(p: PestanaRally) {
+        when (p) {
+            PestanaRally.PANEL -> navController.popBackStack("menu_principal", inclusive = false)
+            PestanaRally.TRAMOS, PestanaRally.ZONAS -> {
+                val ruta = if (p == PestanaRally.TRAMOS) "tramos" else "mapa_libre"
+                navController.navigate(ruta) {
+                    popUpTo("menu_principal")
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
+    /** La cabecera y las pestañas de la plataforma, iguales en las tres pestañas del rally. */
+    @Composable
+    fun Marco(menuViewModel: MenuPrincipalViewModel, pestana: PestanaRally, contenido: @Composable () -> Unit) {
+        val rallyActivo by menuViewModel.activeRally.collectAsState()
+        val rallies by menuViewModel.rallies.collectAsState()
+        MarcoRally(
+            sesion = sesion,
+            rallyActivo = rallyActivo,
+            rallies = rallies,
+            pestana = pestana,
+            onPestana = { irAPestana(it) },
+            onMisRallies = { navController.popBackStack("seleccion_rally", inclusive = false) },
+            onElegirRally = { r -> menuViewModel.seleccionarRallyActivo(r.id) },
+            onPreferencias = { navController.navigate("ajustes") },
+            onLogout = {
+                authViewModel.logout {
+                    navController.navigate("login") { popUpTo("seleccion_rally") { inclusive = true } }
+                }
+            },
+            contenido = contenido
+        )
+    }
 
     NavHost(
         navController = navController,
@@ -64,25 +113,13 @@ fun RoadbookNavGraph() {
             )
         }
 
-        // Pantalla 2: Dashboard de Operaciones del Rally Activo
+        // ADENTRO DE UN RALLY: las tres pestañas de la plataforma (Panel General, Tramos y Zonas
+        // y puntos de interés), siempre con la misma cabecera (MarcoRally).
         composable("menu_principal") {
             val menuViewModel: MenuPrincipalViewModel = viewModel()
-            MenuPrincipalScreen(
-                viewModel = menuViewModel,
-                sesion = sesion,
-                onCambiarRally = { navController.popBackStack() },
-                onNavigateToTramos = { navController.navigate("tramos") },
-                onNavigateToMapaLibre = { navController.navigate("mapa_libre") },
-                onNavigateToCalibracion = { navController.navigate("calibracion") },
-                onNavigateToAjustes = { navController.navigate("ajustes") },
-                onLogout = {
-                    authViewModel.logout {
-                        navController.navigate("login") {
-                            popUpTo("seleccion_rally") { inclusive = true }
-                        }
-                    }
-                }
-            )
+            Marco(menuViewModel, PestanaRally.PANEL) {
+                PanelGeneralRally(viewModel = menuViewModel, onVerZonas = { irAPestana(PestanaRally.ZONAS) })
+            }
         }
 
         // Pantalla Lista de Rallies del Organizador
@@ -94,16 +131,17 @@ fun RoadbookNavGraph() {
             )
         }
 
-        // Pantalla Tramos y Pruebas Especiales del Rally Activo
         composable("tramos") {
+            val menuViewModel: MenuPrincipalViewModel = viewModel()
             val tramosViewModel: TramosViewModel = viewModel()
-            TramosScreen(
-                viewModel = tramosViewModel,
-                onNavigateToCockpit = { tramoId ->
-                    navController.navigate("cockpit/$tramoId")
-                },
-                onVolver = { navController.popBackStack() }
-            )
+            Marco(menuViewModel, PestanaRally.TRAMOS) {
+                TramosScreen(
+                    viewModel = tramosViewModel,
+                    onNavigateToCockpit = { tramoId -> navController.navigate("cockpit/$tramoId") },
+                    onVolver = { navController.popBackStack() },
+                    conCabeceraPropia = false
+                )
+            }
         }
 
         // Pantalla Cockpit de Trazado
@@ -128,11 +166,15 @@ fun RoadbookNavGraph() {
 
         // Pantalla Explorador y Mapa Libre con POIs
         composable("mapa_libre") {
+            val menuViewModel: MenuPrincipalViewModel = viewModel()
             val mapaViewModel: MapaLibreViewModel = viewModel()
-            MapaLibreScreen(
-                viewModel = mapaViewModel,
-                onVolver = { navController.popBackStack() }
-            )
+            Marco(menuViewModel, PestanaRally.ZONAS) {
+                MapaLibreScreen(
+                    viewModel = mapaViewModel,
+                    onVolver = { navController.popBackStack() },
+                    conCabeceraPropia = false
+                )
+            }
         }
 
         // Pantalla de Ajustes (Engranaje)

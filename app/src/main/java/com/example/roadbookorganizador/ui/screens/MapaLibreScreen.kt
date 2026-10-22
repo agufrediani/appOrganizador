@@ -29,7 +29,9 @@ import com.example.roadbookorganizador.ui.viewmodel.MapaLibreViewModel
 @Composable
 fun MapaLibreScreen(
     viewModel: MapaLibreViewModel,
-    onVolver: () -> Unit
+    onVolver: () -> Unit,
+    /** false = va adentro de MarcoRally (pestaña "Zonas y puntos de interés"). */
+    conCabeceraPropia: Boolean = true
 ) {
     val odoState by viewModel.odoState.collectAsState()
     val puntos by viewModel.puntos.collectAsState()
@@ -44,6 +46,31 @@ fun MapaLibreScreen(
 
     Scaffold(
         topBar = {
+            if (!conCabeceraPropia) {
+                // Adentro del rally: título de la pestaña y el botón, como la plataforma
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("ZONAS Y PUNTOS DE INTERÉS", fontWeight = FontWeight.Black, fontSize = 16.sp, color = textPrimary)
+                        Text("Áreas para el público, zonas de exclusión y puntos de interés", fontSize = 11.sp, color = textSecondary)
+                    }
+                    Button(
+                        onClick = {
+                            puntoCoordenadasSeleccionadas = null
+                            mostrarModalAgregarPunto = true
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = RallyAccentYellow),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.AddLocationAlt, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("MARCAR ZONA / POI", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                    }
+                }
+            } else
             TopAppBar(
                 title = {
                     Column {
@@ -66,32 +93,8 @@ fun MapaLibreScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { ThemeManager.toggleTheme() }) {
-                        Text(text = if (isDark) "☀️" else "🌙", fontSize = 18.sp)
-                    }
+                    com.example.roadbookorganizador.ui.components.BotonTema()
 
-                    FilledTonalButton(
-                        onClick = { viewModel.toggleSimulacion() },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (odoState.modoSimulacion) FredianiGreen.copy(alpha = 0.25f) else (if (isDark) RallySurface else Color(0xFFF1F5F9))
-                        ),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (odoState.modoSimulacion) Icons.Default.Sensors else Icons.Default.SensorsOff,
-                            contentDescription = "Simulador",
-                            tint = if (odoState.modoSimulacion) FredianiGreen else textSecondary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (odoState.modoSimulacion) "SIMULANDO" else "SIMULAR GPS",
-                            color = if (odoState.modoSimulacion) FredianiGreen else textPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
-                    }
 
                     Spacer(modifier = Modifier.width(6.dp))
 
@@ -113,7 +116,9 @@ fun MapaLibreScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        // Adentro del marco, el marco ya deja libres las barras del sistema
+        contentWindowInsets = if (conCabeceraPropia) ScaffoldDefaults.contentWindowInsets else WindowInsets(0)
     ) { padding ->
         BoxWithConstraints(
             modifier = Modifier
