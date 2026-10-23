@@ -71,6 +71,33 @@ class ApiCliente(context: Context) {
     suspend fun post(ruta: String, cuerpo: JsonElement): JsonElement? = pedir("POST", ruta, cuerpo)
     suspend fun delete(ruta: String): JsonElement? = pedir("DELETE", ruta, null)
 
+    /**
+     * Baja un archivo (por ejemplo la portada o la chapa del rally). Las direcciones que empiezan
+     * con "/" son del servidor de la plataforma (llevan el token); las de afuera van sin token.
+     * Devuelve null si no existe (404).
+     */
+    suspend fun bajarArchivo(url: String): ByteArray? = withContext(Dispatchers.IO) {
+        val propia = url.startsWith("/")
+        val c = (URL(if (propia) base + url else url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15000
+            readTimeout = 30000
+            if (propia) {
+                val t = sesion.sesion.value.token
+                if (t.isNotBlank()) setRequestProperty("Authorization", "Bearer $t")
+            }
+        }
+        try {
+            val codigo = c.responseCode
+            when {
+                codigo == 404 -> null
+                codigo !in 200..299 -> throw ErrorServidor(codigo, "no se pudo bajar el archivo")
+                else -> c.inputStream.use { it.readBytes() }
+            }
+        } finally {
+            c.disconnect()
+        }
+    }
+
     private suspend fun pedir(metodo: String, ruta: String, cuerpo: JsonElement?, conToken: Boolean = true): JsonElement? =
         withContext(Dispatchers.IO) {
             val c = (URL(base + ruta).openConnection() as HttpURLConnection).apply {

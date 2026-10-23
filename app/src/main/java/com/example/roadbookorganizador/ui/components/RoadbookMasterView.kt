@@ -29,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -179,7 +181,10 @@ fun RoadbookMasterView(
     // panel desde la derecha; CHICO (celular) = paleta desde abajo y el dibujo se edita en grande.
     val tamano = tamanoPantalla()
     var sidebarExpanded by remember(tamano) { mutableStateOf(tamano == TamanoPantalla.GRANDE) }
-    var sidebarWidthDp by remember { mutableFloatStateOf(290f) }
+    var sidebarWidthDp by remember { mutableFloatStateOf(236f) }
+    /** Tablet acostada: qué parte del alto ocupa la paleta (debajo de la hoja). */
+    var paletaAlto by remember { mutableFloatStateOf(0.45f) }
+    var altoTotalPx by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
 
     // Selección múltiple para borrado de viñetas
@@ -518,13 +523,22 @@ fun RoadbookMasterView(
                         .weight(1f)
                 ) {
                     items(vinetas, key = { it.id }) { v ->
+                        // Dirección en gris en todas las viñetas, salvo que el tramo sea un enlace
+                        val enPe = tramo != null && !tramo.tipo.equals("ENLACE", ignoreCase = true)
                         val distRegresiva = (distanciaTotalEstimada - v.distanciaTotal).coerceAtLeast(0.0)
                         val isEditingThis = v.id == vinetaEnEdicionId && cargadoId == v.id
                         val dibujoGuardado = remember(v.dibujo, v.tulipSvgData, v.notasSvgData, v.tulipTipo, v.peligro) { v.dibujoV1(bib) }
                         val dibujoFila = if (isEditingThis) borrador else dibujoGuardado
 
+                        val siguiente = vinetas.getOrNull(vinetas.indexOf(v) + 1)
                         FilaRoadbookInPlace(
                             vineta = v,
+                            enPe = enPe,
+                            rayaAbajo = when {
+                                siguiente == null -> "ninguna"
+                                siguiente.distanciaParcial < 0.2 -> "punteada"
+                                else -> "normal"
+                            },
                             distanciaRegresiva = distRegresiva,
                             isEditing = isEditingThis,
                             editarEnFila = !editorGrande,
@@ -553,15 +567,22 @@ fun RoadbookMasterView(
                             capaIndicacionVisible = capaIndicacionVisible,
                             capaAnotacionesVisible = capaAnotacionesVisible,
                             capaRegresivaVisible = capaRegresivaVisible,
+                            // Borrar varias (revisión 24): mantener apretada una viñeta empieza a marcar;
+                            // mientras haya marcadas, tocar una la suma o la saca de la marca.
                             onTocarFila = {
-                                abrirEdicion(v, capaActiva)
+                                if (vinetasSeleccionadasParaBorrar.isNotEmpty()) vinetasSeleccionadasParaBorrar = alternarMarca(vinetasSeleccionadasParaBorrar, v.id)
+                                else abrirEdicion(v, capaActiva)
                             },
                             onEditarIndicacion = {
                                 abrirEdicion(v, capaActiva)
                                 vinetaParaEditarNotas = v
                             },
+                            onMantener = {
+                                vinetasSeleccionadasParaBorrar = alternarMarca(vinetasSeleccionadasParaBorrar, v.id)
+                            },
                             onActivarCapa = { c ->
-                                abrirEdicion(v, c)
+                                if (vinetasSeleccionadasParaBorrar.isNotEmpty()) vinetasSeleccionadasParaBorrar = alternarMarca(vinetasSeleccionadasParaBorrar, v.id)
+                                else abrirEdicion(v, c)
                             },
                             onTocarAnotaciones = {
                                 vinetaParaEditarNotas = v
@@ -611,6 +632,10 @@ fun RoadbookMasterView(
         }
         .focusable()) {
     if (tamano == TamanoPantalla.GRANDE) {
+        // =========================================================================
+        // GRANDE (tablet acostada): la hoja y la paleta al costado, como la plataforma.
+        // La raya del medio se arrastra para hacer la paleta más ancha o más angosta.
+        // =========================================================================
         Row(modifier = Modifier.fillMaxSize()) {
             Card(
                 modifier = Modifier
@@ -624,17 +649,16 @@ fun RoadbookMasterView(
                 renderTableCardContent()
             }
 
-            // DIVISOR REDIMENSIONABLE / RESIZE SPLITTER
             if (sidebarExpanded) {
                 Box(
                     modifier = Modifier
-                        .width(10.dp)
+                        .width(12.dp)
                         .fillMaxHeight()
                         .pointerInput(Unit) {
                             detectDragGestures { change, dragAmount ->
                                 change.consume()
                                 val deltaDp = dragAmount.x / density.density
-                                sidebarWidthDp = (sidebarWidthDp - deltaDp).coerceIn(160f, 320f)
+                                sidebarWidthDp = (sidebarWidthDp - deltaDp).coerceIn(170f, 460f)
                             }
                         },
                     contentAlignment = Alignment.Center
@@ -647,8 +671,6 @@ fun RoadbookMasterView(
                             .background(if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
                     )
                 }
-
-                // PANEL DERECHO: PALETA DE SÍMBOLOS Y NOTAS FIA
                 SidebarSymbolsPalette(
                     onInsertar = insertarTocando,
                     onAppendNoteText = appendNoteAction,
@@ -658,32 +680,8 @@ fun RoadbookMasterView(
                     modifier = Modifier
                         .width(sidebarWidthDp.dp)
                         .fillMaxHeight()
+                        .clip(RoundedCornerShape(16.dp))
                 )
-            } else {
-                // Tira compacta colapsada (~28dp) para expandir con 1 solo clic
-                Surface(
-                    onClick = { sidebarExpanded = true },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isDark) RallySurface else Color(0xFFF1F5F9),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
-                    modifier = Modifier
-                        .width(28.dp)
-                        .fillMaxHeight()
-                        .padding(vertical = 4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            Icons.Default.ChevronLeft,
-                            contentDescription = "Expandir Paleta de Símbolos",
-                            tint = if (isDark) RallyCyan else FredianiCyanText,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
             }
         }
     } else {
@@ -958,37 +956,80 @@ const val ALTO_FILA_MM = 45f
 /** Columna propia de la app (casilla para borrar), a la izquierda de la hoja. */
 val ANCHO_COLUMNA_APP = 30.dp
 
+/** La raya de la derecha de una casilla de la hoja (las de abajo las pone la fila). */
+private fun Modifier.rayaDerecha(ancho: androidx.compose.ui.unit.Dp, color: Color): Modifier = this.drawBehind {
+    val w = ancho.toPx()
+    drawLine(color, Offset(size.width - w / 2, 0f), Offset(size.width - w / 2, size.height), w)
+}
+
+/** Suma la viñeta a las marcadas para borrar, o la saca si ya estaba. */
+private fun alternarMarca(marcadas: Set<Long>, id: Long): Set<Long> = if (id in marcadas) marcadas - id else marcadas + id
+
+/** Fondo gris de la parte cronometrada (P.E.), el mismo de la plataforma (#d4d4d8). */
+val GRIS_PE = Color(0xFFD4D4D8)
+
+/**
+ * Parte cronometrada del tramo, en km (como la manda la plataforma en `rangoPe` del detalle del
+ * tramo). Si la plataforma dice null, no hay P.E. Si el tramo no vino de la plataforma con ese
+ * dato y es de tipo PE, se toma entero (la misma regla que usa la plataforma).
+ */
+fun rangoPeDelTramo(tramo: TramoEntity?, kmFinal: Double): Pair<Double, Double>? {
+    if (tramo == null) return null
+    val o = tramo.datosServidor?.let { runCatching { com.google.gson.JsonParser.parseString(it).asJsonObject }.getOrNull() }
+    val clave = o?.keySet()?.firstOrNull { it.equals("rangoPe", ignoreCase = true) }
+    if (o != null && clave != null) {
+        val r = o.get(clave)
+        if (r == null || r.isJsonNull || !r.isJsonObject) return null
+        val ro = r.asJsonObject
+        fun num(k: String) = ro.keySet().firstOrNull { it.equals(k, ignoreCase = true) }?.let { runCatching { ro.get(it).asDouble }.getOrNull() }
+        val desde = num("desdeKm") ?: return null
+        val hasta = num("hastaKm") ?: return null
+        return desde to hasta
+    }
+    return if (tramo.tipo.equals("PE", ignoreCase = true)) 0.0 to maxOf(kmFinal, tramo.distanciaTotalEstimada) else null
+}
+
 /** Tamaño de letra de la hoja: n puntos tipográficos a mm (1 pt = 0,35278 mm). */
 private fun ptEnMm(pt: Float) = pt * 0.35278f
 
-/** "Milímetro" en dp para que la hoja entre en [ancho] (entre 2,6 y 4,6 dp). */
+/** "Milímetro" en dp para que la hoja entre en [ancho] (entre 2 y 4,6 dp). */
 fun mmParaAncho(ancho: androidx.compose.ui.unit.Dp): androidx.compose.ui.unit.Dp =
-    ((ancho - ANCHO_COLUMNA_APP) / ANCHO_HOJA_MM).coerceIn(2.6.dp, 4.6.dp)
+    ((ancho - ANCHO_COLUMNA_APP) / ANCHO_HOJA_MM).coerceIn(2.0.dp, 4.6.dp)
 
 /** Encabezado de las columnas, como en la hoja del rally mundial (blanco, con rayas). */
 @Composable
 fun EncabezadoVinetas(mm: androidx.compose.ui.unit.Dp, borde: Color = Color(0xFF0F172A), columnaApp: @Composable () -> Unit = {}) {
     val density = LocalDensity.current
-    fun pt(n: Float) = with(density) { (mm * ptEnMm(n)).toSp() }
+    // Con la hoja achicada el tamaño "real" queda ilegible: nunca menos de 8 sp (10 sp los títulos grandes)
+    fun pt(n: Float) = with(density) {
+        val real = (mm * ptEnMm(n)).toSp()
+        val minimo = if (n >= 10f) 10.sp else 8.sp
+        if (real.value < minimo.value) minimo else real
+    }
+    // Sin el espacio extra arriba y abajo de la letra: en los dos renglones de DISTANCIA no se corta
+    val sinRelleno = androidx.compose.ui.text.TextStyle(
+        platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+        lineHeight = 10.sp
+    )
     val raya = 1.dp
     Row(
         modifier = Modifier
-            .height(mm * 11f)
+            .height(maxOf(mm * 11f, 42.dp))
             .background(Color.White)
     ) {
         Box(Modifier.width(ANCHO_COLUMNA_APP).fillMaxHeight().background(Color(0xFFF8FAFC)), contentAlignment = Alignment.Center) { columnaApp() }
         Column(Modifier.width(mm * 50f).fillMaxHeight().border(raya, borde)) {
             Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Text("DISTANCIA", fontSize = pt(7f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1)
+                Text("DISTANCIA", fontSize = pt(7f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1, style = sinRelleno)
             }
             HorizontalDivider(color = borde, thickness = raya)
             Row(Modifier.fillMaxWidth().weight(1f)) {
                 Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                    Text("TOTAL", fontSize = pt(6.5f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1)
+                    Text("TOTAL", fontSize = pt(6.5f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1, style = sinRelleno)
                 }
                 VerticalDivider(color = borde, thickness = raya)
                 Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                    Text("PARCIAL", fontSize = pt(6.5f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1)
+                    Text("PARCIAL", fontSize = pt(6.5f), fontWeight = FontWeight.Bold, color = Color.Black, maxLines = 1, style = sinRelleno)
                 }
             }
         }
@@ -1015,6 +1056,8 @@ fun EncabezadoVinetas(mm: androidx.compose.ui.unit.Dp, borde: Color = Color(0xFF
 @Composable
 fun FilaRoadbookInPlace(
     vineta: VinetaEntity,
+    /** La viñeta está dentro de la parte cronometrada (P.E.): la Dirección va con fondo gris, como en la plataforma. */
+    enPe: Boolean = false,
     distanciaRegresiva: Double,
     isEditing: Boolean,
     mm: androidx.compose.ui.unit.Dp,
@@ -1038,6 +1081,13 @@ fun FilaRoadbookInPlace(
     capaRegresivaVisible: Boolean,
     onTocarFila: () -> Unit,
     onEditarIndicacion: () -> Unit = onTocarFila,
+    /** Mantener apretada la viñeta: la marca para borrar (revisión 24). */
+    onMantener: () -> Unit = onEditarIndicacion,
+    /**
+     * La raya de abajo (revisión 25): "normal", "punteada" (la siguiente está a menos de 200 m)
+     * o "ninguna" (la última de la hoja).
+     */
+    rayaAbajo: String = "normal",
     onActivarCapa: (CapaEditada) -> Unit,
     onTocarAnotaciones: () -> Unit,
     onCambioCapa: (CapaEditada, Capa) -> Unit,
@@ -1074,7 +1124,7 @@ fun FilaRoadbookInPlace(
             modifier = Modifier
                 .width(mm * 25f)
                 .fillMaxHeight()
-                .border(raya, borde)
+                .rayaDerecha(raya, borde)
                 .padding(top = mm * 3f, start = 2.dp, end = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -1095,13 +1145,36 @@ fun FilaRoadbookInPlace(
     Row(
         modifier = Modifier
             .height(mm * ALTO_FILA_MM)
-            .background(Color.White)
-            .border(if (isEditing) 2.dp else 0.dp, if (isEditing) FredianiCyan else Color.Transparent)
+            .background(if (estaSeleccionadaParaBorrar) Color(0xFFFFE4E6) else Color.White)
+            .border(
+                if (isEditing || estaSeleccionadaParaBorrar) 2.dp else 0.dp,
+                when { estaSeleccionadaParaBorrar -> Color(0xFFF43F5E); isEditing -> FredianiCyan; else -> Color.Transparent }
+            )
             .combinedClickable(
                 onClick = { onTocarFila() },
                 onDoubleClick = { onEditarIndicacion() },
-                onLongClick = { onEditarIndicacion() }
+                onLongClick = { onMantener() }
             )
+            // Rayas de la hoja como la plataforma: la de la izquierda de la hoja y la de abajo
+            // (llena, punteada gruesa si la siguiente está a menos de 200 m, o ninguna en la última)
+            .drawWithContent {
+                drawContent()
+                val x0 = ANCHO_COLUMNA_APP.toPx()
+                val w = raya.toPx()
+                drawLine(borde, Offset(x0 + w / 2, 0f), Offset(x0 + w / 2, size.height), w)
+                when (rayaAbajo) {
+                    "punteada" -> {
+                        val g = 2.5.dp.toPx()
+                        drawLine(
+                            borde, Offset(x0, size.height - g / 2), Offset(size.width, size.height - g / 2), g,
+                            cap = StrokeCap.Round,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(0.01f, g * 2f), 0f)
+                        )
+                    }
+                    "ninguna" -> Unit
+                    else -> drawLine(borde, Offset(x0, size.height - w / 2), Offset(size.width, size.height - w / 2), w)
+                }
+            }
     ) {
         // Columna de la app: casilla para borrar
         Box(
@@ -1138,10 +1211,11 @@ fun FilaRoadbookInPlace(
             modifier = Modifier
                 .width(mm * 50f)
                 .fillMaxHeight()
-                .border(raya, borde)
+                .rayaDerecha(raya, borde)
         ) {
             if (capaIndicacionVisible) {
                 RecuadroCapa(
+                    fondo = if (enPe) GRIS_PE else Color.White,
                     clave = "${vineta.id}-D",
                     capa = dibujo.dibujo,
                     esNotas = false,
@@ -1188,7 +1262,7 @@ fun FilaRoadbookInPlace(
             modifier = Modifier
                 .width(mm * 50f)
                 .fillMaxHeight()
-                .border(raya, borde)
+                .rayaDerecha(raya, borde)
         ) {
             if (capaAnotacionesVisible) {
                 RecuadroCapa(
@@ -1238,7 +1312,7 @@ fun FilaRoadbookInPlace(
             modifier = Modifier
                 .width(mm * 25f)
                 .fillMaxHeight()
-                .border(raya, borde)
+                .rayaDerecha(raya, borde)
         ) {
             if (capaRegresivaVisible && !oculta) {
                 Text(
@@ -1326,6 +1400,7 @@ private fun EditorGrandeCelular(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RecuadroCapa(
+    fondo: Color = Color.White,
     clave: String,
     capa: Capa,
     esNotas: Boolean,
@@ -1358,7 +1433,7 @@ private fun RecuadroCapa(
     Box(
         modifier = modifier
             .clip(forma)
-            .background(Color.White)
+            .background(fondo)
             .onGloballyPositioned { c ->
                 val origen = c.localToWindow(Offset.Zero)
                 val completo = androidx.compose.ui.geometry.Rect(origen, Size(c.size.width.toFloat(), c.size.height.toFloat()))
@@ -1676,7 +1751,9 @@ private val CELESTE_PLATAFORMA = Color(0xFF00B4D8)
  * 2. Dibujo (se aplica a la viñeta seleccionada):
  *    MOVER · FLECHA · LÁPIZ · GOMA · TEXTO · Deshacer · Borrar (Supr) · PROHIBIDO
  *    | A↓ Auto A↑ | colores | grosor | tamaño de las viñetas (− barra +)
+ * La barra de dibujo baja de renglón cuando no entra (nunca hay que deslizarla).
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun BarrasEdicionPlataforma(
     hayVineta: Boolean,
@@ -1741,19 +1818,15 @@ fun BarrasEdicionPlataforma(
                 .background(if (activo) AZUL_PLATAFORMA else Color.Transparent)
                 .border(1.dp, if (activo) AZUL_PLATAFORMA else borde, RoundedCornerShape(8.dp))
                 .clickable(enabled = habilitado) { onClick() }
-                .padding(horizontal = if (compacto) 7.dp else 8.dp)
+                .padding(horizontal = 7.dp)
         ) {
-            Icon(icono, contentDescription = nombre, tint = if (activo) Color.White else texto, modifier = Modifier.size(if (compacto) 17.dp else 15.dp))
-            if (!compacto) {
-                Spacer(Modifier.width(4.dp))
-                Text(nombre.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Black, color = if (activo) Color.White else texto, maxLines = 1, softWrap = false)
-            }
+            // Solo el ícono (se entiende mejor y deja lugar); el nombre queda para la ayuda de accesibilidad
+            Icon(icono, contentDescription = nombre, tint = if (activo) Color.White else texto, modifier = Modifier.size(17.dp))
         }
     }
 
     // Letra de las notas, colores, grosor y tamaño de las viñetas (en el celular van en otro renglón)
     val restoBarra: @Composable RowScope.() -> Unit = {
-            Spacer(Modifier.width(8.dp))
 
             // Tamaño de la letra de las notas: A↓ · Auto · A↑
             Row(
@@ -1802,7 +1875,7 @@ fun BarrasEdicionPlataforma(
                     val activo = colorActual.equals(hex, ignoreCase = true)
                     Box(
                         modifier = Modifier
-                            .size(if (activo) 20.dp else 18.dp)
+                            .size(if (activo) 19.dp else 17.dp)
                             .then(if (activo) Modifier.border(2.dp, AZUL_PLATAFORMA, CircleShape).padding(2.dp) else Modifier)
                             .clip(CircleShape)
                             .background(Color(android.graphics.Color.parseColor(hex)))
@@ -1841,10 +1914,8 @@ fun BarrasEdicionPlataforma(
             }
 
             // Tamaño de las viñetas (en el celular la hoja ya ocupa todo el ancho)
-            if (!compacto) {
-            Spacer(Modifier.width(8.dp))
-
-            // Tamaño de las viñetas
+            if (!compacto) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(30.dp)) {
+            // Tamaño de las viñetas (juntos, para que no se separen de renglón)
             IconButton(onClick = { onZoom(zoom - 0.1f) }, modifier = Modifier.size(28.dp)) {
                 Icon(Icons.Default.ZoomOut, contentDescription = "Viñetas más chicas", tint = texto, modifier = Modifier.size(18.dp))
             }
@@ -1936,22 +2007,16 @@ fun BarrasEdicionPlataforma(
         }
         HorizontalDivider(color = borde)
 
-        // ---------------- 2. BARRA DE DIBUJO ----------------
-        Row(
+        // ---------------- 2. BARRA DE DIBUJO (en varios renglones si hace falta) ----------------
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             BotonHerramienta(Icons.Default.OpenWith, "Mover", activeTool == ActiveDrawTool.SELECT) { onToolChange(ActiveDrawTool.SELECT) }
             BotonHerramienta(Icons.Default.CallMade, "Flecha", activeTool == ActiveDrawTool.RULER) { onToolChange(ActiveDrawTool.RULER) }
-            BotonHerramienta(Icons.Default.Edit, "Lápiz", activeTool == ActiveDrawTool.PEN) { onToolChange(ActiveDrawTool.PEN) }
-            BotonHerramienta(Icons.Default.AutoFixOff, "Goma", activeTool == ActiveDrawTool.GOMA) { onToolChange(ActiveDrawTool.GOMA) }
-            BotonHerramienta(Icons.Default.TextFields, "Texto", activeTool == ActiveDrawTool.TEXT) { onToolChange(ActiveDrawTool.TEXT) }
-            BotonIcono(Icons.Default.Undo, "Deshacer en el dibujo seleccionado", color = Color(0xFFF59E0B), fondoB = Color.Transparent, habilitado = hayVineta, onClick = onUndo)
-            BotonIcono(Icons.Default.Delete, "Borrar la flecha o el símbolo seleccionado (tecla Supr)", color = Color(0xFFF43F5E), fondoB = Color.Transparent, habilitado = hayVineta, onClick = onBorrar)
             // Camino prohibido: palito tachado que sale de la flecha seleccionada
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1963,30 +2028,22 @@ fun BarrasEdicionPlataforma(
                     .clickable(enabled = hayFlechaElegida) { onAgregarProhibido() }
                     .padding(horizontal = 8.dp)
             ) {
-                Canvas(Modifier.size(15.dp)) {
+                Canvas(Modifier.size(17.dp)) {
                     val k = size.width / 16f
                     fun linea(a: Float, b: Float, c: Float, d: Float) =
                         drawLine(texto, Offset(a * k, b * k), Offset(c * k, d * k), strokeWidth = 1.6f * k, cap = StrokeCap.Round)
                     linea(3f, 14f, 13f, 2f); linea(7.5f, 6.5f, 10.5f, 9.5f); linea(9f, 5f, 12f, 8f)
                 }
-                if (!compacto) {
-                    Spacer(Modifier.width(4.dp))
-                    Text("PROHIBIDO", fontSize = 11.sp, fontWeight = FontWeight.Black, color = texto)
-                }
+                Spacer(Modifier.width(4.dp))
+                Text("PROHIBIDO", fontSize = 11.sp, fontWeight = FontWeight.Black, color = texto, maxLines = 1, softWrap = false)
             }
 
-            if (!compacto) restoBarra()
-        }
-        if (compacto) {
-            // Celular: letra, colores y grosor en un segundo renglón (se puede deslizar)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(start = 10.dp, end = 10.dp, bottom = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) { restoBarra() }
+            BotonHerramienta(Icons.Default.Edit, "Lápiz", activeTool == ActiveDrawTool.PEN) { onToolChange(ActiveDrawTool.PEN) }
+            BotonHerramienta(Icons.Default.AutoFixOff, "Goma", activeTool == ActiveDrawTool.GOMA) { onToolChange(ActiveDrawTool.GOMA) }
+            BotonHerramienta(Icons.Default.TextFields, "Texto", activeTool == ActiveDrawTool.TEXT) { onToolChange(ActiveDrawTool.TEXT) }
+            BotonIcono(Icons.Default.Undo, "Deshacer en el dibujo seleccionado", color = Color(0xFFF59E0B), fondoB = Color.Transparent, habilitado = hayVineta, onClick = onUndo)
+            BotonIcono(Icons.Default.Delete, "Borrar la flecha o el símbolo seleccionado (tecla Supr)", color = Color(0xFFF43F5E), fondoB = Color.Transparent, habilitado = hayVineta, onClick = onBorrar)
+            restoBarra()
         }
         HorizontalDivider(color = borde)
     }
@@ -2644,6 +2701,11 @@ fun DialogoPreferencias(onCerrar: () -> Unit) {
                     "El palito con la bolita que marca en qué punto de la flecha se tomó la coordenada. Apagado no se borra: si lo volvés a prender, aparece donde estaba.",
                     p.mostrarPalitoGps
                 ) { Preferencias.cambiar(context, p.copy(mostrarPalitoGps = it)) }
+                Fila(
+                    "Ruta automática (estilo navegador)",
+                    "En el mapa del editor, al tocar un punto se arma el camino desde la viñeta anterior hasta ahí y se agrega una viñeta, con su flecha, en cada giro. Los cruces donde se sigue derecho no los marca: esos van a mano. Funciona bien en rutas y calles; en huellas y caminos de campo puede no encontrar camino.",
+                    p.rutaAutomatica
+                ) { Preferencias.cambiar(context, p.copy(rutaAutomatica = it)) }
                 Fila(
                     "Rumbo (CAP)",
                     "Muestra el rumbo de la viñeta cuando lo tiene cargado.",

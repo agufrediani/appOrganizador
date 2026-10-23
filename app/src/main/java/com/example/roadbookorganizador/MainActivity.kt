@@ -71,6 +71,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Estado de la conexión con la plataforma (el indicador de colores de toda la app)
+        com.example.roadbookorganizador.data.remote.EstadoConexion.arrancar(this)
 
         // Mantener la pantalla encendida en el habitáculo del auto durante el trazado
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -84,6 +86,12 @@ class MainActivity : ComponentActivity() {
                     Box(modifier = Modifier.fillMaxSize()) {
                         RoadbookNavGraph()
                         RaceBoxConnectionFloatingBanner(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .statusBarsPadding()
+                        )
+                        // Avisos cortos arriba (p. ej. "Sincronizado con la web")
+                        com.example.roadbookorganizador.ui.components.AvisoSuperiorHost(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .statusBarsPadding()

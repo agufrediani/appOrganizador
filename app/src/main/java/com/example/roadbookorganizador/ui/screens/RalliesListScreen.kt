@@ -52,7 +52,7 @@ fun RalliesListScreen(
                     }
                 },
                 actions = {
-                    com.example.roadbookorganizador.ui.components.BotonTema()
+                    com.example.roadbookorganizador.ui.components.IndicadorConexion(); com.example.roadbookorganizador.ui.components.BotonTema()
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )

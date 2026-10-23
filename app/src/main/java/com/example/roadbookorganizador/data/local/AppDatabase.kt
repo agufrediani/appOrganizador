@@ -19,7 +19,7 @@ import com.example.roadbookorganizador.data.local.entity.*
         PuntoInteresEntity::class,
         BajaPendienteEntity::class
     ],
-    version = 11,
+    version = 14,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -83,6 +83,32 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** 11 → 12: zonas y puntos de interés de la plataforma (id del servidor, forma, coordenadas). */
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE puntos_interes ADD COLUMN webId INTEGER")
+                db.execSQL("ALTER TABLE puntos_interes ADD COLUMN forma TEXT NOT NULL DEFAULT 'PUNTO'")
+                db.execSQL("ALTER TABLE puntos_interes ADD COLUMN coordenadasGeoJson TEXT")
+                db.execSQL("ALTER TABLE puntos_interes ADD COLUMN servicios TEXT")
+                db.execSQL("ALTER TABLE puntos_interes ADD COLUMN tramoWebId INTEGER")
+                db.execSQL("ALTER TABLE puntos_interes ADD COLUMN tramoIdentificador TEXT")
+            }
+        }
+
+        /** 12 → 13: el camino desde la viñeta anterior (para dibujar el trazado sin señal). */
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE vinetas ADD COLUMN geometriaDesdeAnterior TEXT")
+            }
+        }
+
+        /** 13 → 14: marca de camino por subir a la plataforma (revisión 23). */
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE vinetas ADD COLUMN caminoPendiente INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -96,7 +122,7 @@ abstract class AppDatabase : RoomDatabase() {
                 // Nunca borrar los datos al actualizar la app: cada cambio de versión de la base
                 // necesita su Migration (ver app/schemas). Solo las versiones de desarrollo
                 // anteriores a la 7 se descartan, porque no tienen esquema exportado.
-                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                 .fallbackToDestructiveMigrationFrom(true, 1, 2, 3, 4, 5, 6)
                 .build()
                 INSTANCE = instance

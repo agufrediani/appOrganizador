@@ -34,8 +34,14 @@ fun RoadbookNavGraph() {
     fun irAPestana(p: PestanaRally) {
         when (p) {
             PestanaRally.PANEL -> navController.popBackStack("menu_principal", inclusive = false)
-            PestanaRally.TRAMOS, PestanaRally.ZONAS -> {
-                val ruta = if (p == PestanaRally.TRAMOS) "tramos" else "mapa_libre"
+            else -> {
+                val ruta = when (p) {
+                    PestanaRally.TRAMOS -> "tramos"
+                    PestanaRally.ZONAS -> "mapa_libre"
+                    PestanaRally.CRONOGRAMA -> "cronograma"
+                    PestanaRally.CARRERA -> "director_carrera"
+                    else -> "roadbook"
+                }
                 navController.navigate(ruta) {
                     popUpTo("menu_principal")
                     launchSingleTop = true
@@ -174,6 +180,32 @@ fun RoadbookNavGraph() {
                     onVolver = { navController.popBackStack() },
                     conCabeceraPropia = false
                 )
+            }
+        }
+
+        // Cronograma (itinerario oficial), Director de carrera y Roadbook: como en la plataforma
+        composable("cronograma") {
+            val menuViewModel: MenuPrincipalViewModel = viewModel()
+            val plataformaViewModel: PlataformaViewModel = viewModel()
+            Marco(menuViewModel, PestanaRally.CRONOGRAMA) {
+                CronogramaScreen(plataformaViewModel, onAbrirTramo = { tramoWebId ->
+                    // "Editar viñetas" de un anexo: abre ese tramo en el editor
+                    val local = plataformaViewModel.tramoLocal(tramoWebId)
+                    if (local != null) navController.navigate("cockpit/$local")
+                    else plataformaViewModel.mostrarMensaje("Ese tramo todavía no está en la tablet: sincronizá y probá de nuevo.")
+                })
+            }
+        }
+        composable("director_carrera") {
+            val menuViewModel: MenuPrincipalViewModel = viewModel()
+            val plataformaViewModel: PlataformaViewModel = viewModel()
+            Marco(menuViewModel, PestanaRally.CARRERA) { DirectorCarreraScreen(plataformaViewModel) }
+        }
+        composable("roadbook") {
+            val menuViewModel: MenuPrincipalViewModel = viewModel()
+            val plataformaViewModel: PlataformaViewModel = viewModel()
+            Marco(menuViewModel, PestanaRally.ROADBOOK) {
+                RoadbookScreen(plataformaViewModel, onExportar = { id -> navController.navigate("exportar/$id") })
             }
         }
 

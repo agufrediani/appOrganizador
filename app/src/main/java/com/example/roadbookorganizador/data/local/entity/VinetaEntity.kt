@@ -79,7 +79,15 @@ data class VinetaEntity(
     /** La viñeta tal como vino del servidor la última vez (JSON). Sirve para mandar solo lo que cambió en la tablet. */
     val datosServidor: String? = null,
     /** true = tiene cambios hechos en la tablet que todavía no llegaron a la plataforma. */
-    val pendienteSubir: Boolean = false
+    val pendienteSubir: Boolean = false,
+    /**
+     * El camino desde la viñeta anterior hasta esta, para dibujar la línea en el mapa sin volver a
+     * pedirlo (también sin señal). JSON `[[lat,lng],...]`, como las zonas. Vale solo si empieza en
+     * la viñeta anterior y termina en esta (si alguna se movió, se vuelve a pedir).
+     */
+    val geometriaDesdeAnterior: String? = null,
+    /** true = el camino cambió en la tablet y falta subirlo (`PUT /api/indicaciones/{id}/camino`, revisión 23). */
+    val caminoPendiente: Boolean = false
 ) {
     companion object {
         /** uid nuevo creado por la tablet: 32 caracteres hexadecimales. */

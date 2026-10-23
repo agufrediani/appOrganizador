@@ -36,6 +36,10 @@ interface TramoDao {
     @Query("SELECT * FROM tramos ORDER BY rallyId ASC, ordenSecuencia ASC")
     suspend fun getTodosSync(): List<TramoEntity>
 
+    /** Tramos con cambios sin subir (o nuevos) de rallies que están en la plataforma. */
+    @Query("SELECT COUNT(*) FROM tramos WHERE (pendienteSubir = 1 OR webId IS NULL) AND rallyId IN (SELECT id FROM rallies WHERE webId IS NOT NULL)")
+    suspend fun contarPendientesTodos(): Int
+
     @Query("UPDATE tramos SET pendienteSubir = 0, webId = :webId WHERE id = :id")
     suspend fun marcarSubido(id: Long, webId: Int?)
 

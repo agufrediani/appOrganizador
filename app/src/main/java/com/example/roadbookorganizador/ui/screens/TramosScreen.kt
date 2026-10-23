@@ -46,7 +46,7 @@ fun TramosScreen(
     val tramos by viewModel.tramos.collectAsState()
     val contexto = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(viewModel) {
-        viewModel.avisos.collect { android.widget.Toast.makeText(contexto, it, android.widget.Toast.LENGTH_LONG).show() }
+        viewModel.avisos.collect { com.example.roadbookorganizador.ui.components.AvisoSuperior.mostrar(it) }
     }
 
     var mostrarModalNuevoTramo by remember { mutableStateOf(false) }
@@ -76,7 +76,7 @@ fun TramosScreen(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = c.texto())
                 }
                 Spacer(Modifier.weight(1f))
-                com.example.roadbookorganizador.ui.components.BotonTema()
+                com.example.roadbookorganizador.ui.components.IndicadorConexion(); com.example.roadbookorganizador.ui.components.BotonTema()
             }
         }
 

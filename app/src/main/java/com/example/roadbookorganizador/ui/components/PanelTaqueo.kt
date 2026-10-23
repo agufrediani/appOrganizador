@@ -60,65 +60,50 @@ fun PanelTaqueo(
             .clip(RoundedCornerShape(16.dp))
             .background(c.tarjetaOscura.copy(alpha = 0.96f))
             .border(1.dp, c.bordeOscuro, RoundedCornerShape(16.dp))
-            .padding(12.dp)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
+        // 1) Qué viñeta viene (con flechitas para elegir otra) y el estado con la plataforma
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("TAQUEO", fontSize = 11.sp, fontWeight = FontWeight.Black, color = c.celeste, letterSpacing = 0.8.sp)
-            Spacer(Modifier.width(8.dp))
+            Text("PRÓXIMA", fontSize = 10.sp, fontWeight = FontWeight.Black, color = c.celeste, letterSpacing = 0.6.sp)
             if (proxima != null) {
-                // Elegir otra viñeta: anterior / siguiente
-                IconButton(onClick = { vinetas.getOrNull(vinetas.indexOf(proxima) - 1)?.let(onElegir) }, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.ChevronLeft, contentDescription = "Anterior", tint = Color.White)
+                IconButton(onClick = { vinetas.getOrNull(vinetas.indexOf(proxima) - 1)?.let(onElegir) }, modifier = Modifier.size(26.dp)) {
+                    Icon(Icons.Default.ChevronLeft, contentDescription = "Viñeta anterior", tint = Color.White)
                 }
-                Text(
-                    "#${proxima.numero}", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White, fontFamily = FontFamily.Monospace
-                )
-                IconButton(onClick = { vinetas.getOrNull(vinetas.indexOf(proxima) + 1)?.let(onElegir) }, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.ChevronRight, contentDescription = "Siguiente", tint = Color.White)
+                Text("#${proxima.numero}", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White, fontFamily = FontFamily.Monospace)
+                IconButton(onClick = { vinetas.getOrNull(vinetas.indexOf(proxima) + 1)?.let(onElegir) }, modifier = Modifier.size(26.dp)) {
+                    Icon(Icons.Default.ChevronRight, contentDescription = "Viñeta siguiente", tint = Color.White)
                 }
                 Text(
                     String.format(java.util.Locale.US, "%.3f km", proxima.distanciaTotal).replace('.', ','),
-                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFCBD5E1), fontFamily = FontFamily.Monospace
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFCBD5E1), fontFamily = FontFamily.Monospace, maxLines = 1
                 )
-                Spacer(Modifier.width(8.dp))
-                Chip(
-                    if (proxima.verificadaTerreno) "VERIFICADA" else (proxima.origenCoordenada ?: "SIN ORIGEN"),
-                    if (proxima.verificadaTerreno) c.verde else Color(0xFF94A3B8)
-                )
+                if (proxima.verificadaTerreno) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Default.Verified, contentDescription = "Verificada en el terreno", tint = c.verde, modifier = Modifier.size(16.dp))
+                }
             } else {
-                Text("Todas las viñetas están verificadas", fontSize = 12.sp, color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(8.dp))
+                Text("Todas verificadas", fontSize = 12.sp, color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold, maxLines = 1)
             }
-            Spacer(Modifier.weight(1f))
-            // Estado con la plataforma
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(enabled = !sincronizando) { onSincronizar() }.padding(4.dp)
-            ) {
-                if (sincronizando) CircularProgressIndicator(strokeWidth = 2.dp, color = c.celeste, modifier = Modifier.size(14.dp))
-                else Icon(if (pendientes > 0) Icons.Default.CloudUpload else Icons.Default.CloudDone, contentDescription = "Sincronizar",
-                    tint = if (pendientes > 0) c.amarillo else c.verde, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(if (pendientes > 0) "$pendientes por subir" else "Al día", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                    color = if (pendientes > 0) c.amarillo else c.verde)
-            }
+            // (El estado con la plataforma está en el botón de colores de arriba)
         }
 
-        Spacer(Modifier.height(6.dp))
+        // 2) A cuántos metros está el auto
         Text(
             when {
                 !hayGps -> "Sin señal de GPS"
                 proxima == null -> ""
-                !tieneCoord -> "La viñeta #${proxima.numero} no tiene coordenada: taqueala acá cuando llegues"
-                else -> "El auto está a ${formatoMetros(distanciaM!!)} de la viñeta #${proxima.numero}" +
-                    (if (odo.precisionMetros > 0) "  •  GPS ±${odo.precisionMetros.roundToInt()} m" else "")
+                !tieneCoord -> "Sin coordenada: taqueala cuando llegues"
+                else -> "Estás a ${formatoMetros(distanciaM!!)}" + (if (odo.precisionMetros > 0) "  ·  GPS ±${odo.precisionMetros.roundToInt()} m" else "")
             },
-            fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             color = if (distanciaM != null && distanciaM <= 30) c.verde else Color.White
         )
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(5.dp))
+        // 3) Los tres botones: ícono arriba y una palabra abajo, para que entren siempre
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            BotonGrande("TAQUEAR ACÁ", Icons.Default.MyLocation, c.celeste, Color(0xFF0A0E17), Modifier.weight(1f), enabled = proxima != null && hayGps) {
+            BotonGrande("TAQUEAR", Icons.Default.MyLocation, c.celeste, Color(0xFF0A0E17), Modifier.weight(1f), enabled = proxima != null && hayGps) {
                 val p = proxima ?: return@BotonGrande
                 val cerca = vinetaCercana(p.id)
                 if (cerca != null) pregunta = "taquear" to cerca else onTaquear(p)
@@ -126,16 +111,16 @@ fun PanelTaqueo(
             BotonGrande("ESTÁ BIEN", Icons.Default.CheckCircle, c.verde, Color(0xFF0A0E17), Modifier.weight(1f), enabled = proxima != null && tieneCoord) {
                 proxima?.let(onEstaBien)
             }
-            BotonGrande("NUEVA VIÑETA", Icons.Default.AddLocationAlt, c.amarillo, Color(0xFF0A0E17), Modifier.weight(1f), enabled = hayGps) {
+            BotonGrande("NUEVA", Icons.Default.AddLocationAlt, c.amarillo, Color(0xFF0A0E17), Modifier.weight(1f), enabled = hayGps) {
                 val cerca = vinetaCercana(null)
                 if (cerca != null) pregunta = "nueva" to cerca else onNueva(previaNueva)
             }
         }
         if (proxima?.latitudAnterior != null && proxima.longitudAnterior != null) {
-            TextButton(onClick = { onVolverAnterior(proxima) }) {
+            TextButton(onClick = { onVolverAnterior(proxima) }, contentPadding = PaddingValues(0.dp), modifier = Modifier.height(24.dp)) {
                 Icon(Icons.Default.Undo, contentDescription = null, tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Volver a la coordenada anterior de la #${proxima.numero}", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                Text("Volver a la coordenada anterior de la #${proxima.numero}", fontSize = 11.sp, color = Color(0xFF94A3B8), maxLines = 1)
             }
         }
     }
@@ -176,17 +161,19 @@ private fun Chip(texto: String, color: Color) {
 
 @Composable
 private fun BotonGrande(texto: String, icono: ImageVector, fondo: Color, tinta: Color, modifier: Modifier, enabled: Boolean, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = fondo, contentColor = tinta, disabledContainerColor = fondo.copy(alpha = 0.3f)),
-        contentPadding = PaddingValues(vertical = 16.dp),
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
         modifier = modifier
+            .height(48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (enabled) fondo else fondo.copy(alpha = 0.3f))
+            .clickable(enabled = enabled) { onClick() }
+            .padding(horizontal = 4.dp)
     ) {
-        Icon(icono, contentDescription = null, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(texto, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Icon(icono, contentDescription = null, tint = tinta, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.height(2.dp))
+        Text(texto, fontSize = 12.sp, fontWeight = FontWeight.Black, color = tinta, maxLines = 1, softWrap = false)
     }
 }
 

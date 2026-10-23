@@ -49,6 +49,26 @@ interface VinetaDao {
     @Query("SELECT COUNT(*) FROM vinetas WHERE tramoId = :tramoId AND pendienteSubir = 1")
     fun contarPendientes(tramoId: Long): Flow<Int>
 
+    /**
+     * Guarda el camino desde la anterior sin marcar la viñeta como cambiada (es solo para el
+     * mapa); queda marcado para subirlo aparte con `PUT /api/indicaciones/{id}/camino`.
+     */
+    @Query("UPDATE vinetas SET geometriaDesdeAnterior = :geometria, caminoPendiente = 1 WHERE id = :id")
+    suspend fun setGeometria(id: Long, geometria: String?)
+
+    @Query("SELECT * FROM vinetas WHERE tramoId = :tramoId AND caminoPendiente = 1 AND webId IS NOT NULL ORDER BY distanciaTotal ASC, numero ASC")
+    suspend fun getCaminosPendientes(tramoId: Long): List<VinetaEntity>
+
+    @Query("SELECT COUNT(*) FROM vinetas WHERE tramoId = :tramoId AND caminoPendiente = 1")
+    suspend fun contarCaminosPendientes(tramoId: Long): Int
+
+    /** Todo lo que falta subir en la tablet: viñetas cambiadas y viñetas borradas. */
+    @Query("SELECT (SELECT COUNT(*) FROM vinetas WHERE pendienteSubir = 1) + (SELECT COUNT(*) FROM bajas_pendientes)")
+    suspend fun contarPendientesTodos(): Int
+
+    @Query("UPDATE vinetas SET caminoPendiente = 0 WHERE id = :id")
+    suspend fun marcarCaminoSubido(id: Long)
+
     @Query("UPDATE vinetas SET pendienteSubir = 0, webId = :webId WHERE id = :id")
     suspend fun marcarSubida(id: Long, webId: Int?)
 

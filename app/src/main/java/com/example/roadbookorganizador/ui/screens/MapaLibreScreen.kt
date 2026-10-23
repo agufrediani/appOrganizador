@@ -35,6 +35,10 @@ fun MapaLibreScreen(
 ) {
     val odoState by viewModel.odoState.collectAsState()
     val puntos by viewModel.puntos.collectAsState()
+    val contextoAvisos = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(viewModel) {
+        viewModel.avisos.collect { com.example.roadbookorganizador.ui.components.AvisoSuperior.mostrar(it) }
+    }
     var mostrarModalAgregarPunto by remember { mutableStateOf(false) }
     var puntoCoordenadasSeleccionadas by remember { mutableStateOf<Pair<Double, Double>?>(null) }
 
@@ -93,7 +97,7 @@ fun MapaLibreScreen(
                     }
                 },
                 actions = {
-                    com.example.roadbookorganizador.ui.components.BotonTema()
+                    com.example.roadbookorganizador.ui.components.IndicadorConexion(); com.example.roadbookorganizador.ui.components.BotonTema()
 
 
                     Spacer(modifier = Modifier.width(6.dp))
@@ -371,32 +375,17 @@ fun PuntoInteresItemRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            val (badgeBg, badgeFg) = when (punto.tipo) {
-                "AMBULANCIA", "RESCATE" -> Pair(RallyRed.copy(alpha = 0.25f), RallyRed)
-                "ZONA ESPECTADORES", "PUBLICO" -> Pair(RallyAccentYellow.copy(alpha = 0.25f), if (isDark) RallyAccentYellow else FredianiAmberText)
-                "PARQUE DE ASISTENCIA" -> Pair(RallyCyan.copy(alpha = 0.25f), if (isDark) RallyCyan else FredianiCyanText)
-                "HELIPUERTO" -> Pair(RallyAccentAmber.copy(alpha = 0.25f), RallyAccentAmber)
-                else -> Pair(RallyGreen.copy(alpha = 0.25f), RallyGreen)
-            }
-
+            val colorP = colorTipo(punto.tipo)
             Surface(
-                shape = CircleShape,
-                color = badgeBg,
+                shape = if (punto.forma == "POLIGONO") RoundedCornerShape(8.dp) else CircleShape,
+                color = colorP.copy(alpha = 0.25f),
                 modifier = Modifier.size(36.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        when (punto.tipo) {
-                            "AMBULANCIA" -> Icons.Default.MedicalServices
-                            "RESCATE" -> Icons.Default.Emergency
-                            "ZONA ESPECTADORES", "PUBLICO" -> Icons.Default.Groups
-                            "HELIPUERTO" -> Icons.Default.LocalHospital
-                            "PARQUE DE ASISTENCIA" -> Icons.Default.Build
-                            "ACCESO" -> Icons.Default.AltRoute
-                            else -> Icons.Default.Place
-                        },
+                        if (punto.forma == "POLIGONO") Icons.Default.Pentagon else Icons.Default.Place,
                         contentDescription = null,
-                        tint = badgeFg,
+                        tint = colorP,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -407,7 +396,11 @@ fun PuntoInteresItemRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = punto.nombre, fontWeight = FontWeight.Bold, color = textPrimary, fontSize = 13.sp)
                 Text(
-                    text = "${punto.tipo} • ${String.format("%.5f, %.5f", punto.latitud, punto.longitud)}",
+                    text = listOfNotNull(
+                        rotuloTipo(punto.tipo),
+                        punto.tramoIdentificador ?: (if (punto.webId != null) "Todo el rally" else "Sin subir"),
+                        if (punto.forma == "PUNTO") String.format("%.5f, %.5f", punto.latitud, punto.longitud) else null
+                    ).joinToString(" • "),
                     fontSize = 11.sp,
                     color = textSecondary
                 )
@@ -439,20 +432,11 @@ fun DialogoNuevoPOI(
     val textSecondary = if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFF64748B)
 
     var nombre by remember { mutableStateOf("") }
-    var tipo by remember { mutableStateOf("ZONA ESPECTADORES") }
+    var tipo by remember { mutableStateOf("INTERES") }
     var descripcion by remember { mutableStateOf("") }
 
-    val categoriasZonas = listOf(
-        "ZONA ESPECTADORES",
-        "ACCESO",
-        "AMBULANCIA",
-        "RESCATE",
-        "PARQUE DE ASISTENCIA",
-        "HELIPUERTO",
-        "CONTROL HORARIO (CH)",
-        "PELIGRO",
-        "MOJÓN"
-    )
+    // Los mismos tipos de punto que la plataforma (puntosInteres.ts). Las zonas (polígonos) se dibujan en la web.
+    val categoriasZonas = TIPOS_PUNTO_PLATAFORMA.map { it.first }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -521,15 +505,13 @@ fun DialogoNuevoPOI(
                             onClick = { tipo = cat },
                             label = {
                                 Text(
-                                    text = cat,
+                                    text = rotuloTipo(cat),
                                     fontSize = 11.sp,
                                     fontWeight = if (sel) FontWeight.Black else FontWeight.Bold
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = if (cat.contains("AMBULANCIA") || cat.contains("RESCATE")) RallyRed
-                                else if (cat.contains("ESPECTADORES")) RallyAccentYellow
-                                else RallyCyan,
+                                selectedContainerColor = colorTipo(cat),
                                 selectedLabelColor = Color.Black,
                                 containerColor = if (isDark) RallySurface else Color(0xFFF1F5F9),
                                 labelColor = textPrimary
@@ -572,3 +554,19 @@ fun DialogoNuevoPOI(
         }
     )
 }
+
+/** Tipos de punto de la plataforma (valor, rótulo, color), puntosInteres.ts. */
+val TIPOS_PUNTO_PLATAFORMA = listOf(
+    Triple("ASISTENCIA", "Parque de asistencia", Color(0xFF8B5CF6)),
+    Triple("ACCESO", "Ingreso / acceso", Color(0xFF0EA5E9)),
+    Triple("LARGADA", "Largada de P.E.", Color(0xFF16A34A)),
+    Triple("LLEGADA", "Llegada de P.E.", Color(0xFFDC2626)),
+    Triple("SANIDAD", "Sanidad / ambulancia", Color(0xFFF97316)),
+    Triple("INTERES", "Punto de interés", Color(0xFFEAB308))
+)
+private val TIPOS_ZONA_PLATAFORMA = listOf(
+    Triple("PERMITIDA", "Zona de público permitida", Color(0xFF06D6A0)),
+    Triple("PROHIBIDA", "Zona prohibida", Color(0xFFEF4444))
+)
+fun rotuloTipo(tipo: String): String = (TIPOS_ZONA_PLATAFORMA + TIPOS_PUNTO_PLATAFORMA).firstOrNull { it.first == tipo }?.second ?: tipo
+fun colorTipo(tipo: String): Color = (TIPOS_ZONA_PLATAFORMA + TIPOS_PUNTO_PLATAFORMA).firstOrNull { it.first == tipo }?.third ?: Color(0xFF00B4D8)

@@ -54,6 +54,8 @@ fun CabeceraPlataforma(
     subtitulo: String,
     onPreferencias: () -> Unit,
     onLogout: () -> Unit,
+    /** El indicador de conexión chiquito al lado del tema (false si la pantalla ya lo muestra grande). */
+    conIndicador: Boolean = true,
     centro: @Composable RowScope.() -> Unit = {}
 ) {
     val isDark = ThemeManager.isDarkTheme
@@ -99,6 +101,7 @@ fun CabeceraPlataforma(
 
         // Acciones de usuario y tema
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (conIndicador) IndicadorConexion()
             BotonCuadrado(Icons.Default.Settings, "Preferencias", tinte = if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155), onClick = onPreferencias)
             BotonTema()
             Row(
@@ -166,6 +169,7 @@ private fun CabeceraCelular(
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                IndicadorConexion()
                 BotonCuadrado(Icons.Default.Settings, "Preferencias", tinte = if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155), onClick = onPreferencias)
                 BotonTema()
                 BotonCuadrado(
@@ -238,11 +242,14 @@ fun SelectorRallyPlataforma(
     }
 }
 
-/** Pestañas del rally (sub-navegación de la plataforma). Solo las que existen en la tablet. */
+/** Pestañas del rally (sub-navegación de la plataforma), en el mismo orden que la web. */
 enum class PestanaRally(val titulo: String, val icono: ImageVector) {
     PANEL("Panel General", Icons.Default.Dashboard),
     TRAMOS("Tramos", Icons.Default.Layers),
-    ZONAS("Zonas y puntos de interés", Icons.Default.Groups)
+    CRONOGRAMA("Cronograma", Icons.Default.CalendarMonth),
+    ZONAS("Zonas y puntos de interés", Icons.Default.Groups),
+    CARRERA("Director de carrera", Icons.Default.Campaign),
+    ROADBOOK("Roadbook", Icons.Default.Download)
 }
 
 @Composable

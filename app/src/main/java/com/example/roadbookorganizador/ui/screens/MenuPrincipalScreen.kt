@@ -1,5 +1,7 @@
 package com.example.roadbookorganizador.ui.screens
 
+import com.example.roadbookorganizador.util.PortadaRally
+
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -60,7 +62,7 @@ fun PanelGeneralRally(
     val chico = com.example.roadbookorganizador.ui.components.tamanoPantalla() == com.example.roadbookorganizador.ui.components.TamanoPantalla.CHICO
 
     LaunchedEffect(Unit) {
-        viewModel.syncMessage.collect { msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+        viewModel.syncMessage.collect { msg -> com.example.roadbookorganizador.ui.components.AvisoSuperior.mostrar(msg) }
     }
 
     Column(
@@ -90,7 +92,8 @@ fun PanelGeneralRally(
                     .height(if (chico) 200.dp else 280.dp)
                     .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF0B3A5C), Color(0xFF0A0E17), Color(0x660284C7))))
             ) {
-                Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0x80000000), Color.Transparent, Color(0xFF0A0E17)))))
+                // Foto de portada y chapa oficial (las que se cargaron en la plataforma)
+                PortadaRally(r.webId, if (chico) 120.dp else 180.dp)
                 Row(
                     modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

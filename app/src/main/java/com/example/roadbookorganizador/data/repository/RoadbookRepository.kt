@@ -69,6 +69,12 @@ class RoadbookRepository(private val db: AppDatabase) {
     suspend fun guardarDesdeServidor(vineta: VinetaEntity): Long =
         if (vineta.id == 0L) db.vinetaDao().insertVineta(vineta.copy(pendienteSubir = false))
         else { db.vinetaDao().updateVineta(vineta.copy(pendienteSubir = false)); vineta.id }
+    suspend fun guardarGeometria(vinetaId: Long, geometria: String?) = db.vinetaDao().setGeometria(vinetaId, geometria)
+    suspend fun getCaminosPendientes(tramoId: Long) = db.vinetaDao().getCaminosPendientes(tramoId)
+    /** Cuántos cambios de la tablet faltan subir a la plataforma (tramos, viñetas y borradas). */
+    suspend fun contarPendientesTodos(): Int = db.tramoDao().contarPendientesTodos() + db.vinetaDao().contarPendientesTodos()
+    suspend fun contarCaminosPendientes(tramoId: Long) = db.vinetaDao().contarCaminosPendientes(tramoId)
+    suspend fun marcarCaminoSubido(vinetaId: Long) = db.vinetaDao().marcarCaminoSubido(vinetaId)
     suspend fun borrarDesdeServidor(vineta: VinetaEntity) = db.vinetaDao().deleteVineta(vineta)
 
     suspend fun renumerarVinetas(tramoId: Long) {
@@ -123,4 +129,6 @@ class RoadbookRepository(private val db: AppDatabase) {
     fun getAllPuntosInteres(): Flow<List<PuntoInteresEntity>> = db.puntoInteresDao().getAllPuntos()
     suspend fun insertPuntoInteres(punto: PuntoInteresEntity) = db.puntoInteresDao().insertPunto(punto)
     suspend fun deletePuntoInteres(punto: PuntoInteresEntity) = db.puntoInteresDao().deletePunto(punto)
+    suspend fun getPuntosInteresSync(rallyId: Long): List<PuntoInteresEntity> = db.puntoInteresDao().getPuntosSync(rallyId)
+    suspend fun updatePuntoInteres(punto: PuntoInteresEntity) = db.puntoInteresDao().updatePunto(punto)
 }

@@ -30,6 +30,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.sp
 import com.example.roadbookorganizador.ui.theme.*
 import com.example.roadbookorganizador.ui.vineta.ArrastreSimbolo
@@ -104,10 +106,7 @@ fun SidebarSymbolsPalette(
     val bib: Biblioteca = remember { BibliotecaVineta.obtener(context) }
     val dibujante = remember(bib) { DibujanteVineta(bib) }
 
-    var busqueda by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf("flechas") }
-    val q = busqueda.trim()
-    fun coincide(vararg textos: String) = q.isEmpty() || textos.any { it.contains(q, ignoreCase = true) }
 
     val armadas = remember(bib) { bib.flechasArmadas.values.map { ItemPaleta.ArmadaItem(it.codigo, it.nombre, it.flecha) } }
 
@@ -116,52 +115,55 @@ fun SidebarSymbolsPalette(
             .background(fondo)
             .border(1.dp, borde)
     ) {
-        // Buscador + pestañas
-        Column(modifier = Modifier.fillMaxWidth().padding(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = busqueda,
-                    onValueChange = { busqueda = it },
-                    placeholder = { Text("Buscar símbolo o acrónimo...", fontSize = 11.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(14.dp)) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold),
-                    modifier = Modifier.weight(1f).height(46.dp)
-                )
-                IconButton(onClick = onCollapse, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = "Cerrar paleta", tint = suave, modifier = Modifier.size(16.dp))
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            // Pestañas: botones chicos que se acomodan en varias filas, como en la web
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Pestañas (botones chicos que se acomodan en varias filas, como en la web) y cerrar
+        Row(modifier = Modifier.fillMaxWidth().padding(6.dp), verticalAlignment = Alignment.Top) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.weight(1f)
+            ) {
                 TABS.forEach { t ->
                     val sel = tab == t.clave
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                    // Cada categoría se muestra con un dibujo de muestra (sin nombre), como un ícono
+                    val muestra: ItemPaleta? = remember(bib, t.clave) {
+                        when {
+                            t.clave == "flechas" -> armadas.firstOrNull()
+                            t.categoria != null -> bib.listaSimbolos.firstOrNull { it.categoria == t.categoria }?.let { ItemPaleta.SimboloItem(it.codigo, it.nombre) }
+                            else -> null
+                        }
+                    }
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (sel) Color(0xFF00B4D8) else (if (isDark) RallySurface else Color(0xFFE2E8F0)))
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            // Gris suave y recuadro negro: se nota que son categorías y no símbolos para poner
+                            .background(if (sel) Color(0xFFBAE6FD) else Color(0xFFE2E8F0))
+                            .border(if (sel) 2.5.dp else 1.5.dp, Color.Black, RoundedCornerShape(9.dp))
                             .clickable { tab = t.clave }
-                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                            .padding(5.dp)
+                            .semantics { contentDescription = t.titulo }
                     ) {
-                        Icon(t.icono, contentDescription = null, tint = if (sel) Color.Black else suave, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(t.titulo.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Black,
-                            color = if (sel) Color.Black else (if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)))
+                        when {
+                            muestra != null -> MuestraItemPaleta(muestra, bib, dibujante, Modifier.fillMaxSize())
+                            else -> Icon(t.icono, contentDescription = null, tint = Color(0xFF0F172A), modifier = Modifier.size(20.dp))
+                        }
                     }
                 }
+            }
+            IconButton(onClick = onCollapse, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "Cerrar paleta", tint = suave, modifier = Modifier.size(16.dp))
             }
         }
         HorizontalDivider(color = borde)
 
         val actual = TABS.first { it.clave == tab }
         LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(8.dp),
+            // Casillas cuadradas: entran las que quepan a lo ancho (abajo de la hoja, en la tablet, son muchas)
+            columns = GridCells.Adaptive(minSize = 62.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+            contentPadding = PaddingValues(6.dp),
             modifier = Modifier.fillMaxSize()
         ) {
             fun titulo(texto: String, color: Color = suave) {
@@ -172,10 +174,9 @@ fun SidebarSymbolsPalette(
             }
             when {
                 actual.clave == "flechas" -> {
-                    titulo("Flechas armadas (tocala para ponerla en la viñeta elegida, o arrastrala a cualquier viñeta):")
                     // Una sola lista: primero las flechas solas, después con 1 y con 2 caminos prohibidos
                     for (n in 0..2) {
-                        val lista = armadas.filter { Colocar.prohibidosDelCodigo(it.codigo) == n && coincide(it.nombre, it.codigo) }
+                        val lista = armadas.filter { Colocar.prohibidosDelCodigo(it.codigo) == n }
                         if (lista.isEmpty()) continue
                         if (n > 0) titulo(if (n == 1) "Con un camino prohibido" else "Con dos caminos prohibidos", Color(0xFF64748B))
                         items(lista, key = { it.clave }) { item ->
@@ -184,21 +185,20 @@ fun SidebarSymbolsPalette(
                     }
                 }
                 actual.clave == "note" -> {
-                    val lista = ACRONIMOS.filter { (c, l, d) -> coincide(c, l, d) }
-                    titulo("Acrónimos (tocá para insertar):")
+                    val lista = ACRONIMOS
                     items(lista, key = { "A:" + it.first }) { (codigo, nombre, desc) ->
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
                             modifier = Modifier
                                 .aspectRatio(1f)
-                                .clip(RoundedCornerShape(16.dp))
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(if (isDark) RallyCardBg else Color.White)
-                                .border(1.dp, borde, RoundedCornerShape(16.dp))
+                                .border(1.dp, borde, RoundedCornerShape(10.dp))
                                 .clickable { onAppendNoteText("$codigo ") }
-                                .padding(6.dp)
+                                .padding(3.dp)
                         ) {
-                            Text(codigo, fontSize = 15.sp, fontWeight = FontWeight.Black, color = if (isDark) Color.White else Color(0xFF0F172A))
+                            Text(codigo, fontSize = 13.sp, fontWeight = FontWeight.Black, color = if (isDark) Color.White else Color(0xFF0F172A))
                             Text(nombre, fontSize = 8.5.sp, color = suave, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(desc, fontSize = 8.sp, color = suave, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                         }
@@ -206,9 +206,8 @@ fun SidebarSymbolsPalette(
                 }
                 else -> {
                     val lista = bib.listaSimbolos
-                        .filter { (q.isNotEmpty() || it.categoria == actual.categoria) && coincide(it.nombre, it.codigo) }
+                        .filter { it.categoria == actual.categoria }
                         .map { ItemPaleta.SimboloItem(it.codigo, it.nombre) }
-                    titulo("${actual.titulo} (${lista.size}):")
                     items(lista, key = { it.clave }) { item ->
                         CeldaPaleta(item, arrastre, bib, dibujante, borde, isDark) { onInsertar(item) }
                     }
@@ -233,9 +232,9 @@ private fun CeldaPaleta(
     Box(
         modifier = Modifier
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(Color.White)
-            .border(1.dp, borde, RoundedCornerShape(16.dp))
+            .border(1.dp, borde, RoundedCornerShape(10.dp))
             .onGloballyPositioned { coords[0] = it }
             .pointerInput(item.clave) {
                 // Solo el movimiento hacia los costados levanta el símbolo; arriba/abajo desplaza la lista
@@ -252,7 +251,7 @@ private fun CeldaPaleta(
                 )
             }
             .clickable { onTocar() }
-            .padding(6.dp)
+            .padding(4.dp)
     ) {
         MuestraItemPaleta(item, bib, dibujante, Modifier.fillMaxSize())
     }

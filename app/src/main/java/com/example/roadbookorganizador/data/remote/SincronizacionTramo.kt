@@ -84,8 +84,23 @@ class SincronizacionTramo(private val context: Context, private val repository: 
 
             var enviadas = cambiosTramo
 
-            // 1) Las borradas en la tablet
-            for (b in repository.getBajasPendientes(tramoLocalId)) {
+            // 1) Las borradas en la tablet. Varias juntas van en un solo pedido (revisión 24): las
+            //    demás conservan su kilometraje y el servidor une los caminos del medio.
+            val bajas = repository.getBajasPendientes(tramoLocalId)
+            var bajasJuntas = false
+            if (bajas.size > 1) {
+                try {
+                    val ids = com.google.gson.JsonArray().apply { bajas.forEach { add(it.webId) } }
+                    api.post("/api/indicaciones/eliminar-multiples", JsonObject().apply { add("indicacionIds", ids) })
+                    bajas.forEach { repository.borrarBajaPendiente(it.id) }
+                    enviadas += bajas.size
+                    bajasJuntas = true
+                } catch (e: ErrorServidor) {
+                    // Si alguna ya no estaba (u otro problema del pedido), se mandan de a una
+                    if (e.codigo == 401) throw e
+                }
+            }
+            if (!bajasJuntas) for (b in bajas) {
                 try {
                     api.delete("/api/indicaciones/${b.webId}")
                 } catch (e: ErrorServidor) {
@@ -118,6 +133,8 @@ class SincronizacionTramo(private val context: Context, private val repository: 
                         if (!has("origenCoordenada") || get("origenCoordenada").isJsonNull) addProperty("origenCoordenada", v.origenCoordenada ?: "TABLET")
                         // Notas guardadas (por ejemplo, de un tramo importado de un archivo)
                         base?.get("notas")?.takeIf { !it.isJsonNull }?.let { add("notas", it) }
+                        // El camino desde la anterior (revisión 23); fuera de camino no lleva
+                        if (!v.esOffRoad) v.geometriaDesdeAnterior?.takeIf { it.isNotBlank() }?.let { addProperty("geometriaDesdeAnterior", it) }
                     }
                     val resp = api.post("/api/tramos/$tramoWebId/indicaciones/insertar", cuerpo)
                     lista = detalle(tramoWebId)
@@ -130,8 +147,24 @@ class SincronizacionTramo(private val context: Context, private val repository: 
                         api.put("/api/indicaciones/$idSrv", cuerpoCompleto)
                     }
                     repository.marcarVinetaSubida(v.id, idSrv)
+                    if (v.caminoPendiente && v.geometriaDesdeAnterior != null) repository.marcarCaminoSubido(v.id)
                 }
                 enviadas++
+            }
+
+            // 2 bis) Los caminos entre viñetas que consiguió el mapa, solos (revisión 23): no tocan
+            //        nada más de la viñeta. Si el servidor todavía no tiene este pedido, quedan para después.
+            for (v in repository.getCaminosPendientes(tramoLocalId)) {
+                val id = v.webId ?: continue
+                if (v.esOffRoad || v.geometriaDesdeAnterior.isNullOrBlank()) { repository.marcarCaminoSubido(v.id); continue }
+                try {
+                    api.put("/api/indicaciones/$id/camino", JsonObject().apply { addProperty("geometriaDesdeAnterior", v.geometriaDesdeAnterior) })
+                    repository.marcarCaminoSubido(v.id)
+                    enviadas++
+                } catch (e: ErrorServidor) {
+                    if (e.codigo == 404 || e.codigo == 405) break // servidor sin este pedido (o la viñeta ya no está)
+                    throw e
+                }
             }
 
             // 3) Lo que quedó en la plataforma, a la tablet (el tramo y sus viñetas)
@@ -296,7 +329,12 @@ class SincronizacionTramo(private val context: Context, private val repository: 
         fun deServidor(o: JsonObject, tramoId: Long, existente: VinetaEntity?): VinetaEntity {
             val base = existente ?: VinetaEntity(tramoId = tramoId, numero = 0, distanciaTotal = 0.0, distanciaParcial = 0.0, latitud = 0.0, longitud = 0.0)
             val tipoWpt = o.texto("tipoWaypoint")
+            // Camino desde la anterior (revisión 23): el del servidor, salvo que la tablet tenga
+            // uno nuevo sin subir. Si el servidor no lo manda (o va null), queda el de la tablet.
+            val caminoServidor = o.texto("geometriaDesdeAnterior").takeIf { it.trim().startsWith("[") }
+            val camino = if (base.caminoPendiente) base.geometriaDesdeAnterior else caminoServidor ?: base.geometriaDesdeAnterior
             return base.copy(
+                geometriaDesdeAnterior = camino,
                 tramoId = tramoId,
                 numero = o.entero("orden") ?: base.numero,
                 distanciaTotal = o.decimal("distanciaAcumuladaKm") ?: base.distanciaTotal,

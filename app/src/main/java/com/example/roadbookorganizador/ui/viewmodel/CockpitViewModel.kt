@@ -103,6 +103,11 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
     private val sincroTramo = com.example.roadbookorganizador.data.remote.SincronizacionTramo(application, repository)
     private var sincroJob: Job? = null
 
+    /** Zonas y puntos de interés del rally (se ven en el mapa, como en la plataforma). */
+    val puntosRally = _tramoActivo.flatMapLatest { t ->
+        if (t != null) repository.getPuntosInteres(t.rallyId) else flowOf(emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     /** Cuántas viñetas tienen cambios que todavía no llegaron a la plataforma. */
     val pendientesSubir: StateFlow<Int> = _tramoActivo.flatMapLatest { t ->
         if (t != null) repository.contarPendientes(t.id) else flowOf(0)
@@ -110,6 +115,19 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
 
     private val _sincronizando = MutableStateFlow(false)
     val sincronizando: StateFlow<Boolean> = _sincronizando.asStateFlow()
+
+    /** La última vez que se intentó sincronizar, ¿falló? (sin conexión o la plataforma no respondió) */
+    private val _falloSincro = MutableStateFlow(false)
+
+    /** Color del botón de sincronización: verde al día, amarillo cambios por subir, rojo no sincroniza. */
+    val estadoSincro: StateFlow<com.example.roadbookorganizador.ui.components.EstadoSincro> =
+        combine(_falloSincro, pendientesSubir, _tramoActivo, com.example.roadbookorganizador.data.remote.EstadoConexion.enLinea) { fallo, pend, t, enLinea ->
+            when {
+                fallo || enLinea == false -> com.example.roadbookorganizador.ui.components.EstadoSincro.ROJO
+                pend > 0 || t?.pendienteSubir == true || (t != null && t.webId == null) -> com.example.roadbookorganizador.ui.components.EstadoSincro.AMARILLO
+                else -> com.example.roadbookorganizador.ui.components.EstadoSincro.VERDE
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.example.roadbookorganizador.ui.components.EstadoSincro.VERDE)
 
     /** Sincroniza ahora el tramo abierto (botón). */
     fun sincronizarTramo() {
@@ -119,7 +137,11 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
             val r = sincroTramo.sincronizar(t.id)
             _sincronizando.value = false
             repository.getTramoById(t.id)?.let { if (_tramoActivo.value?.id == it.id) _tramoActivo.value = it }
-            _avisos.tryEmit(r.mensaje)
+            _falloSincro.value = !r.ok
+            com.example.roadbookorganizador.data.remote.EstadoConexion.informarResultado(r.ok)
+            com.example.roadbookorganizador.data.remote.EstadoConexion.contarPendientes(getApplication())
+            // Sin cartel cuando sale bien (lo dice el color del botón); si falla, se explica por qué
+            if (!r.ok) _avisos.tryEmit(r.mensaje)
         }
     }
 
@@ -131,9 +153,9 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
         sincroJob?.cancel()
         sincroJob = viewModelScope.launch {
             var primera = true
-            var avisoSinConexion = false
             while (true) {
-                if (primera || pendientesSubir.value > 0 || repository.contarPendientes(tramo.id).first() > 0) {
+                if (primera || _falloSincro.value || pendientesSubir.value > 0 || repository.contarPendientes(tramo.id).first() > 0 ||
+                    repository.contarCaminosPendientes(tramo.id) > 0) {
                     // Rally solo en la tablet: no hay nada que sincronizar
                     if (repository.getRallyById(tramo.rallyId)?.webId == null) return@launch
                     _sincronizando.value = true
@@ -141,12 +163,10 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
                     _sincronizando.value = false
                     // El tramo pudo haberse creado en la plataforma o cambiado allá
                     repository.getTramoById(tramo.id)?.let { if (_tramoActivo.value?.id == it.id) _tramoActivo.value = it }
-                    when {
-                        r.enviadas > 0 -> _avisos.tryEmit(r.mensaje)
-                        !r.ok && r.sinConexion -> { if (!avisoSinConexion) _avisos.tryEmit(r.mensaje); avisoSinConexion = true }
-                        !r.ok && primera -> _avisos.tryEmit(r.mensaje)
-                    }
-                    if (r.ok) avisoSinConexion = false
+                    // Sin carteles: el estado se ve en el color del botón de sincronización
+                    _falloSincro.value = !r.ok
+                    com.example.roadbookorganizador.data.remote.EstadoConexion.informarResultado(r.ok)
+                    com.example.roadbookorganizador.data.remote.EstadoConexion.contarPendientes(getApplication())
                     primera = false
                 }
                 kotlinx.coroutines.delay(60_000)
@@ -510,6 +530,18 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
         return (Math.round((total - (previa?.distanciaTotal ?: 0.0)).coerceAtLeast(0.0) * 1000.0) / 1000.0)
     }
 
+    /**
+     * El parcial del odómetro, solo si de verdad midió algo desde la viñeta anterior. Si dio 0
+     * (el auto no se movió, el odómetro quedó atrás de la viñeta anterior o recién arrancó), la
+     * distancia que tiene la viñeta NO se toca: si no, se pierde el kilometraje y la viñeta queda
+     * fuera de la P.E. (sin el gris) y corre todas las que siguen.
+     */
+    private fun parcialConfiable(v: VinetaEntity): Double? {
+        val previa = previaDe(v) ?: return null // la primera: su distancia no la cambia el taqueo
+        val medido = parcialMedido(previa)
+        return if (medido >= 0.005) medido else null
+    }
+
     private fun previaDe(v: VinetaEntity): VinetaEntity? =
         vinetas.value.let { l -> l.getOrNull(l.indexOfFirst { it.id == v.id } - 1) }
 
@@ -540,9 +572,13 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
         val o = odoState.value
         if (o.latitud == 0.0 && o.longitud == 0.0) { _avisos.tryEmit("Sin señal de GPS: no se puede taquear."); return }
         viewModelScope.launch {
-            val parcial = parcialMedido(previaDe(v))
-            val total = (previaDe(v)?.distanciaTotal ?: 0.0) + parcial
-            acomodarDistancias(v, parcial) // primero se corren las siguientes, así no cambia el orden
+            // Si el odómetro no midió nada, se cambia la coordenada pero no la distancia
+            val medido = parcialConfiable(v)
+            val parcial = medido ?: v.distanciaParcial
+            if (medido == null && previaDe(v) != null)
+                _avisos.tryEmit("El odómetro no midió distancia desde la viñeta anterior: se dejó la distancia que tenía.")
+            val total = if (medido == null) v.distanciaTotal else (previaDe(v)?.distanciaTotal ?: 0.0) + parcial
+            if (medido != null) acomodarDistancias(v, parcial) // primero se corren las siguientes, así no cambia el orden
             repository.updateVineta(
                 v.copy(
                     latitudAnterior = if (v.latitud == 0.0 && v.longitud == 0.0) v.latitudAnterior else v.latitud,
@@ -565,10 +601,16 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
     /** "Está bien": se deja la coordenada de la plataforma y se confirma en el terreno. */
     fun estaBien(v: VinetaEntity) {
         viewModelScope.launch {
-            val parcial = parcialMedido(previaDe(v))
-            val total = (previaDe(v)?.distanciaTotal ?: 0.0) + parcial
-            acomodarDistancias(v, parcial)
-            repository.updateVineta(v.copy(verificadaTerreno = true, distanciaParcial = parcial, distanciaTotal = total))
+            val parcial = parcialConfiable(v)
+            if (parcial == null) {
+                // Solo se confirma la coordenada: la distancia queda como estaba
+                repository.updateVineta(v.copy(verificadaTerreno = true))
+                if (previaDe(v) != null) _avisos.tryEmit("El odómetro no midió distancia desde la viñeta anterior: se dejó la distancia que tenía.")
+            } else {
+                val total = (previaDe(v)?.distanciaTotal ?: 0.0) + parcial
+                acomodarDistancias(v, parcial)
+                repository.updateVineta(v.copy(verificadaTerreno = true, distanciaParcial = parcial, distanciaTotal = total))
+            }
             siguienteDe(v)?.let { _vinetaNueva.tryEmit(it.id) }
         }
     }
@@ -663,13 +705,30 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
      * - Las viñetas que siguen se corren esa misma distancia (conservan su parcial).
      * - La viñeta nueva queda vacía (sin dibujo ni texto), con la coordenada marcada en el mapa.
      */
+    @Suppress("UNUSED_PARAMETER")
     fun insertarDesdeMapa(lat: Double, lng: Double, esOffRoad: Boolean = false, previaId: Long? = null) {
         val tId = _tramoActivo.value?.id ?: return
         val lista = vinetas.value
-        val previa = lista.firstOrNull { it.id == previaId } ?: lista.lastOrNull()
+        // Revisión 24: lo que se marca en el mapa va siempre al FINAL del tramo (aunque haya otra
+        // seleccionada) y el parcial se mide desde la última. En el medio se usa "+ Indicación".
+        val previa = lista.lastOrNull()
         val latR = Math.round(lat * 1e6) / 1e6
         val lngR = Math.round(lng * 1e6) / 1e6
         viewModelScope.launch {
+            // Ruta automática (Preferencias, revisión 22): una viñeta en cada maniobra del camino
+            val conCoordPrevia = previa != null && !(previa.latitud == 0.0 && previa.longitud == 0.0)
+            if (!esOffRoad && previa != null && conCoordPrevia &&
+                com.example.roadbookorganizador.data.local.Preferencias.actual(getApplication()).rutaAutomatica
+            ) {
+                val puntos = com.example.roadbookorganizador.util.RutaAutomatica.pedir(
+                    previa.latitud, previa.longitud, latR, lngR, sessionManager.mapboxToken.value
+                )
+                if (puntos != null && puntos.isNotEmpty()) {
+                    insertarRuta(tId, previa, puntos)
+                    return@launch
+                }
+                _avisos.tryEmit("No se encontró una ruta por camino hasta ese punto: se marca una sola viñeta, como siempre.")
+            }
             var parcialKm = 0.0
             if (previa != null) {
                 val conCoord = !(previa.latitud == 0.0 && previa.longitud == 0.0)
@@ -720,6 +779,70 @@ class CockpitViewModel(application: Application) : AndroidViewModel(application)
             repository.updateDistanciaYEstado(tId, ultimoTotal, "EN_TRAZADO")
             _vinetaNueva.tryEmit(idNueva)
         }
+    }
+
+    /**
+     * Las viñetas de la ruta automática, en orden, después de [previa]: una por maniobra (con su
+     * flecha armada en la Dirección, como un cuadrado de 29 mm) y la última, sin flecha, en el
+     * final del camino. Parciales en km desde la anterior (3 decimales), coordenada de la
+     * maniobra (6 decimales), trazado por camino y origen "RUTA". Suben a la plataforma al
+     * sincronizar, como cualquier viñeta nueva.
+     */
+    private suspend fun insertarRuta(tId: Long, previa: VinetaEntity, puntos: List<com.example.roadbookorganizador.util.RutaAutomatica.Punto>) {
+        val bib = BibliotecaVineta.obtener(getApplication<Application>())
+        var kmAnterior = 0.0
+        var total = previa.distanciaTotal
+        var numero = previa.numero
+        var latAnt = previa.latitud
+        var lngAnt = previa.longitud
+        val nuevas = puntos.map { p ->
+            // El pedazo de camino desde la anterior, para que el mapa lo dibuje sin volver a pedirlo
+            val camino = com.example.roadbookorganizador.util.RutaAutomatica.caminoJson(latAnt, lngAnt, p)
+            latAnt = Math.round(p.lat * 1e6) / 1e6
+            lngAnt = Math.round(p.lng * 1e6) / 1e6
+            val km = p.metrosDesdeA / 1000.0
+            val parcial = Math.round(maxOf(0.0, km - kmAnterior) * 1000.0) / 1000.0
+            kmAnterior = km
+            total += parcial
+            numero += 1
+            val armada = p.flecha?.let { bib.flechasArmadas[it] }
+            val (dibujoJson, peligro) = VinetaDibujo.paraGuardar(
+                if (armada != null) DibujoV1(dibujo = Capa(arrows = listOf(Colocar.armadaEnCaja(armada.flecha)))) else DibujoV1()
+            )
+            VinetaEntity(
+                tramoId = tId,
+                numero = numero,
+                distanciaTotal = Math.round(total * 1000.0) / 1000.0,
+                distanciaParcial = parcial,
+                latitud = Math.round(p.lat * 1e6) / 1e6,
+                longitud = Math.round(p.lng * 1e6) / 1e6,
+                altitud = 0.0,
+                rumbo = 0f, // CAP: nunca se calcula solo (punto 12)
+                velocidadKmh = 0f,
+                esOffRoad = false, // SNAP: sigue el camino
+                tulipTipo = p.flecha ?: "BLANCO",
+                dibujo = dibujoJson,
+                peligro = peligro,
+                origenCoordenada = "RUTA",
+                coordenadaFechaUtc = VinetaEntity.ahoraUtc(),
+                geometriaDesdeAnterior = camino,
+                caminoPendiente = true
+            )
+        }
+        val sumaKm = nuevas.sumOf { it.distanciaParcial }
+        // Las que seguían a la elegida se corren lo que suma la ruta (así el orden se mantiene)
+        repository.propagarDiferenciaKilometrica(tId, previa.numero, sumaKm)
+        var ultimoId: Long? = null
+        for (v in nuevas) ultimoId = repository.insertVineta(v)
+        val ultimoTotal = repository.getUltimaVineta(tId)?.distanciaTotal ?: total
+        repository.updateDistanciaYEstado(tId, ultimoTotal, "EN_TRAZADO")
+        ultimoId?.let { _vinetaNueva.tryEmit(it) }
+        _avisos.tryEmit("Ruta automática: ${nuevas.size} viñetas nuevas (${nuevas.size - 1} maniobras).")
+    }
+
+    /** El mapa consiguió el camino entre la viñeta anterior y esta: queda guardado en la tablet. */
+    fun guardarSegmentoCamino(vinetaId: Long, geometriaJson: String) {
+        viewModelScope.launch { repository.guardarGeometria(vinetaId, geometriaJson) }
     }
 
     fun iniciarCreacionPuntoManual(lat: Double, lng: Double, roadName: String = "", esOffRoad: Boolean = false) {

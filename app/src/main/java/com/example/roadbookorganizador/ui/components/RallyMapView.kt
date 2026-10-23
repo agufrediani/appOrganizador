@@ -26,11 +26,21 @@ fun RallyMapView(
     mapboxToken: String = "",
     snapToRoadInitial: Boolean = true,
     vinetaSeleccionadaId: Long? = null,
+    /** "PE" o "ENLACE": define el color de la línea, como la plataforma (revisión 15). */
+    tipoTramo: String = "PE",
     modifier: Modifier = Modifier,
     onMapClick: ((Double, Double) -> Unit)? = null,
     onMapClickWithRoad: ((Double, Double, String) -> Unit)? = null,
-    onMapClickWithRoadAndMode: ((Double, Double, String, Boolean) -> Unit)? = null
+    onMapClickWithRoadAndMode: ((Double, Double, String, Boolean) -> Unit)? = null,
+    /** El mapa consiguió el camino entre la viñeta anterior y esta: se guarda para no volver a pedirlo. */
+    onSegmentoCamino: ((vinetaId: Long, geometriaJson: String) -> Unit)? = null,
+    /**
+     * Ruta automática prendida: el toque va con el punto exacto (sin pegarlo antes al camino ni
+     * como fuera de camino), igual que el doble clic de la plataforma.
+     */
+    rutaAutomatica: Boolean = false
 ) {
+    val onSegmentoActual by rememberUpdatedState(onSegmentoCamino)
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var isMapLoaded by remember { mutableStateOf(false) }
     val roadSnappingService = remember { RoadSnappingService() }
@@ -58,12 +68,17 @@ fun RallyMapView(
         }
     }
 
+    LaunchedEffect(rutaAutomatica, isMapLoaded) {
+        if (isMapLoaded) webViewRef?.evaluateJavascript("RUTA_AUTO = ${if (rutaAutomatica) "true" else "false"};", null)
+    }
+
     // Actualizar marcadores de POIs dinámicamente
     LaunchedEffect(puntos, isMapLoaded) {
         if (isMapLoaded && webViewRef != null) {
             val jsonPuntos = StringBuilder("[")
             puntos.forEachIndexed { index, p ->
-                jsonPuntos.append("""{"lat": ${p.latitud}, "lng": ${p.longitud}, "nombre": "${p.nombre.replace("\"", "'")}", "tipo": "${p.tipo}"}""")
+                val coords = p.coordenadasGeoJson?.takeIf { it.trim().startsWith("[") } ?: "[]"
+                jsonPuntos.append("""{"lat": ${p.latitud}, "lng": ${p.longitud}, "nombre": "${p.nombre.replace("\"", "'")}", "tipo": "${p.tipo}", "forma": "${p.forma}", "coords": $coords}""")
                 if (index < puntos.size - 1) jsonPuntos.append(",")
             }
             jsonPuntos.append("]")
@@ -73,16 +88,21 @@ fun RallyMapView(
     }
 
     // Actualizar marcadores de Indicaciones y traza en tiempo real
-    LaunchedEffect(indicaciones, isMapLoaded) {
+    LaunchedEffect(indicaciones, isMapLoaded, tipoTramo) {
         if (isMapLoaded && webViewRef != null) {
             val jsonIndicaciones = StringBuilder("[")
+            var anteriorConCoord: VinetaEntity? = null
             indicaciones.forEachIndexed { index, v ->
                 val safeNota = v.informacion.replace("\"", "'").replace("\n", " ")
-                jsonIndicaciones.append("""{"num": ${v.numero}, "km": ${v.distanciaTotal}, "lat": ${v.latitud}, "lng": ${v.longitud}, "dibujo": "${v.tulipTipo}", "nota": "$safeNota", "esOffRoad": ${v.esOffRoad}}""")
+                // Camino guardado desde la anterior: solo si empieza y termina donde están hoy las dos viñetas
+                val geo = anteriorConCoord?.let { a -> geometriaVigente(v.geometriaDesdeAnterior, a, v) } ?: "null"
+                if (!(v.latitud == 0.0 && v.longitud == 0.0)) anteriorConCoord = v
+                jsonIndicaciones.append("""{"id": ${v.id}, "num": ${v.numero}, "km": ${v.distanciaTotal}, "lat": ${v.latitud}, "lng": ${v.longitud}, "dibujo": "${v.tulipTipo}", "nota": "$safeNota", "esOffRoad": ${v.esOffRoad}, "geo": $geo}""")
                 if (index < indicaciones.size - 1) jsonIndicaciones.append(",")
             }
             jsonIndicaciones.append("]")
-            val script = "if (typeof updateIndicaciones === 'function') { updateIndicaciones($jsonIndicaciones); }"
+            val tipo = if (tipoTramo.equals("PE", true)) "PE" else "ENLACE"
+            val script = "TIPO_TRAMO = '$tipo'; if (typeof updateIndicaciones === 'function') { updateIndicaciones($jsonIndicaciones); }"
             webViewRef?.evaluateJavascript(script, null)
         }
     }
@@ -166,6 +186,12 @@ fun RallyMapView(
                             }
                             onMapClick?.invoke(lat, lng)
                         }
+                    }
+
+                    @JavascriptInterface
+                    fun guardarSegmento(vinetaId: String, geometriaJson: String) {
+                        val id = vinetaId.toLongOrNull() ?: return
+                        post { onSegmentoActual?.invoke(id, geometriaJson) }
                     }
 
                     @JavascriptInterface
@@ -376,29 +402,27 @@ private fun generarHtmlMapa(
                 background: #0284C7;
                 color: white;
             }
+            /* Botón "mi ubicación" como el de Google Maps: cuadradito blanco con la mira */
             .center-btn {
                 position: absolute;
-                top: 164px;
-                left: 12px;
+                top: 86px;
+                left: 10px;
                 z-index: 1000;
-                background: #0F172A;
-                border: 2px solid #22C55E;
-                border-radius: 8px;
-                padding: 6px 11px;
-                font-size: 11px;
-                font-weight: 800;
-                color: #22C55E;
+                width: 34px;
+                height: 34px;
+                background: #FFFFFF;
+                border: 2px solid rgba(0,0,0,0.2);
+                border-radius: 4px;
+                padding: 0;
+                color: #5F6368;
                 cursor: pointer;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.5);
                 display: flex;
                 align-items: center;
-                gap: 5px;
-                transition: all 0.2s ease-in-out;
+                justify-content: center;
+                background-clip: padding-box;
             }
             .center-btn.active {
-                background: #22C55E;
-                color: #0A0E17;
-                box-shadow: 0 0 14px rgba(34, 197, 94, 0.9);
+                color: #1A73E8;
             }
             .satellite-badge {
                 position: absolute;
@@ -443,18 +467,18 @@ private fun generarHtmlMapa(
         <div id="map"></div>
 
         <!-- BOTÓN SNAP TO ROAD -->
-        <button id="snapToggle" class="snap-btn ${if (snapToRoadInitial) "active" else ""}" onclick="toggleSnapToRoad()">
+        <button id="snapToggle" style="display:none" class="snap-btn ${if (snapToRoadInitial) "active" else ""}" onclick="toggleSnapToRoad()">
             🛣️ Snap: ${if (snapToRoadInitial) "ACTIVO" else "OFF"}
         </button>
 
-        <!-- BOTÓN STREET VIEW -->
-        <button id="pegmanToggle" class="pegman-btn" onclick="togglePegman()">
+        <!-- STREET VIEW: ahora va adentro del selector de capas (este botón queda oculto) -->
+        <button id="pegmanToggle" class="pegman-btn" style="display:none" onclick="togglePegman()">
             👤 Street View
         </button>
 
         <!-- BOTÓN CENTRAR EN EL VEHÍCULO -->
-        <button id="centerToggle" class="center-btn" onclick="toggleAutoCenter()">
-            🎯 CENTRAR
+        <button id="centerToggle" class="center-btn" title="Centrar en mi ubicación" onclick="toggleAutoCenter()">
+            <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="3.2" fill="currentColor"/><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1.5v3.2M12 19.3v3.2M1.5 12h3.2M19.3 12h3.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
 
         <!-- BADGE INFORMATIVO -->
@@ -468,6 +492,36 @@ private fun generarHtmlMapa(
         </div>
 
         <script>
+            // Colores de la plataforma (CAMBIOS_PARA_APPS revisión 15): prueba especial roja
+            // (#DC2626) con banderita verde en la largada y a cuadros en la llegada; enlace blanco
+            // con borde oscuro y punto negro al principio y al final.
+            var TIPO_TRAMO = 'PE'; // lo actualiza la app junto con las viñetas
+            var RUTA_AUTO = false; // ruta automática (Preferencias): el toque va con el punto exacto
+            function lineaTramo(puntos, capa, provisoria) {
+                var estilo = provisoria ? { weight: 2.5, dashArray: '3, 5', opacity: 0.6 } : { weight: 4.5, opacity: 0.95 };
+                if (TIPO_TRAMO === 'PE') {
+                    var l = L.polyline(puntos, Object.assign({ color: '#DC2626' }, estilo)).addTo(capa);
+                    return [l];
+                }
+                var borde = L.polyline(puntos, Object.assign({}, estilo, { color: '#0F172A', weight: estilo.weight + 3 })).addTo(capa);
+                var blanco = L.polyline(puntos, Object.assign({ color: '#FFFFFF' }, estilo)).addTo(capa);
+                return [borde, blanco];
+            }
+            function marcasPuntas(primero, ultimo, capa) {
+                if (TIPO_TRAMO === 'PE') {
+                    var verde = L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [3, 21],
+                        html: '<svg width="22" height="22" viewBox="0 0 22 22"><path d="M3 21 V2" stroke="#0F172A" stroke-width="2"/><path d="M4 2 H19 L15 7 L19 12 H4 Z" fill="#16A34A" stroke="#0F172A" stroke-width="1"/></svg>' });
+                    var cuadros = L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [3, 21],
+                        html: '<svg width="22" height="22" viewBox="0 0 22 22"><path d="M3 21 V2" stroke="#0F172A" stroke-width="2"/><rect x="4" y="2" width="15" height="10" fill="#FFF" stroke="#0F172A" stroke-width="1"/>' +
+                              '<rect x="4" y="2" width="5" height="5" fill="#000"/><rect x="14" y="2" width="5" height="5" fill="#000"/><rect x="9" y="7" width="5" height="5" fill="#000"/></svg>' });
+                    L.marker([primero.lat, primero.lng], { icon: verde, interactive: false }).addTo(capa);
+                    L.marker([ultimo.lat, ultimo.lng], { icon: cuadros, interactive: false }).addTo(capa);
+                } else {
+                    [primero, ultimo].forEach(function(p) {
+                        L.circleMarker([p.lat, p.lng], { radius: 5, color: '#000', fillColor: '#000', fillOpacity: 1, weight: 1 }).addTo(capa);
+                    });
+                }
+            }
             var mapboxToken = '$safeToken';
 
             function showToast(text) {
@@ -513,7 +567,7 @@ private fun generarHtmlMapa(
             // Mapa base: MAPBOX si tiene token válido, GOOGLE HYBRID por defecto para visualización inmediata HD
             var map = L.map('map', {
                 center: [$lat, $lng],
-                zoom: 15,
+                zoom: 13,
                 zoomControl: true,
                 layers: [defaultBaseLayer]
             });
@@ -553,7 +607,16 @@ private fun generarHtmlMapa(
                 "🛰️ Esri World Imagery (Maxar)": esriSat,
                 "🗺️ OpenStreetMap Rutas": osmLayer
             };
-            L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
+            // Street View como una capa más: se tilda, se toca el mapa y abre Street View en ese punto
+            var streetViewLayer = L.layerGroup();
+            var overlayMaps = { "👤 Street View (tocá el mapa)": streetViewLayer };
+            L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+            map.on('overlayadd', function(e) {
+                if (e.layer === streetViewLayer) { pegmanActive = true; showToast('👤 Tocá el mapa donde querés ver Street View'); }
+            });
+            map.on('overlayremove', function(e) {
+                if (e.layer === streetViewLayer) { pegmanActive = false; }
+            });
 
             // Marcador del Auto
             var carIcon = L.divIcon({
@@ -589,15 +652,9 @@ private fun generarHtmlMapa(
 
             var pegmanActive = false;
             function togglePegman() {
-                pegmanActive = !pegmanActive;
-                var btn = document.getElementById('pegmanToggle');
-                if (pegmanActive) {
-                    btn.classList.add('active');
-                    btn.innerHTML = '👤 Toca el mapa para Street View';
-                } else {
-                    btn.classList.remove('active');
-                    btn.innerHTML = '👤 Street View';
-                }
+                // Tilda o destilda la capa "Street View" del selector (los eventos de arriba actualizan pegmanActive)
+                if (map.hasLayer(streetViewLayer)) map.removeLayer(streetViewLayer);
+                else map.addLayer(streetViewLayer);
             }
 
             // Consultar fecha exacta de captura satelital en Esri
@@ -630,13 +687,9 @@ private fun generarHtmlMapa(
             function updateCenterButtonUi() {
                 var btn = document.getElementById('centerToggle');
                 if (!btn) return;
-                if (autoCenterActive) {
-                    btn.classList.add('active');
-                    btn.innerHTML = '🎯 CENTRADO';
-                } else {
-                    btn.classList.remove('active');
-                    btn.innerHTML = '🎯 CENTRAR';
-                }
+                // El ícono queda igual; siguiendo al auto se pone azul (como en Google Maps)
+                if (autoCenterActive) btn.classList.add('active');
+                else btn.classList.remove('active');
             }
 
             function toggleAutoCenter() {
@@ -644,7 +697,7 @@ private fun generarHtmlMapa(
                 updateCenterButtonUi();
                 if (autoCenterActive) {
                     if (lastVehiclePos && lastVehiclePos[0] !== 0 && lastVehiclePos[1] !== 0) {
-                        map.setView(lastVehiclePos, Math.max(map.getZoom(), 16));
+                        map.setView(lastVehiclePos, Math.max(map.getZoom(), 15));
                     }
                     showToast('🎯 Centrado en tu posición (Seguimiento activo)');
                 } else {
@@ -685,7 +738,7 @@ private fun generarHtmlMapa(
                 autoCenterActive = false;
                 updateCenterButtonUi();
                 if (map) {
-                    map.flyTo([lat, lng], 17, { animate: true, duration: 0.8 });
+                    map.flyTo([lat, lng], Math.min(Math.max(map.getZoom(), 14), 15), { animate: true, duration: 0.8 });
                 }
             }
 
@@ -814,56 +867,51 @@ private fun generarHtmlMapa(
                     (function(prev, curr) {
                         var isOffRoad = (curr.esOffRoad === true);
                         if (isOffRoad) {
-                            // Fuera de pista: Trazo directo en naranja desierto discontinuo
-                            L.polyline([[prev.lat, prev.lng], [curr.lat, curr.lng]], {
-                                color: '#F59E0B',
-                                weight: 4,
-                                dashArray: '6, 6',
-                                opacity: 0.95
-                            }).addTo(trackSegmentsLayer);
+                            // Fuera de camino: línea recta, punteada, con el color del tramo
+                            lineaTramo([[prev.lat, prev.lng], [curr.lat, curr.lng]], trackSegmentsLayer, false)
+                                .forEach(function(l) { l.setStyle({ dashArray: '8, 6' }); });
                         } else {
-                            // Camino (Snap): Calzada ajustada en azul cian continuo
+                            // Por camino (snap)
                             var cacheKey = prev.lat.toFixed(5) + ',' + prev.lng.toFixed(5) + '->' + curr.lat.toFixed(5) + ',' + curr.lng.toFixed(5);
-                            if (segmentCache[cacheKey]) {
-                                L.polyline(segmentCache[cacheKey], {
-                                    color: '#00B4D8',
-                                    weight: 4.5,
-                                    opacity: 0.95
-                                }).addTo(trackSegmentsLayer);
+                            if (curr.geo && curr.geo.length > 1) {
+                                // Camino guardado en la tablet (sirve también sin señal)
+                                lineaTramo(curr.geo, trackSegmentsLayer, false);
+                            } else if (segmentCache[cacheKey]) {
+                                lineaTramo(segmentCache[cacheKey], trackSegmentsLayer, false);
                             } else {
-                                var tempLine = L.polyline([[prev.lat, prev.lng], [curr.lat, curr.lng]], {
-                                    color: '#00B4D8',
-                                    weight: 2.5,
-                                    dashArray: '3, 5',
-                                    opacity: 0.5
-                                }).addTo(trackSegmentsLayer);
-
+                                var provisorias = lineaTramo([[prev.lat, prev.lng], [curr.lat, curr.lng]], trackSegmentsLayer, true);
                                 fetchRoadSegment(prev, curr, function(roadPoints) {
                                     segmentCache[cacheKey] = roadPoints;
-                                    if (trackSegmentsLayer.hasLayer(tempLine)) {
-                                        trackSegmentsLayer.removeLayer(tempLine);
+                                    // Se guarda en la tablet, con las dos viñetas en las puntas
+                                    if (curr.id && window.AndroidBridge && typeof window.AndroidBridge.guardarSegmento === 'function') {
+                                        var conPuntas = [[prev.lat, prev.lng]].concat(roadPoints, [[curr.lat, curr.lng]]);
+                                        try { window.AndroidBridge.guardarSegmento(String(curr.id), JSON.stringify(conPuntas)); } catch (e) {}
                                     }
-                                    L.polyline(roadPoints, {
-                                        color: '#00B4D8',
-                                        weight: 4.5,
-                                        opacity: 0.95
-                                    }).addTo(trackSegmentsLayer);
+                                    provisorias.forEach(function(l) { if (trackSegmentsLayer.hasLayer(l)) trackSegmentsLayer.removeLayer(l); });
+                                    lineaTramo(roadPoints, trackSegmentsLayer, false);
                                 });
                             }
                         }
                     })(validInds[i-1], validInds[i]);
                 }
+                marcasPuntas(validInds[0], validInds[validInds.length - 1], trackSegmentsLayer);
             }
 
             function updatePOIs(puntos) {
                 if (typeof poiLayer === 'undefined' || !poiLayer || !map) return;
                 poiLayer.clearLayers();
+                // Colores de la plataforma (puntosInteres.ts)
+                var COLORES = { PERMITIDA: '#06D6A0', PROHIBIDA: '#EF4444', ASISTENCIA: '#8B5CF6', ACCESO: '#0EA5E9',
+                                LARGADA: '#16A34A', LLEGADA: '#DC2626', SANIDAD: '#F97316', INTERES: '#EAB308' };
                 puntos.forEach(function(p) {
-                    var color = '#00B4D8';
-                    if (p.tipo === 'AMBULANCIA' || p.tipo === 'RESCATE') color = '#EF476F';
-                    else if (p.tipo === 'ACCESO') color = '#06D6A0';
-                    else if (p.tipo === 'PUBLICO' || p.tipo === 'ZONA ESPECTADORES') color = '#FFB703';
-                    else if (p.tipo === 'HELIPUERTO') color = '#FB8500';
+                    var color = COLORES[p.tipo] || '#00B4D8';
+                    // Zona (polígono): como la plataforma, borde y relleno del color del tipo
+                    if (p.forma === 'POLIGONO' && p.coords && p.coords.length >= 3) {
+                        L.polygon(p.coords, { color: color, weight: 2.5, fillColor: color, fillOpacity: p.tipo === 'PROHIBIDA' ? 0.45 : 0.35 })
+                            .bindTooltip('<b>' + p.nombre + '</b><br><span style="color:' + color + ';font-weight:bold;">' + p.tipo + '</span>', { sticky: true })
+                            .addTo(poiLayer);
+                        return;
+                    }
 
                     var poiIcon = L.divIcon({
                         className: 'poi-custom',
@@ -899,6 +947,12 @@ private fun generarHtmlMapa(
                     } else if (window.AndroidBridge && typeof window.AndroidBridge.onLocationClicked === 'function') {
                         window.AndroidBridge.onLocationClicked(lat, lng);
                     }
+                }
+
+                // Ruta automática: el punto exacto del toque (la app arma el camino con las maniobras)
+                if (RUTA_AUTO) {
+                    sendLocationToBridge(e.latlng.lat, e.latlng.lng, '', false);
+                    return;
                 }
 
                 if (snapToRoadActive) {
@@ -999,4 +1053,33 @@ private fun generarHtmlMapa(
     </body>
     </html>
     """.trimIndent()
+}
+
+
+/** Metros entre dos puntos (para ver si el camino guardado todavía empieza y termina en las viñetas). */
+private fun metrosEntre(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val r = 6371000.0
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = Math.sin(dLat / 2).let { it * it } +
+        Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(dLon / 2).let { it * it }
+    return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+/**
+ * El camino guardado entre [anterior] y [actual], tal cual para el mapa, o null si no hay o si
+ * alguna de las dos viñetas se movió (más de 30 m de las puntas): entonces se vuelve a pedir.
+ */
+internal fun geometriaVigente(json: String?, anterior: VinetaEntity, actual: VinetaEntity): String? {
+    if (json.isNullOrBlank() || (actual.latitud == 0.0 && actual.longitud == 0.0)) return null
+    if (actual.esOffRoad) return null // fuera de camino la línea va recta
+    return try {
+        val arr = com.google.gson.JsonParser.parseString(json).asJsonArray
+        if (arr.size() < 2) return null
+        val p0 = arr[0].asJsonArray
+        val pn = arr[arr.size() - 1].asJsonArray
+        val ok = metrosEntre(p0[0].asDouble, p0[1].asDouble, anterior.latitud, anterior.longitud) <= 30.0 &&
+            metrosEntre(pn[0].asDouble, pn[1].asDouble, actual.latitud, actual.longitud) <= 30.0
+        if (ok) json else null
+    } catch (e: Exception) { null }
 }

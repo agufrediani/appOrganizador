@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Notas propias (no van al repositorio)
+COMO COMMITEAR APP_ORGANIZADOR.txt
+secretos.properties

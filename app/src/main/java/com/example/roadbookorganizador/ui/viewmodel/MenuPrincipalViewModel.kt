@@ -137,7 +137,10 @@ class MenuPrincipalViewModel(application: Application) : AndroidViewModel(applic
             val result = webSyncService.sincronizarConServidor()
 
             _isSyncing.value = false
-            _syncMessage.emit(result.message)
+            com.example.roadbookorganizador.data.remote.EstadoConexion.informarResultado(result.success)
+            com.example.roadbookorganizador.data.remote.EstadoConexion.contarPendientes(getApplication())
+            // Si sale bien no hay cartel (el botón deja de girar); si falla, se dice por qué
+            if (!result.success) _syncMessage.emit(result.message)
         }
     }
 }

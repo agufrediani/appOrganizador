@@ -19,7 +19,9 @@ data class PreferenciasVista(
     /** Rumbo (CAP) de la viñeta, solo cuando lo tiene cargado. Por defecto NO. */
     val mostrarRumboCap: Boolean = false,
     /** Decimales de las distancias en el editor: 2 (0,00) o 3 (0,000). */
-    val decimalesKm: Int = 2
+    val decimalesKm: Int = 2,
+    /** Ruta automática "estilo navegador" (revisión 22): una viñeta en cada maniobra. Por defecto NO. */
+    val rutaAutomatica: Boolean = false
 ) {
     /** Distancia con la cantidad de decimales elegida y coma decimal (como la plataforma). */
     fun km(v: Double): String = String.format(java.util.Locale.US, "%.${decimalesKm}f", v).replace('.', ',')
@@ -48,7 +50,8 @@ object Preferencias {
             estado.value = PreferenciasVista(
                 mostrarPalitoGps = sp.getBoolean("mostrarPalitoGps", false),
                 mostrarRumboCap = sp.getBoolean("mostrarRumboCap", false),
-                decimalesKm = if (sp.getInt("decimalesKm", 2) == 3) 3 else 2
+                decimalesKm = if (sp.getInt("decimalesKm", 2) == 3) 3 else 2,
+                rutaAutomatica = sp.getBoolean("rutaAutomatica", false)
             )
             cargado = true
         }
@@ -61,6 +64,7 @@ object Preferencias {
             .putBoolean("mostrarPalitoGps", nuevo.mostrarPalitoGps)
             .putBoolean("mostrarRumboCap", nuevo.mostrarRumboCap)
             .putInt("decimalesKm", nuevo.decimalesKm)
+            .putBoolean("rutaAutomatica", nuevo.rutaAutomatica)
             .apply()
     }
 }

@@ -1,5 +1,7 @@
 package com.example.roadbookorganizador.ui.screens
 
+import com.example.roadbookorganizador.util.PortadaRally
+
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -66,7 +68,7 @@ fun SeleccionRallyScreen(
 
     LaunchedEffect(Unit) {
         viewModel.sincronizarAlEntrar()
-        viewModel.syncMessage.collect { msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+        viewModel.syncMessage.collect { msg -> com.example.roadbookorganizador.ui.components.AvisoSuperior.mostrar(msg) }
     }
 
     val filtrados = rallies.filter { r ->
@@ -80,16 +82,11 @@ fun SeleccionRallyScreen(
             sesion = sesion,
             subtitulo = "Panel de Control • Mis Rallies Habilitados",
             onPreferencias = onNavigateToAjustes,
-            onLogout = onLogout
+            onLogout = onLogout,
+            conIndicador = false
         ) {
-            Text(
-                "● ${rallies.size} RALLIES HABILITADOS", fontSize = 12.sp, fontWeight = FontWeight.Black, color = c.verde,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(c.verde.copy(alpha = 0.2f))
-                    .border(1.dp, c.verde.copy(alpha = 0.4f), RoundedCornerShape(50))
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-            )
+            // Estado de la conexión con la plataforma (tocarlo sincroniza)
+            com.example.roadbookorganizador.ui.components.IndicadorConexion(conTexto = true)
         }
 
         LazyVerticalGrid(
@@ -271,7 +268,8 @@ private fun TarjetaRally(
                 .height(190.dp)
                 .background(Brush.linearGradient(listOf(Color(0xFF0B3A5C), Color(0xFF0A0E17), Color(0x660284C7))))
         ) {
-            Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color(0x66000000), Color.Transparent, Color(0xFF0A0E17)))))
+            // Foto de portada y chapa oficial (las que se cargaron en la plataforma)
+            PortadaRally(rally.webId, 110.dp)
             Text(
                 rally.estadoRally.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Black, color = c.fondoOscuro, letterSpacing = 0.6.sp,
                 modifier = Modifier

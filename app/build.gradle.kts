@@ -2,6 +2,12 @@ val userTempDir = System.getenv("TEMP") ?: "C:/Users/Agu/AppData/Local/Temp"
 System.setProperty("java.io.tmpdir", userTempDir)
 System.setProperty("org.sqlite.tmpdir", userTempDir)
 
+// Claves que no van al repositorio: se leen de secretos.properties (en .gitignore)
+val secretos = java.util.Properties().apply {
+    val f = rootProject.file("secretos.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -20,12 +26,15 @@ android {
     defaultConfig {
         // Identidad definitiva de la app (el namespace del código sigue siendo com.example...)
         applicationId = "com.frediani.roadbookorganizador"
-        minSdk = 26
+        minSdk = 29
         targetSdk = 36
         versionCode = 2
         versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Token público de Mapbox (ruta automática); vacío si no está secretos.properties
+        buildConfigField("String", "MAPBOX_TOKEN", "\"${secretos.getProperty("MAPBOX_TOKEN", "")}\"")
     }
 
     buildTypes {
@@ -41,6 +50,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

@@ -109,6 +109,9 @@ object ArchivoTramo {
                 coordenadaPor = e.txt("coordenada_por", "coordenadaPor").ifBlank { null },
                 precisionGpsM = e.dec("precision_gps_m", "precisionGpsM"),
                 verificadaTerreno = e.bool("verificada_terreno", "verificadaTerreno"),
+                // Camino desde la anterior (revisión 23), si el archivo lo trae
+                geometriaDesdeAnterior = e.txt("geometria_desde_anterior", "geometriaDesdeAnterior").takeIf { it.trim().startsWith("[") },
+                caminoPendiente = e.txt("geometria_desde_anterior", "geometriaDesdeAnterior").trim().startsWith("["),
                 // Las notas (segundo texto de la plataforma) no se editan en la tablet: se guardan
                 // para mandarlas tal cual al subir el tramo (nunca se pierde un dato)
                 datosServidor = if (notas.isNotBlank()) JsonObject().apply { addProperty("notas", notas) }.toString() else null
@@ -152,6 +155,7 @@ object ArchivoTramo {
             p("hora_primer_auto", tramo.horaPrimerAuto.ifBlank { null })
         })
         val inds = JsonArray()
+        var anteriorConCoord: VinetaEntity? = null
         vinetas.sortedBy { it.numero }.forEach { v ->
             val hayCoord = !(v.latitud == 0.0 && v.longitud == 0.0)
             val notas = v.datosServidor?.let { runCatching { JsonParser.parseString(it).asJsonObject.txt("notas") }.getOrNull() }
@@ -182,6 +186,11 @@ object ArchivoTramo {
                 p("coordenada_por", v.coordenadaPor)
                 p("precision_gps_m", v.precisionGpsM)
                 p("verificada_terreno", v.verificadaTerreno)
+                // Camino desde la anterior con coordenada (revisión 23), solo si sigue valiendo
+                p("geometria_desde_anterior", anteriorConCoord?.let { a ->
+                    com.example.roadbookorganizador.ui.components.geometriaVigente(v.geometriaDesdeAnterior, a, v)
+                })
+                if (hayCoord) anteriorConCoord = v
             })
         }
         raiz.add("indicaciones", inds)

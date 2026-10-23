@@ -87,8 +87,24 @@ class MapaLibreViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    private val _avisos = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val avisos: SharedFlow<String> = _avisos.asSharedFlow()
+    private val api = com.example.roadbookorganizador.data.remote.ApiCliente(application)
+
+    /** Si ya está en la plataforma, se borra allá también (si no hay señal, no se borra). */
     fun eliminarPunto(punto: PuntoInteresEntity) {
         viewModelScope.launch {
+            val webId = punto.webId
+            if (webId != null) {
+                try {
+                    api.delete("/api/zonas-espectadores/$webId")
+                } catch (e: com.example.roadbookorganizador.data.remote.ErrorServidor) {
+                    if (e.codigo != 404) { _avisos.tryEmit("No se pudo borrar en la plataforma: ${e.message}"); return@launch }
+                } catch (e: Exception) {
+                    _avisos.tryEmit("Sin conexión: este punto está en la plataforma y se borra cuando haya señal (probá de nuevo).")
+                    return@launch
+                }
+            }
             repository.deletePuntoInteres(punto)
         }
     }

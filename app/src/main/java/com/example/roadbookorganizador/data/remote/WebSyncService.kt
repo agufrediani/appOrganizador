@@ -27,6 +27,9 @@ class WebSyncService(private val contexto: Context, private val repository: Road
 
     private val api = ApiCliente(contexto)
 
+    private suspend fun sincronizarZonas(rallyWebId: Int, rallyId: Long): Int =
+        sincronizarZonasInterno(api, repository, rallyWebId, rallyId)
+
     suspend fun sincronizarConServidor(): SyncResult {
         // 1) Subida: cada tramo con algo de la tablet sin subir, tramo por tramo y viñeta por viñeta
         var avisoSubida: String? = null
@@ -36,7 +39,8 @@ class WebSyncService(private val contexto: Context, private val repository: Road
             val rally = repository.getRallyById(t.rallyId) ?: continue
             if (rally.webId == null) continue // rally solo en la tablet: no se sube
             val hayAlgo = t.webId == null || t.pendienteSubir ||
-                repository.getVinetasPendientes(t.id).isNotEmpty() || repository.getBajasPendientes(t.id).isNotEmpty()
+                repository.getVinetasPendientes(t.id).isNotEmpty() || repository.getBajasPendientes(t.id).isNotEmpty() ||
+                repository.contarCaminosPendientes(t.id) > 0
             if (!hayAlgo) continue
             val r = sincro.sincronizar(t.id)
             if (r.ok) subidos += r.enviadas else if (avisoSubida == null) avisoSubida = r.mensaje
@@ -47,6 +51,7 @@ class WebSyncService(private val contexto: Context, private val repository: Road
             val lista = api.get("/api/rallies")?.takeIf { it.isJsonArray }?.asJsonArray
                 ?: return SyncResult(false, "El servidor no devolvió la lista de rallies.")
             var nuevosRallies = 0
+            var zonas = 0
             var nuevosTramos = 0
             for (el in lista) {
                 val r = el.asJsonObject
@@ -103,11 +108,20 @@ class WebSyncService(private val contexto: Context, private val repository: Road
                         }
                     }
                 }
+
+                // Zonas y puntos de interés del rally (los de la tablet que faltan se suben primero)
+                try { zonas += sincronizarZonas(webId, rallyId) } catch (e: SesionVencida) { throw e } catch (e: Exception) { }
+                // Portada y chapa oficial del rally (como se ven en la plataforma)
+                com.example.roadbookorganizador.util.ImagenesRally.bajar(contexto, api, webId,
+                    com.example.roadbookorganizador.util.ImagenesRally.PORTADA, r.texto("fotoPortadaUrl"))
+                com.example.roadbookorganizador.util.ImagenesRally.bajar(contexto, api, webId,
+                    com.example.roadbookorganizador.util.ImagenesRally.CHAPA, r.texto("chapaOficialUrl"))
             }
             val msg = buildString {
                 append("Sincronizado con la plataforma: ${lista.size()} rallies.")
                 if (nuevosRallies > 0) append(" $nuevosRallies nuevos.")
                 if (nuevosTramos > 0) append(" $nuevosTramos tramos nuevos.")
+                if (zonas > 0) append(" $zonas zonas y puntos de interés.")
                 if (subidos > 0) append(" $subidos cambios de la tablet enviados.")
                 avisoSubida?.let { append("\n").append(it) }
             }
@@ -120,6 +134,68 @@ class WebSyncService(private val contexto: Context, private val repository: Road
             SyncResult(false, "No se pudo conectar con el servidor. Revisá la conexión y la dirección del servidor.")
         }
     }
+}
+
+/**
+ * Zonas y puntos de interés de un rally (`GET /api/rallies/{id}/zonas-espectadores`), en la
+ * misma tabla que la plataforma: Forma = POLIGONO (zona) o PUNTO. Los puntos marcados en la
+ * tablet se suben con `POST /api/rallies/{id}/zonas-espectadores`. Devuelve cuántas hay.
+ */
+private suspend fun WebSyncService.sincronizarZonasInterno(api: ApiCliente, repository: RoadbookRepository, rallyWebId: Int, rallyId: Long): Int {
+    // 1) Subir los de la tablet
+    for (p in repository.getPuntosInteresSync(rallyId).filter { it.webId == null }) {
+        val cuerpo = com.google.gson.JsonObject().apply {
+            addProperty("nombre", p.nombre)
+            addProperty("tipo", p.tipo)
+            addProperty("forma", p.forma)
+            addProperty("descripcionAcceso", p.descripcion)
+            addProperty("coordenadasGeoJson", p.coordenadasGeoJson ?: "[[${p.latitud},${p.longitud}]]")
+            p.servicios?.let { addProperty("servicios", it) }
+            p.tramoWebId?.let { addProperty("tramoId", it) }
+        }
+        val r = api.post("/api/rallies/$rallyWebId/zonas-espectadores", cuerpo)?.takeIf { it.isJsonObject }?.asJsonObject
+        r?.entero("id")?.let { repository.updatePuntoInteres(p.copy(webId = it)) }
+    }
+    // 2) Bajar lo que hay en la plataforma
+    val lista = api.get("/api/rallies/$rallyWebId/zonas-espectadores")?.takeIf { it.isJsonArray }?.asJsonArray ?: return 0
+    val locales = repository.getPuntosInteresSync(rallyId)
+    val vistos = HashSet<Int>()
+    for (el in lista) {
+        val z = el.takeIf { it.isJsonObject }?.asJsonObject ?: continue
+        val id = z.entero("id") ?: continue
+        vistos += id
+        val coords = z.texto("coordenadasGeoJson")
+        val pares = try {
+            com.google.gson.JsonParser.parseString(coords.ifBlank { "[]" }).asJsonArray.mapNotNull { p ->
+                p.takeIf { it.isJsonArray && it.asJsonArray.size() >= 2 }?.asJsonArray?.let { it[0].asDouble to it[1].asDouble }
+            }
+        } catch (e: Exception) { emptyList() }
+        // Para la lista y el mapa: el punto, o el centro de la zona
+        val lat = if (pares.isEmpty()) 0.0 else pares.sumOf { it.first } / pares.size
+        val lng = if (pares.isEmpty()) 0.0 else pares.sumOf { it.second } / pares.size
+        val forma = z.texto("forma").ifBlank { if (pares.size == 1) "PUNTO" else "POLIGONO" }
+        val ex = locales.firstOrNull { it.webId == id }
+        val nuevo = (ex ?: com.example.roadbookorganizador.data.local.entity.PuntoInteresEntity(
+            rallyId = rallyId, nombre = "", tipo = "", latitud = 0.0, longitud = 0.0
+        )).copy(
+            rallyId = rallyId,
+            webId = id,
+            nombre = z.texto("nombre"),
+            tipo = z.texto("tipo"),
+            forma = forma,
+            coordenadasGeoJson = coords.ifBlank { null },
+            latitud = lat,
+            longitud = lng,
+            descripcion = z.texto("descripcionAcceso"),
+            servicios = z.texto("servicios").ifBlank { null },
+            tramoWebId = z.entero("tramoId"),
+            tramoIdentificador = z.texto("tramoIdentificador").ifBlank { null }
+        )
+        if (ex == null) repository.insertPuntoInteres(nuevo) else repository.updatePuntoInteres(nuevo)
+    }
+    // 3) Las que se borraron en la plataforma
+    locales.filter { it.webId != null && it.webId !in vistos }.forEach { repository.deletePuntoInteres(it) }
+    return vistos.size
 }
 
 /** Tramo de la lista liviana: solo se cambian los datos que vienen (lo demás queda como está). */

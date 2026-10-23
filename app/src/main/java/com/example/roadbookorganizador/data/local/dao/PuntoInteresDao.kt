@@ -17,4 +17,10 @@ interface PuntoInteresDao {
 
     @Delete
     suspend fun deletePunto(punto: PuntoInteresEntity)
+
+    @Query("SELECT * FROM puntos_interes WHERE rallyId = :rallyId")
+    suspend fun getPuntosSync(rallyId: Long): List<PuntoInteresEntity>
+
+    @Update
+    suspend fun updatePunto(punto: PuntoInteresEntity)
 }
